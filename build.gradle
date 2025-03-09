@@ -143,6 +143,13 @@ gitVersioning.apply {
 ext['groovy.version'] = '4.0.17'
 ext['swaggerFile'] = "$rootDir/fineract-provider/build/classes/java/main/static/fineract.json".toString()
 
+def pentahoReportDir = System.properties['user.home'] + System.properties['file.separator'] + '.mifosx' + System.properties['file.separator'] + 'pentahoReports'
+
+copy {
+    from "fineract-report/pentahoReports"
+    into pentahoReportDir
+}
+
 allprojects  {
     group = 'org.apache.fineract'
 
