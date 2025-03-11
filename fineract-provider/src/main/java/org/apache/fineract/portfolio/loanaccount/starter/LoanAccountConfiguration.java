@@ -195,24 +195,25 @@ public class LoanAccountConfiguration {
     @Bean
     @ConditionalOnMissingBean(LoanApplicationWritePlatformService.class)
     public LoanApplicationWritePlatformService loanApplicationWritePlatformService(PlatformSecurityContext context,
-                                                                                   LoanApplicationTransitionValidator loanApplicationTransitionValidator, LoanApplicationValidator loanApplicationValidator,
-                                                                                   LoanRepositoryWrapper loanRepositoryWrapper, NoteRepository noteRepository, LoanAssembler loanAssembler,
-                                                                                   LoanRepaymentScheduleTransactionProcessorFactory loanRepaymentScheduleTransactionProcessorFactory,
-                                                                                   CalendarRepository calendarRepository, CalendarInstanceRepository calendarInstanceRepository,
-                                                                                   SavingsAccountRepositoryWrapper savingsAccountRepository, AccountAssociationsRepository accountAssociationsRepository,
-                                                                                   BusinessEventNotifierService businessEventNotifierService, LoanScheduleAssembler loanScheduleAssembler,
-                                                                                   LoanUtilService loanUtilService, CalendarReadPlatformService calendarReadPlatformService,
-                                                                                   EntityDatatableChecksWritePlatformService entityDatatableChecksWritePlatformService, GLIMAccountInfoRepository glimRepository,
-                                                                                   LoanRepository loanRepository, GSIMReadPlatformService gsimReadPlatformService,
-                                                                                   LoanLifecycleStateMachine defaultLoanLifecycleStateMachine, LoanAccrualsProcessingService loanAccrualsProcessingService,
-                                                                                   LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator, LoanScheduleService loanScheduleService, SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
+            LoanApplicationTransitionValidator loanApplicationTransitionValidator, LoanApplicationValidator loanApplicationValidator,
+            LoanRepositoryWrapper loanRepositoryWrapper, NoteRepository noteRepository, LoanAssembler loanAssembler,
+            LoanRepaymentScheduleTransactionProcessorFactory loanRepaymentScheduleTransactionProcessorFactory,
+            CalendarRepository calendarRepository, CalendarInstanceRepository calendarInstanceRepository,
+            SavingsAccountRepositoryWrapper savingsAccountRepository, AccountAssociationsRepository accountAssociationsRepository,
+            BusinessEventNotifierService businessEventNotifierService, LoanScheduleAssembler loanScheduleAssembler,
+            LoanUtilService loanUtilService, CalendarReadPlatformService calendarReadPlatformService,
+            EntityDatatableChecksWritePlatformService entityDatatableChecksWritePlatformService, GLIMAccountInfoRepository glimRepository,
+            LoanRepository loanRepository, GSIMReadPlatformService gsimReadPlatformService,
+            LoanLifecycleStateMachine defaultLoanLifecycleStateMachine, LoanAccrualsProcessingService loanAccrualsProcessingService,
+            LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator, LoanScheduleService loanScheduleService,
+            SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
         return new LoanApplicationWritePlatformServiceJpaRepositoryImpl(context, loanApplicationTransitionValidator,
                 loanApplicationValidator, loanRepositoryWrapper, noteRepository, loanAssembler,
                 loanRepaymentScheduleTransactionProcessorFactory, calendarRepository, calendarInstanceRepository, savingsAccountRepository,
                 accountAssociationsRepository, businessEventNotifierService, loanScheduleAssembler, loanUtilService,
                 calendarReadPlatformService, entityDatatableChecksWritePlatformService, glimRepository, loanRepository,
                 gsimReadPlatformService, defaultLoanLifecycleStateMachine, loanAccrualsProcessingService,
-                loanDownPaymentTransactionValidator, loanScheduleService,smsNotificationWritePlatformService);
+                loanDownPaymentTransactionValidator, loanScheduleService, smsNotificationWritePlatformService);
     }
 
     @Bean
@@ -394,7 +395,8 @@ public class LoanAccountConfiguration {
             LoanOfficerValidator loanOfficerValidator, LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator,
             LoanDisbursementService loanDisbursementService, LoanScheduleService loanScheduleService,
             LoanChargeValidator loanChargeValidator, LoanOfficerService loanOfficerService,
-            ReprocessLoanTransactionsService reprocessLoanTransactionsService, LoanAccountService loanAccountService,SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
+            ReprocessLoanTransactionsService reprocessLoanTransactionsService, LoanAccountService loanAccountService,
+            SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
         return new LoanWritePlatformServiceJpaRepositoryImpl(context, loanTransactionValidator, loanUpdateCommandFromApiJsonDeserializer,
                 loanRepositoryWrapper, loanAccountDomainService, noteRepository, loanTransactionRepository,
                 loanTransactionRelationRepository, loanAssembler, journalEntryWritePlatformService, calendarInstanceRepository,
@@ -408,7 +410,7 @@ public class LoanAccountConfiguration {
                 loanAccountLockService, externalIdFactory, loanAccrualTransactionBusinessEventService, errorHandler,
                 loanDownPaymentHandlerService, loanTransactionAssembler, loanAccrualsProcessingService, loanOfficerValidator,
                 loanDownPaymentTransactionValidator, loanDisbursementService, loanScheduleService, loanChargeValidator, loanOfficerService,
-                reprocessLoanTransactionsService, loanAccountService,smsNotificationWritePlatformService);
+                reprocessLoanTransactionsService, loanAccountService, smsNotificationWritePlatformService);
     }
 
     @Bean
@@ -492,7 +494,8 @@ public class LoanAccountConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(SMSNotificationWritePlatformServiceImpl.class)
-    public SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService(GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper) {
+    public SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService(
+            GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper) {
         return new SMSNotificationWritePlatformServiceImpl(configurationRepositoryWrapper);
     }
 

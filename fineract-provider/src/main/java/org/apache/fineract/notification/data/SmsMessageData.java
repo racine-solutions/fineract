@@ -18,11 +18,10 @@
  */
 package org.apache.fineract.notification.data;
 
+import java.io.Serializable;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
-
-import java.io.Serializable;
 
 @Data
 @NoArgsConstructor
@@ -35,7 +34,6 @@ public class SmsMessageData implements Serializable {
     private String message;
     private String senderid;
     private String priority;
-
 
     public SmsMessageData(String number, String message, String senderid) {
         this.number = number;

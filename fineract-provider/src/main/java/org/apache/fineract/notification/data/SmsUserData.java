@@ -18,11 +18,10 @@
  */
 package org.apache.fineract.notification.data;
 
+import java.io.Serializable;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
-
-import java.io.Serializable;
 
 @Data
 @NoArgsConstructor
@@ -33,7 +32,6 @@ public class SmsUserData implements Serializable {
 
     private String username;
     private String password;
-
 
     public SmsUserData(String username, String password) {
         this.username = username;

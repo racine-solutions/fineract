@@ -78,6 +78,5 @@ public final class GlobalConfigurationConstants {
     public static final String ENABLE_IMMEDIATE_CHARGE_ACCRUAL_POST_MATURITY = "enable-immediate-charge-accrual-post-maturity";
     public static final String ENABLE_SMS_NOTIFICATIONS = "enable-sms-notifications";
 
-
     private GlobalConfigurationConstants() {}
 }
