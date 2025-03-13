@@ -23,7 +23,6 @@ import com.google.gson.GsonBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
@@ -67,9 +66,9 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
         Optional<SmsNotificationAccount> smsAccount = smsNotificationAccountRepository.findById(1L);
 
-        if(smsAccount.isPresent() && smsAccount.get().getIsActive()) {
+        if (smsAccount.isPresent() && smsAccount.get().getIsActive()) {
             log.info("SMS Account found with total balance: {}", smsAccount.get().getSmsTotalBalance());
-        }else{
+        } else {
             log.info("SMS Account not found or is not active for this tenant :- " + ThreadLocalContextUtil.getTenant().getName());
             return;
         }

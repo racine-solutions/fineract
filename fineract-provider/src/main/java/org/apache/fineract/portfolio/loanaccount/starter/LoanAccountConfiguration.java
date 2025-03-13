@@ -496,8 +496,9 @@ public class LoanAccountConfiguration {
     @Bean
     @ConditionalOnMissingBean(SMSNotificationWritePlatformServiceImpl.class)
     public SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService(
-            GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper, SmsNotificationAccountRepository smsNotificationAccountRepository) {
-        return new SMSNotificationWritePlatformServiceImpl(configurationRepositoryWrapper,smsNotificationAccountRepository);
+            GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper,
+            SmsNotificationAccountRepository smsNotificationAccountRepository) {
+        return new SMSNotificationWritePlatformServiceImpl(configurationRepositoryWrapper, smsNotificationAccountRepository);
     }
 
 }
