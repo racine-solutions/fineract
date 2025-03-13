@@ -18,8 +18,19 @@
  */
 package org.apache.fineract.infrastructure.report.service;
 
+import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toJdbcUrl;
+import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toProtocol;
+
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import javax.sql.DataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.api.ApiParameterHelper;
 import org.apache.fineract.infrastructure.core.config.FineractProperties;
@@ -49,18 +60,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
-import javax.sql.DataSource;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-
-import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toJdbcUrl;
-import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toProtocol;
-
 @Service
 @ReportService(type = "Pentaho")
 public class PentahoReportingProcessServiceImpl implements ReportingProcessService {
@@ -83,7 +82,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
     @Autowired
     public PentahoReportingProcessServiceImpl(final PlatformSecurityContext context,
-                                              final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource, DatabasePasswordEncryptor databasePasswordEncryptor) {
+            final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource, DatabasePasswordEncryptor databasePasswordEncryptor) {
         ClassicEngineBoot.getInstance().start();
         this.tenantDataSource = tenantDataSource;
         this.context = context;

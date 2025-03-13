@@ -24,6 +24,7 @@ import org.apache.fineract.infrastructure.accountnumberformat.domain.AccountNumb
 import org.apache.fineract.infrastructure.codes.domain.CodeValueRepositoryWrapper;
 import org.apache.fineract.infrastructure.codes.service.CodeValueReadPlatformService;
 import org.apache.fineract.infrastructure.configuration.domain.ConfigurationDomainService;
+import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationRepositoryWrapper;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
@@ -33,6 +34,8 @@ import org.apache.fineract.infrastructure.dataqueries.service.EntityDatatableChe
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
+import org.apache.fineract.notification.domain.SmsNotificationAccountRepository;
+import org.apache.fineract.notification.service.SMSNotificationWritePlatformServiceImpl;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepository;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepositoryWrapper;
 import org.apache.fineract.organisation.monetary.domain.ApplicationCurrencyRepositoryWrapper;
@@ -203,14 +206,15 @@ public class LoanAccountConfiguration {
             EntityDatatableChecksWritePlatformService entityDatatableChecksWritePlatformService, GLIMAccountInfoRepository glimRepository,
             LoanRepository loanRepository, GSIMReadPlatformService gsimReadPlatformService,
             LoanLifecycleStateMachine defaultLoanLifecycleStateMachine, LoanAccrualsProcessingService loanAccrualsProcessingService,
-            LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator, LoanScheduleService loanScheduleService) {
+            LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator, LoanScheduleService loanScheduleService,
+            SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
         return new LoanApplicationWritePlatformServiceJpaRepositoryImpl(context, loanApplicationTransitionValidator,
                 loanApplicationValidator, loanRepositoryWrapper, noteRepository, loanAssembler,
                 loanRepaymentScheduleTransactionProcessorFactory, calendarRepository, calendarInstanceRepository, savingsAccountRepository,
                 accountAssociationsRepository, businessEventNotifierService, loanScheduleAssembler, loanUtilService,
                 calendarReadPlatformService, entityDatatableChecksWritePlatformService, glimRepository, loanRepository,
                 gsimReadPlatformService, defaultLoanLifecycleStateMachine, loanAccrualsProcessingService,
-                loanDownPaymentTransactionValidator, loanScheduleService);
+                loanDownPaymentTransactionValidator, loanScheduleService, smsNotificationWritePlatformService);
     }
 
     @Bean
@@ -392,7 +396,8 @@ public class LoanAccountConfiguration {
             LoanOfficerValidator loanOfficerValidator, LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator,
             LoanDisbursementService loanDisbursementService, LoanScheduleService loanScheduleService,
             LoanChargeValidator loanChargeValidator, LoanOfficerService loanOfficerService,
-            ReprocessLoanTransactionsService reprocessLoanTransactionsService, LoanAccountService loanAccountService) {
+            ReprocessLoanTransactionsService reprocessLoanTransactionsService, LoanAccountService loanAccountService,
+            SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
         return new LoanWritePlatformServiceJpaRepositoryImpl(context, loanTransactionValidator, loanUpdateCommandFromApiJsonDeserializer,
                 loanRepositoryWrapper, loanAccountDomainService, noteRepository, loanTransactionRepository,
                 loanTransactionRelationRepository, loanAssembler, journalEntryWritePlatformService, calendarInstanceRepository,
@@ -406,7 +411,7 @@ public class LoanAccountConfiguration {
                 loanAccountLockService, externalIdFactory, loanAccrualTransactionBusinessEventService, errorHandler,
                 loanDownPaymentHandlerService, loanTransactionAssembler, loanAccrualsProcessingService, loanOfficerValidator,
                 loanDownPaymentTransactionValidator, loanDisbursementService, loanScheduleService, loanChargeValidator, loanOfficerService,
-                reprocessLoanTransactionsService, loanAccountService);
+                reprocessLoanTransactionsService, loanAccountService, smsNotificationWritePlatformService);
     }
 
     @Bean
@@ -486,6 +491,14 @@ public class LoanAccountConfiguration {
     public LoanAccountService loanAccountService(LoanRepositoryWrapper loanRepositoryWrapper,
             LoanTransactionRepository loanTransactionRepository) {
         return new LoanAccountServiceImpl(loanRepositoryWrapper, loanTransactionRepository);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(SMSNotificationWritePlatformServiceImpl.class)
+    public SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService(
+            GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper,
+            SmsNotificationAccountRepository smsNotificationAccountRepository) {
+        return new SMSNotificationWritePlatformServiceImpl(configurationRepositoryWrapper, smsNotificationAccountRepository);
     }
 
 }

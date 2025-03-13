@@ -76,6 +76,7 @@ public final class GlobalConfigurationConstants {
     public static final String NEXT_PAYMENT_DUE_DATE = "next-payment-due-date";
     public static final String ENABLE_PAYMENT_HUB_INTEGRATION = "enable-payment-hub-integration";
     public static final String ENABLE_IMMEDIATE_CHARGE_ACCRUAL_POST_MATURITY = "enable-immediate-charge-accrual-post-maturity";
+    public static final String ENABLE_SMS_NOTIFICATIONS = "enable-sms-notifications";
 
     private GlobalConfigurationConstants() {}
 }
