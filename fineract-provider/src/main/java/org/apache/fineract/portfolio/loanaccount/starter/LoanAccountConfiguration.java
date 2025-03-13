@@ -34,6 +34,7 @@ import org.apache.fineract.infrastructure.dataqueries.service.EntityDatatableChe
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
+import org.apache.fineract.notification.domain.SmsNotificationAccountRepository;
 import org.apache.fineract.notification.service.SMSNotificationWritePlatformServiceImpl;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepository;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepositoryWrapper;
@@ -495,8 +496,8 @@ public class LoanAccountConfiguration {
     @Bean
     @ConditionalOnMissingBean(SMSNotificationWritePlatformServiceImpl.class)
     public SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService(
-            GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper) {
-        return new SMSNotificationWritePlatformServiceImpl(configurationRepositoryWrapper);
+            GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper, SmsNotificationAccountRepository smsNotificationAccountRepository) {
+        return new SMSNotificationWritePlatformServiceImpl(configurationRepositoryWrapper,smsNotificationAccountRepository);
     }
 
 }

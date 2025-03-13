@@ -22,6 +22,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
@@ -40,6 +42,8 @@ import org.apache.fineract.notification.data.SmsMessageData;
 import org.apache.fineract.notification.data.SmsNotificationData;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.notification.data.SmsUserData;
+import org.apache.fineract.notification.domain.SmsNotificationAccount;
+import org.apache.fineract.notification.domain.SmsNotificationAccountRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -52,6 +56,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
     private Environment env;
     @Autowired
     private final GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper;
+    private final SmsNotificationAccountRepository smsNotificationAccountRepository;
     public static final String FORM_URL_CONTENT_TYPE = "application/json";
 
     @Override
@@ -59,6 +64,15 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
         final GlobalConfigurationProperty property = this.configurationRepositoryWrapper
                 .findOneByNameWithNotFoundDetection(GlobalConfigurationConstants.ENABLE_SMS_NOTIFICATIONS);
+
+        Optional<SmsNotificationAccount> smsAccount = smsNotificationAccountRepository.findById(1L);
+
+        if(smsAccount.isPresent() && smsAccount.get().getIsActive()) {
+            log.info("SMS Account found with total balance: {}", smsAccount.get().getSmsTotalBalance());
+        }else{
+            log.info("SMS Account not found or is not active for this tenant :- " + ThreadLocalContextUtil.getTenant().getName());
+            return;
+        }
 
         if (property.isEnabled()) {
             Gson gson = new GsonBuilder().create();

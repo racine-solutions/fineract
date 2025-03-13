@@ -33,4 +33,42 @@
                 <column name="description"/>
             </insert>
     </changeSet>
+
+    <changeSet id="create-m_sms_notification_account" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_sms_notification_account"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_sms_notification_account">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true"  />
+            </column>
+
+            <column name="total_payment_amount" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="sms_total_credit" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="sms_total_balance" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="is_active" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true" />
+            </column>
+            <column name="created_by" type="bigint">
+                <constraints nullable="true" foreignKeyName="FK_m_sms_notification_account-created_by" references="m_appuser(id)"/>
+            </column>
+            <column name="last_modified_by" type="bigint">
+                <constraints nullable="true" foreignKeyName="FK_m_sms_notification_account-lastmodifiedby_id" references="m_appuser(id)"/>
+            </column>
+            <column name="created_on_utc" type="timestamp" defaultValueComputed="now()">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_modified_on_utc" type="timestamp" defaultValueComputed="now()">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
 </databaseChangeLog>
