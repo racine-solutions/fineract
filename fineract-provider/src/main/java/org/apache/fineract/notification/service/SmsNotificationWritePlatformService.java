@@ -27,7 +27,7 @@ import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransaction;
 
 public interface SmsNotificationWritePlatformService {
 
-    void sendSms(SmsMessageData messageData);
+    void sendSms(SmsMessageData messageData, SmsTypeEnum smsType);
 
     void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction);
 

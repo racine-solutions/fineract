@@ -71,4 +71,46 @@
             </column>
         </createTable>
     </changeSet>
+    <changeSet id="create-m_sms_notification_message" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_sms_notification_account_message"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_sms_notification_account_message">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true"  />
+            </column>
+            <column name="message" type="VARCHAR(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="number" type="VARCHAR(20)">
+                <constraints nullable="true" />
+            </column>
+            <column name="sender_id" type="VARCHAR(20)">
+                <constraints nullable="true" />
+            </column>
+            <column name="sms_response" type="VARCHAR(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="sms_type_enum" type="VARCHAR(20)">
+                <constraints nullable="true" />
+            </column>
+            <column name="has_passed" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true" />
+            </column>
+            <column name="created_by" type="bigint">
+                <constraints nullable="true" foreignKeyName="FK_m_sms_notification_message-created_by" references="m_appuser(id)"/>
+            </column>
+            <column name="last_modified_by" type="bigint">
+                <constraints nullable="true" foreignKeyName="FK_m_sms_notification_message-lastmodifiedby_id" references="m_appuser(id)"/>
+            </column>
+            <column name="created_on_utc" type="timestamp" defaultValueComputed="now()">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_modified_on_utc" type="timestamp" defaultValueComputed="now()">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
 </databaseChangeLog>

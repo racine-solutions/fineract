@@ -43,7 +43,9 @@ import org.apache.fineract.notification.data.SmsNotificationData;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.notification.data.SmsUserData;
 import org.apache.fineract.notification.domain.SmsNotificationAccount;
+import org.apache.fineract.notification.domain.SmsNotificationAccountMessage;
 import org.apache.fineract.notification.domain.SmsNotificationAccountRepository;
+import org.apache.fineract.notification.domain.SmsNotificationMessageRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccount;
@@ -60,10 +62,11 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
     @Autowired
     private final GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper;
     private final SmsNotificationAccountRepository smsNotificationAccountRepository;
+    private final SmsNotificationMessageRepository smsNotificationMessageRepository;
     public static final String FORM_URL_CONTENT_TYPE = "application/json";
 
     @Override
-    public void sendSms(SmsMessageData messageData) {
+    public void sendSms(SmsMessageData messageData, SmsTypeEnum smsType) {
 
         final GlobalConfigurationProperty property = this.configurationRepositoryWrapper
                 .findOneByNameWithNotFoundDetection(GlobalConfigurationConstants.ENABLE_SMS_NOTIFICATIONS);
@@ -105,10 +108,11 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
             Request request = new Request.Builder().url(url).post(formBody).build();
 
             List<Throwable> exceptions = new ArrayList<>();
-
+            String resObject = null;
             try {
                 response = client.newCall(request).execute();
-                String resObject = response.body().string();
+                resObject = response.body().string();
+
                 if (response.isSuccessful()) {
 
                     log.info("Sms Message Response :=>" + resObject);
@@ -123,9 +127,24 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
                 log.error("Posting sms notification has failed " + e);
                 exceptions.add(e);
             }
+            assert response != null;
+            cacheSmsNotification(messageData, smsType, response.isSuccessful(), resObject);
+
         } else {
             log.info("** SMS Notification is disabled for this Tenant :-> " + ThreadLocalContextUtil.getTenant().getName());
         }
+    }
+
+    private void cacheSmsNotification(SmsMessageData messageData, SmsTypeEnum smsType, Boolean hasPassed, String response) {
+        SmsNotificationAccountMessage message = new SmsNotificationAccountMessage();
+
+        message.setMessage(messageData.getMessage());
+        message.setNumber(messageData.getNumber());
+        message.setSenderid(messageData.getSenderid());
+        message.setSmsResponse(response);
+        message.setHasPassed(hasPassed);
+        message.setSmsTypeEnum(smsType);
+        smsNotificationMessageRepository.saveAndFlush(message);
     }
 
     private String getConfigProperty(String propertyName) {
@@ -178,7 +197,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         }
 
         if (mobileNo != null) {
-            sendSms(new SmsMessageData(mobileNo, message, messageId));
+            sendSms(new SmsMessageData(mobileNo, message, messageId), smsType);
         } else {
             log.info("No mobile number found for client :-> %s    --->  %s", clientName, ThreadLocalContextUtil.getTenant().getName());
         }
@@ -206,11 +225,10 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
             default:
                 log.info("No sms type found to process a notification");
                 return;
-
         }
 
         if (mobileNo != null) {
-            sendSms(new SmsMessageData(mobileNo, message, messageId));
+            sendSms(new SmsMessageData(mobileNo, message, messageId), smsType);
         } else {
             log.info("No mobile number found for client :-> %s    --->  %s", clientName, ThreadLocalContextUtil.getTenant().getName());
         }
