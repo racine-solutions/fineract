@@ -20,6 +20,7 @@ package org.apache.fineract.notification.service;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -42,8 +43,13 @@ import org.apache.fineract.notification.data.SmsNotificationData;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.notification.data.SmsUserData;
 import org.apache.fineract.notification.domain.SmsNotificationAccount;
+import org.apache.fineract.notification.domain.SmsNotificationAccountMessage;
 import org.apache.fineract.notification.domain.SmsNotificationAccountRepository;
+import org.apache.fineract.notification.domain.SmsNotificationMessageRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
+import org.apache.fineract.portfolio.savings.domain.SavingsAccount;
+import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 
@@ -56,10 +62,11 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
     @Autowired
     private final GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper;
     private final SmsNotificationAccountRepository smsNotificationAccountRepository;
+    private final SmsNotificationMessageRepository smsNotificationMessageRepository;
     public static final String FORM_URL_CONTENT_TYPE = "application/json";
 
     @Override
-    public void sendSms(SmsMessageData messageData) {
+    public void sendSms(SmsMessageData messageData, SmsTypeEnum smsType) {
 
         final GlobalConfigurationProperty property = this.configurationRepositoryWrapper
                 .findOneByNameWithNotFoundDetection(GlobalConfigurationConstants.ENABLE_SMS_NOTIFICATIONS);
@@ -101,10 +108,11 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
             Request request = new Request.Builder().url(url).post(formBody).build();
 
             List<Throwable> exceptions = new ArrayList<>();
-
+            String resObject = null;
             try {
                 response = client.newCall(request).execute();
-                String resObject = response.body().string();
+                resObject = response.body().string();
+
                 if (response.isSuccessful()) {
 
                     log.info("Sms Message Response :=>" + resObject);
@@ -119,9 +127,24 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
                 log.error("Posting sms notification has failed " + e);
                 exceptions.add(e);
             }
+            assert response != null;
+            cacheSmsNotification(messageData, smsType, response.isSuccessful(), resObject);
+
         } else {
             log.info("** SMS Notification is disabled for this Tenant :-> " + ThreadLocalContextUtil.getTenant().getName());
         }
+    }
+
+    private void cacheSmsNotification(SmsMessageData messageData, SmsTypeEnum smsType, Boolean hasPassed, String response) {
+        SmsNotificationAccountMessage message = new SmsNotificationAccountMessage();
+
+        message.setMessage(messageData.getMessage());
+        message.setNumber(messageData.getNumber());
+        message.setSenderid(messageData.getSenderid());
+        message.setSmsResponse(response);
+        message.setHasPassed(hasPassed);
+        message.setSmsTypeEnum(smsType);
+        smsNotificationMessageRepository.saveAndFlush(message);
     }
 
     private String getConfigProperty(String propertyName) {
@@ -133,38 +156,39 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
     }
 
     @Override
-    public void processSmsNotification(Loan loan, SmsTypeEnum smsType) {
-        String clientName = loan.client().getDisplayName();
+    public void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction) {
+        String clientName = loan.client().getDisplayName().replace(" ", "");
         String mobileNo = loan.client().getMobileNo();
         String message = null;
         String messageId = null;
         switch (smsType) {
             case LOAN_SUBMISSION:
                 message = String.format(
-                        "Dear %s, your loan application is under review. We’ll notify you once it’s complete. Thank you for choosing %s .",
-                        clientName, ThreadLocalContextUtil.getTenant().getName());
+                        "Dear %s, your loan application is under review Ref:%s. We'll notify you once it's done. Thank you!", clientName,
+                        loan.getAccountNumber());
                 messageId = String.format("LOAN-SUBMISSION-%s", loan.getId());
             break;
             case LOAN_APPROVAL:
-                message = String.format(
-                        "Dear %s, great news! Your loan [Ref: %s] of %s %s is approved. Please visit our branch to complete the process. Thank you for choosing %s .",
-                        clientName, loan.getAccountNumber(), loan.getCurrencyCode(), loan.getApprovedPrincipal(),
-                        ThreadLocalContextUtil.getTenant().getName());
+                message = String.format("Dear %s, great news! Your loan Ref:%s of %s %s has been approved successfully", clientName,
+                        loan.getAccountNumber(), loan.getCurrencyCode(), loan.getApprovedPrincipal().setScale(2, RoundingMode.HALF_UP));
                 messageId = String.format("LOAN-APPROVAL-%s", loan.getId());
             break;
             case LOAN_DISBURSEMENT:
-                message = String.format(
-                        "Dear %s loan [Ref: %s ] application for %s %s has been granted successfully Date: %s thank you for choosing %s .",
-                        clientName, loan.getAccountNumber(), loan.getProposedPrincipal(), loan.getCurrencyCode(),
-                        DateUtils.getBusinessLocalDate(), ThreadLocalContextUtil.getTenant().getName());
+                message = String.format("Dear %s loan #%s application for %s %s has been granted successfully Date: %s ", clientName,
+                        loan.getAccountNumber(), loan.getCurrencyCode(), loan.getProposedPrincipal().setScale(2, RoundingMode.HALF_UP),
+                        DateUtils.getBusinessLocalDate());
                 messageId = String.format("LOAN-DISBURSEMENT-%s", loan.getId());
             break;
             case LOAN_REJECTED:
-                message = String.format(
-                        "Dear %s, unfortunately, your loan application [Ref: %s] for %s %s was not approved. Please visit your nearest %s branch for details.",
-                        clientName, loan.getAccountNumber(), loan.getCurrencyCode(), loan.getProposedPrincipal(),
-                        ThreadLocalContextUtil.getTenant().getName());
+                message = String.format("Dear %s, unfortunately, your loan application #%s for %s %s was not approved.", clientName,
+                        loan.getAccountNumber(), loan.getCurrencyCode(), loan.getProposedPrincipal().setScale(2, RoundingMode.HALF_UP));
                 messageId = String.format("LOAN-REJECTED-%s", loan.getId());
+            break;
+            case LOAN_REPAYMENT:
+                message = String.format("A Loan Repayment of %s %s was made to your #%s Ref:%s Date:%s ", loan.getCurrencyCode(),
+                        transaction.getAmount().setScale(2, RoundingMode.HALF_UP), loan.getAccountNumber(), transaction.getId(),
+                        transaction.getTransactionDate());
+                messageId = String.format("LOAN-REPAYMENT-%s", transaction.getId());
             break;
             default:
                 log.info("No sms type found to process a notification");
@@ -173,7 +197,38 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         }
 
         if (mobileNo != null) {
-            sendSms(new SmsMessageData(mobileNo, message, messageId));
+            sendSms(new SmsMessageData(mobileNo, message, messageId), smsType);
+        } else {
+            log.info("No mobile number found for client :-> %s    --->  %s", clientName, ThreadLocalContextUtil.getTenant().getName());
+        }
+    }
+
+    @Override
+    public void processSavingsSmsNotification(SavingsAccount savingsAccount, SmsTypeEnum smsType, SavingsAccountTransaction transaction) {
+        String clientName = savingsAccount.getClient().getDisplayName().replace(" ", "");
+        String mobileNo = savingsAccount.getClient().getMobileNo();
+        String message = null;
+        String messageId = null;
+        switch (smsType) {
+            case SAVINGS_DEPOSIT:
+                message = String.format("A deposit of %s %s was made to your account #%s Ref:%s Date:%s ",
+                        savingsAccount.getCurrency().getCode(), transaction.getAmount().setScale(2, RoundingMode.HALF_UP),
+                        savingsAccount.getAccountNumber(), transaction.getId(), transaction.getTransactionDate());
+                messageId = String.format("SAVINGS-DEPOSIT-%s", transaction.getId());
+            break;
+            case SAVINGS_WITHDRAW:
+                message = String.format("A withdraw of %s %s was made on your account #%s Ref:%s Date:%s ",
+                        savingsAccount.getCurrency().getCode(), transaction.getAmount().setScale(2, RoundingMode.HALF_UP),
+                        savingsAccount.getAccountNumber(), transaction.getId(), transaction.getTransactionDate());
+                messageId = String.format("SAVINGS-DEPOSIT-%s", transaction.getId());
+            break;
+            default:
+                log.info("No sms type found to process a notification");
+                return;
+        }
+
+        if (mobileNo != null) {
+            sendSms(new SmsMessageData(mobileNo, message, messageId), smsType);
         } else {
             log.info("No mobile number found for client :-> %s    --->  %s", clientName, ThreadLocalContextUtil.getTenant().getName());
         }

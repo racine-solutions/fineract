@@ -164,6 +164,8 @@ public class GLAccountReadPlatformServiceImpl implements GLAccountReadPlatformSe
                     sql += " account_usage = 2 ";
                 } else if (GLAccountUsage.DETAIL.getValue().equals(usage)) {
                     sql += " account_usage = 1 ";
+                } else {
+                    sql += " account_usage in(1,2) ";
                 }
                 firstWhereConditionAdded = true;
             }
@@ -210,8 +212,7 @@ public class GLAccountReadPlatformServiceImpl implements GLAccountReadPlatformSe
 
     @Override
     public List<GLAccountData> retrieveAllEnabledDetailGLAccounts(final GLAccountType accountType) {
-        return retrieveAllGLAccounts(accountType.getValue(), null, GLAccountUsage.DETAIL.getValue(), null, false,
-                new JournalEntryAssociationParametersData());
+        return retrieveAllGLAccounts(accountType.getValue(), null, 3, null, false, new JournalEntryAssociationParametersData());
     }
 
     @Override
@@ -230,6 +231,10 @@ public class GLAccountReadPlatformServiceImpl implements GLAccountReadPlatformSe
     }
 
     private static boolean checkValidGLAccountUsage(final int type) {
+        // For 3 we return Header and Details
+        if (type == 3) {
+            return true;
+        }
         for (final GLAccountUsage accountUsage : GLAccountUsage.values()) {
             if (accountUsage.getValue().equals(type)) {
                 return true;
