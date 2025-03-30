@@ -113,4 +113,9 @@
             </column>
         </createTable>
     </changeSet>
+    <changeSet author="johnboscomwesigye@gmail.com" id="add-nin-to-client-table">
+        <addColumn tableName="m_client">
+            <column name="nin" type="VARCHAR(100)"/>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

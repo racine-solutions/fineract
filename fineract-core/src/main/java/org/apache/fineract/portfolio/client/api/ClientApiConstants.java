@@ -183,6 +183,7 @@ public class ClientApiConstants {
     public static final String obligeeData = "ObligeeDetails";
 
     public static final String clientEntityName = "clients";
+    public static final String NINPARAMNAME = "nin";
 
     public static final Set<String> CLIENT_ACCOUNTS_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList("loanAccounts", "savingsAccounts", "shareAccounts"));
