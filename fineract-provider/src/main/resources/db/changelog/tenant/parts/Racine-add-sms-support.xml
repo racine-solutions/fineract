@@ -113,4 +113,57 @@
             </column>
         </createTable>
     </changeSet>
+
+    <changeSet id="update_active_loans_summary_report_name" author="fineract">
+
+        <update tableName="stretchy_report">
+            <column name="report_name" value="Active Loans Summary"/>
+            <where>report_name = 'Active Loans - Summary' AND report_type = 'Table'</where>
+        </update>
+    </changeSet>
+
+    <changeSet id="update_active_loans_details_report_name" author="fineract">
+
+        <update tableName="stretchy_report">
+            <column name="report_name" value="Active Loans Details"/>
+            <where>report_name = 'Active Loans - Details' AND report_type = 'Table'</where>
+        </update>
+    </changeSet>
+    <changeSet id="expected_Payments_By_Date_Basic" author="fineract">
+
+        <update tableName="stretchy_report">
+            <column name="report_name" value="Expected Payments By Date Basic"/>
+            <where>report_name = 'Expected Payments By Date - Basic' AND report_type = 'Table'</where>
+        </update>
+    </changeSet>
+    <changeSet id="update-Written-Off-Loans" author="fineract">
+
+        <update tableName="stretchy_report">
+            <column name="report_name" value="Written Off Loans"/>
+            <where>report_name = 'Written-Off Loans' AND report_type = 'Table'</where>
+        </update>
+    </changeSet>
+    <changeSet id="update-Aging-Summary-(Arrears-in-Weeks)" author="fineract">
+
+        <update tableName="stretchy_report">
+            <column name="report_name" value="Aging Summary Arrears in Weeks"/>
+            <where>report_name = 'Aging Summary (Arrears in Weeks)' AND report_type = 'Table'</where>
+        </update>
+    </changeSet>
+
+    <changeSet id="update-Aging-Summary-(Arrears-in-Months)" author="fineract">
+
+        <update tableName="stretchy_report">
+            <column name="report_name" value="Aging Summary Arrears in Months"/>
+            <where>report_name = 'Aging Summary (Arrears in Months)' AND report_type = 'Table'</where>
+        </update>
+    </changeSet>
+
+    <changeSet id="update-Expected-Payments-By-Date-Basic" author="fineract">
+
+        <update tableName="stretchy_report">
+            <column name="report_name" value="Expected Payments By Date Basic"/>
+            <where>report_name = 'Expected Payments By Date - Basic' AND report_type = 'Table'</where>
+        </update>
+    </changeSet>
 </databaseChangeLog>
