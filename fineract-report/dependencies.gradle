@@ -49,6 +49,7 @@ dependencies {
 
             'io.github.resilience4j:resilience4j-spring-boot3',
             'org.apache.httpcomponents:httpcore',
+            'com.mysql:mysql-connector-j:8.0.33',
             fileTree('thirdparty') {
                 include '*.jar'
             },
