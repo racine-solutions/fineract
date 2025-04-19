@@ -89,9 +89,6 @@ dependencies {
             'commons-io:commons-io',
             'org.apache.poi:poi',
             'org.apache.poi:poi-ooxml',
-            'org.apache.tika:tika-core',
-            'org.apache.tika:tika-parser-microsoft-module',
-            'org.apache.tika:tika-parser-miscoffice-module',
 
             'org.liquibase:liquibase-core',
 
@@ -114,7 +111,10 @@ dependencies {
 
             'io.github.resilience4j:resilience4j-spring-boot3',
             )
-
+    implementation 'org.apache.tika:tika-core:2.7.0'
+    implementation 'org.apache.tika:tika-parser-microsoft-module:2.7.0'
+    implementation 'org.apache.tika:tika-parser-miscoffice-module:2.7.0'
+    implementation 'org.apache.commons:commons-compress:1.23.0'
     implementation 'software.amazon.msk:aws-msk-iam-auth'
 
     implementation 'io.swagger.core.v3:swagger-jaxrs2-jakarta'
@@ -199,6 +199,7 @@ dependencies {
     implementation 'org.apache.commons:commons-math3'
 
     implementation 'io.github.classgraph:classgraph'
+    implementation 'com.mysql:mysql-connector-j:8.0.33'
 
     // testCompile dependencies are ONLY used in src/test, not src/main.
     // Do NOT repeat dependencies which are ALREADY in implementation or runtimeOnly!

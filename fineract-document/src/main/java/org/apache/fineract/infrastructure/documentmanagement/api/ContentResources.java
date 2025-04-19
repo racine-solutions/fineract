@@ -18,12 +18,14 @@
  */
 package org.apache.fineract.infrastructure.documentmanagement.api;
 
+import com.google.common.base.Optional;
 import com.google.common.io.ByteSource;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import org.apache.fineract.infrastructure.documentmanagement.data.FileData;
+import org.apache.fineract.infrastructure.documentmanagement.service.GuavaCompatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +48,11 @@ final class ContentResources {
             InputStream is = byteSource.openBufferedStream();
             response = Response.ok(is);
             response.header("Content-Disposition", dispositionType + "; filename=\"" + fileName + "\"");
-            response.header("Content-Length", byteSource.sizeIfKnown().or(-1L));
+
+            // Replace the direct call to sizeIfKnown() with the compatibility utility
+            Optional<Long> sizeOpt = GuavaCompatUtils.getSizeIfKnown(byteSource);
+            response.header("Content-Length", sizeOpt.or(-1L));
+
             response.header("Content-Type", fileData.contentType());
         } catch (IOException e) {
             LOG.error("resizedImage.getByteSource().openBufferedStream() failed", e);
