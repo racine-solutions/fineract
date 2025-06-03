@@ -166,4 +166,8 @@
             <where>report_name = 'Expected Payments By Date - Basic' AND report_type = 'Table'</where>
         </update>
     </changeSet>
+
+    <changeSet author="fineract" id="increase-error-log-column-size">
+        <modifyDataType tableName="job_run_history" columnName="error_log" newDataType="LONGTEXT"/>
+    </changeSet>
 </databaseChangeLog>
