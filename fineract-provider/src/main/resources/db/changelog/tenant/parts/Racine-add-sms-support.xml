@@ -170,4 +170,7 @@
     <changeSet author="fineract" id="increase-error-log-column-size">
         <modifyDataType tableName="job_run_history" columnName="error_log" newDataType="LONGTEXT"/>
     </changeSet>
+    <changeSet author="fineract" id="increase-error_message-column-size">
+        <modifyDataType tableName="job_run_history" columnName="error_message" newDataType="LONGTEXT"/>
+    </changeSet>
 </databaseChangeLog>
