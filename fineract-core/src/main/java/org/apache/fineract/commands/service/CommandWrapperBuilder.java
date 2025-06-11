@@ -3628,6 +3628,13 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder updateSmsEventConfigurations() {
+        this.actionName = "UPDATE";
+        this.entityName = "SMS_EVENT_CONFIGURATION";
+        this.href = "/smseventconfiguration";
+        return this;
+    }
+
     public CommandWrapperBuilder chargeOff(final Long loanId) {
         this.actionName = "CHARGEOFF";
         this.entityName = "LOAN";

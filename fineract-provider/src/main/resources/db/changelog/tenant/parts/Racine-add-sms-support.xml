@@ -173,4 +173,30 @@
     <changeSet author="fineract" id="increase-error_message-column-size">
         <modifyDataType tableName="job_run_history" columnName="error_message" newDataType="LONGTEXT"/>
     </changeSet>
+
+    <changeSet author="fineract" id="create-m_external_event_configuration-table">
+        <createTable tableName="m_sms_event_configuration">
+            <column name="type" type="VARCHAR(100)">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="enabled" type="boolean">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet author="fineract" id="add_loan_pipeline_sms_event">
+        <insert tableName="m_external_event_configuration">
+            <column name="type" value="LoanAccountCreationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_external_event_configuration">
+            <column name="type" value="LoanAccountApprovalEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_external_event_configuration">
+            <column name="type" value="LoanAccountDisbursementEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
 </databaseChangeLog>

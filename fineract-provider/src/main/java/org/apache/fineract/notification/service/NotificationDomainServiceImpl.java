@@ -257,6 +257,7 @@ public class NotificationDomainServiceImpl implements NotificationDomainService 
 
         @Override
         public void onBusinessEvent(LoanTransactionMakeRepaymentPostBusinessEvent event) {
+            System.out.println("*****- LoanTransactionMakeRepaymentPostBusinessEvent  JB -*****");
             Loan loan = event.get().getLoan();
             buildNotification("READ_LOAN", "loan", loan.getId(), "Repayment made", "repaymentMade", context.authenticatedUser().getId(),
                     loan.getOfficeId());
