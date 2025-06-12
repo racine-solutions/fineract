@@ -19,7 +19,8 @@
 package org.apache.fineract.infrastructure.event.external.repository;
 
 import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEventConfiguration;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface SmsEventConfigurationRepository
-        extends JpaRepository<SmsEventConfiguration, String>, CustomSmsEventConfigurationRepository {}
+public interface CustomSmsEventConfigurationRepository {
+
+    SmsEventConfiguration findSmsEventConfigurationByTypeWithNotFoundDetection(String smsEventType);
+}

@@ -36,7 +36,7 @@ import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSerializer;
 import org.apache.fineract.infrastructure.event.external.data.SmsEventConfigurationData;
-import org.apache.fineract.infrastructure.event.external.service.SmsEventConfigurationReadPlatformService;
+import org.apache.fineract.infrastructure.event.sms.service.SmsEventConfigurationReadPlatformService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.springframework.stereotype.Component;
 

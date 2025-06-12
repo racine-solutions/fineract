@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.infrastructure.event.external.service;
+package org.apache.fineract.infrastructure.event.sms.service;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;

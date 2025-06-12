@@ -16,10 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.infrastructure.event.external.repository;
+package org.apache.fineract.infrastructure.event.external.command;
 
-import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEventConfiguration;
-import org.springframework.data.jpa.repository.JpaRepository;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-public interface SmsEventConfigurationRepository
-        extends JpaRepository<SmsEventConfiguration, String>, CustomSmsEventConfigurationRepository {}
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
+public class SmsEventConfigurationCommand {
+
+    private final Map<String, Boolean> smsEventConfigurations;
+}

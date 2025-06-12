@@ -16,10 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.infrastructure.event.external.repository;
+package org.apache.fineract.infrastructure.event.sms.service;
 
-import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEventConfiguration;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.apache.fineract.infrastructure.core.api.JsonCommand;
+import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 
-public interface SmsEventConfigurationRepository
-        extends JpaRepository<SmsEventConfiguration, String>, CustomSmsEventConfigurationRepository {}
+public interface SmsEventConfigurationWritePlatformService {
+
+    CommandProcessingResult updateConfigurations(JsonCommand command);
+}

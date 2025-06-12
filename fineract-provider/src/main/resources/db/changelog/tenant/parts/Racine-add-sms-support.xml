@@ -184,16 +184,16 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="fineract" id="add_loan_pipeline_sms_event">
-        <insert tableName="m_external_event_configuration">
+    <changeSet author="fineract" id="add_loan_pipeline_sms_event-to-m_sms_event_configuration">
+        <insert tableName="m_sms_event_configuration">
             <column name="type" value="LoanAccountCreationEvent"/>
             <column name="enabled" valueBoolean="false"/>
         </insert>
-        <insert tableName="m_external_event_configuration">
+        <insert tableName="m_sms_event_configuration">
             <column name="type" value="LoanAccountApprovalEvent"/>
             <column name="enabled" valueBoolean="false"/>
         </insert>
-        <insert tableName="m_external_event_configuration">
+        <insert tableName="m_sms_event_configuration">
             <column name="type" value="LoanAccountDisbursementEvent"/>
             <column name="enabled" valueBoolean="false"/>
         </insert>

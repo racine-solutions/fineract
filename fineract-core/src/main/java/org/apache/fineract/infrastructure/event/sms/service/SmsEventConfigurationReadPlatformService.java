@@ -16,16 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.infrastructure.event.external.service;
+package org.apache.fineract.infrastructure.event.sms.service;
 
-import java.util.List;
-import org.apache.fineract.infrastructure.core.config.MapstructMapperConfig;
-import org.apache.fineract.infrastructure.event.external.data.SmsEventConfigurationItemData;
-import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEventConfiguration;
-import org.mapstruct.Mapper;
+import org.apache.fineract.infrastructure.event.external.data.SmsEventConfigurationData;
 
-@Mapper(config = MapstructMapperConfig.class)
-public interface SmsEventsConfigurationMapper {
+public interface SmsEventConfigurationReadPlatformService {
 
-    List<SmsEventConfigurationItemData> map(List<SmsEventConfiguration> source);
+    SmsEventConfigurationData findAllSmsEventConfigurations();
 }
