@@ -18,6 +18,10 @@
  */
 package org.apache.fineract.infrastructure.event.sms.service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
@@ -28,11 +32,6 @@ import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEv
 import org.apache.fineract.infrastructure.event.external.serialization.SmsEventConfigurationCommandFromApiJsonDeserializer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -51,8 +50,7 @@ public class SmsEventConfigurationWritePlatformServiceImpl implements SmsEventCo
         final List<SmsEventConfiguration> modifiedConfigurations = new ArrayList<>();
 
         for (Map.Entry<String, Boolean> entry : commandConfigurations.entrySet()) {
-            final SmsEventConfiguration configuration = repository
-                    .findSmsEventConfigurationByTypeWithNotFoundDetection(entry.getKey());
+            final SmsEventConfiguration configuration = repository.findSmsEventConfigurationByTypeWithNotFoundDetection(entry.getKey());
             configuration.setEnabled(entry.getValue());
             changedConfigurations.put(entry.getKey(), entry.getValue());
             modifiedConfigurations.add(configuration);

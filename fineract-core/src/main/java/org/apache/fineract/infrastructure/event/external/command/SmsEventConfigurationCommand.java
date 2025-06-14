@@ -18,10 +18,9 @@
  */
 package org.apache.fineract.infrastructure.event.external.command;
 
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-
-import java.util.Map;
 
 @AllArgsConstructor
 @Getter
