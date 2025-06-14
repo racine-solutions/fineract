@@ -22,7 +22,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.event.external.exception.ExternalEventConfigurationNotFoundException;
-import org.apache.fineract.infrastructure.event.external.repository.domain.ExternalEventConfiguration;
 import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEventConfiguration;
 import org.springframework.stereotype.Component;
 

@@ -198,5 +198,36 @@
             <column name="enabled" valueBoolean="false"/>
         </insert>
     </changeSet>
+    <changeSet author="fineract" id="add_loan_repayment_pipeline_sms_event-to-m_sms_event_configuration">
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="LoanAccountRepaymentEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet author="fineract" id="add_savings_account_pipeline_sms_event-to-m_sms_event_configuration">
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="SavingsAccountDepositEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="SavingsAccountWithdrawEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet author="fineract" id="add_loan_account_rejected_pipeline_sms_event-to-m_sms_event_configuration">
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="LoanAccountRejectedEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet author="fineract" id="3">
+        <insert tableName="m_permission">
+            <column name="grouping" value="configuration"/>
+            <column name="code" value="SMS_EVENT_CONFIGURATION"/>
+            <column name="entity_name" value="SMS_EVENT_CONFIGURATION"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
 
 </databaseChangeLog>

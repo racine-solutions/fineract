@@ -22,7 +22,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,8 @@ import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurati
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
+import org.apache.fineract.infrastructure.event.external.repository.SmsEventConfigurationRepository;
+import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEventConfiguration;
 import org.apache.fineract.notification.data.SmsMessageData;
 import org.apache.fineract.notification.data.SmsNotificationData;
 import org.apache.fineract.notification.data.SmsTypeEnum;
@@ -64,6 +68,20 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
     private final SmsNotificationAccountRepository smsNotificationAccountRepository;
     private final SmsNotificationMessageRepository smsNotificationMessageRepository;
     public static final String FORM_URL_CONTENT_TYPE = "application/json";
+    private final SmsEventConfigurationRepository repository;
+
+    private static final Map<SmsTypeEnum, String> SMS_TYPE_TO_EVENT_MAP = new EnumMap<>(SmsTypeEnum.class);
+
+    static {
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.LOAN_SUBMISSION, "LoanAccountCreationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.LOAN_APPROVAL, "LoanAccountApprovalEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.LOAN_DISBURSEMENT, "LoanAccountDisbursementEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.LOAN_REJECTED, "LoanAccountRejectedEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.LOAN_REPAYMENT, "LoanAccountRepaymentEvent");
+        // Savings
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SAVINGS_DEPOSIT, "SavingsAccountDepositEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SAVINGS_WITHDRAW, "SavingsAccountWithdrawEvent");
+    }
 
     @Override
     public void sendSms(SmsMessageData messageData, SmsTypeEnum smsType) {
@@ -157,6 +175,12 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
     @Override
     public void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction) {
+
+        if (!isSmsNotificationEnabled(smsType)) {
+            log.info("Loan Sms Event Type " + smsType + " Is Not Activate");
+            return;
+        }
+
         String clientName = loan.client().getDisplayName().replace(" ", "");
         String mobileNo = loan.client().getMobileNo();
         String message = null;
@@ -205,6 +229,12 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
     @Override
     public void processSavingsSmsNotification(SavingsAccount savingsAccount, SmsTypeEnum smsType, SavingsAccountTransaction transaction) {
+
+        if (!isSmsNotificationEnabled(smsType)) {
+            log.info("SavingsAccount Sms Event Type " + smsType + " Is Not Activate");
+            return;
+        }
+
         String clientName = savingsAccount.getClient().getDisplayName().replace(" ", "");
         String mobileNo = savingsAccount.getClient().getMobileNo();
         String message = null;
@@ -232,6 +262,18 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         } else {
             log.info("No mobile number found for client :-> %s    --->  %s", clientName, ThreadLocalContextUtil.getTenant().getName());
         }
+    }
+
+    private boolean isSmsNotificationEnabled(SmsTypeEnum smsType) {
+        String eventType = SMS_TYPE_TO_EVENT_MAP.get(smsType);
+
+        if (eventType == null) {
+            log.info("No Event type found to process a notification for SMS type: {}", smsType);
+            return false;
+        }
+
+        SmsEventConfiguration configuration = repository.findSmsEventConfigurationByTypeWithNotFoundDetection(eventType);
+        return configuration.isEnabled();
     }
 
 }

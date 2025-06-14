@@ -32,6 +32,7 @@ import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.dataqueries.service.EntityDatatableChecksWritePlatformService;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
+import org.apache.fineract.infrastructure.event.external.repository.SmsEventConfigurationRepository;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
 import org.apache.fineract.notification.domain.SmsNotificationAccountRepository;
@@ -499,9 +500,10 @@ public class LoanAccountConfiguration {
     public SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService(
             GlobalConfigurationRepositoryWrapper configurationRepositoryWrapper,
             SmsNotificationAccountRepository smsNotificationAccountRepository,
-            SmsNotificationMessageRepository smsNotificationMessageRepository) {
+            SmsNotificationMessageRepository smsNotificationMessageRepository,
+            SmsEventConfigurationRepository smsEventConfigurationRepository) {
         return new SMSNotificationWritePlatformServiceImpl(configurationRepositoryWrapper, smsNotificationAccountRepository,
-                smsNotificationMessageRepository);
+                smsNotificationMessageRepository, smsEventConfigurationRepository);
     }
 
 }
