@@ -26,6 +26,24 @@ jobs:
           fetch-depth: 0  # Fetch full history
           fetch-tags: true # Fetch all tags
 
+      - name: Debug - Check Dockerfile
+        run: |
+          echo "=== Repository structure ==="
+          ls -la
+          echo ""
+          echo "=== Looking for Dockerfile ==="
+          find . -name "*ockerfile*" -type f
+          echo ""
+          echo "=== First 10 lines of Dockerfile (if exists) ==="
+          if [ -f "Dockerfile" ]; then
+            head -10 Dockerfile
+            echo "✅ Dockerfile found and looks correct"
+          else
+            echo "❌ Dockerfile not found in root directory"
+            echo "Files in current directory:"
+            ls -la
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -52,10 +70,16 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NPM_REGISTRY_URL=https://registry.npmjs.org/
+            BUILD_ENVIRONMENT_OPTIONS=--configuration production
+            PUPPETEER_DOWNLOAD_HOST_ARG=https://storage.googleapis.com
+            PUPPETEER_CHROMIUM_REVISION_ARG=1011831
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
