@@ -50,7 +50,6 @@ dependencies {
             'io.github.resilience4j:resilience4j-spring-boot3',
             'org.apache.httpcomponents:httpcore',
             'org.mariadb.jdbc:mariadb-java-client:3.5.3',
-            'mysql:mysql-connector-java:5.1.49',
             fileTree('thirdparty') {
                 include '*.jar'
             },
