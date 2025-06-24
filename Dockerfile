@@ -45,8 +45,8 @@ COPY --from=builder /fineract/fineract-provider/build/libs/ /app
 COPY --from=builder /app/libs /app/libs
 
 ENV TZ="UTC"
-ENV FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME="com.mysql.cj.jdbc.Driver"
-ENV FINERACT_HIKARI_JDBC_URL="jdbc:mysql://localhost:3306/fineract_tenants"
+ENV FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME="org.mariadb.jdbc.Driver"
+ENV FINERACT_HIKARI_JDBC_URL="jdbc:mariadb://localhost:3306/fineract_tenants"
 ENV FINERACT_HIKARI_USERNAME="root"
 ENV FINERACT_HIKARI_PASSWORD="mysql"
 ENV FINERACT_HIKARI_MINIMUM_IDLE="1"
