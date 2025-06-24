@@ -230,4 +230,12 @@
         </insert>
     </changeSet>
 
+    <changeSet id="update_loan_in_arrears_report_type" author="fineract">
+        <update tableName="stretchy_report">
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype" valueComputed="null"/>
+            <where>report_name = 'Loan in arrears'</where>
+        </update>
+    </changeSet>
+
 </databaseChangeLog>

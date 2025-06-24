@@ -188,4 +188,5 @@
     <include file="parts/0167_create_m_calendar_instance_index.xml" relativeToChangelogFile="true" />
     <include file="parts/0168_transaction_summary_with_asset_owner_report_add_active_intermediate_filtering.xml" relativeToChangelogFile="true" />
     <include file="parts/Racine-add-sms-support.xml" relativeToChangelogFile="true" />
+    <include file="parts/RPAY-41_Loan_arrears_total_days.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>
