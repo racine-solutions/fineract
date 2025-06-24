@@ -1,0 +1,67 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.6.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+    <changeSet author="bosco@racinesolutions.com" id="RPAY-41_Loan_arrears_total_days" context="mysql">
+        <update tableName="stretchy_report">
+            <column name="report_sql" value=" SELECT mc.id                                                                                               AS 'id',
+       mc.firstname                                                                                        AS 'firstName',
+       mc.middlename                                                                                       AS 'middleName',
+       mc.lastname                                                                                         AS 'lastName',
+       mc.display_name                                                                                     AS 'fullName',
+       mc.mobile_no                                                                                        AS 'mobileNo',
+       ml.principal_amount                                                                                 AS 'loanAmount',
+       (IFNULL(ml.principal_outstanding_derived, 0) + IFNULL(ml.interest_outstanding_derived, 0) +
+        IFNULL(ml.fee_charges_outstanding_derived, 0) +
+        IFNULL(ml.penalty_charges_outstanding_derived, 0))                                                 AS 'loanOutstanding',
+       ml.principal_disbursed_derived                                                                      AS 'loanDisbursed',
+       laa.overdue_since_date_derived                                                                      AS 'paymentDueDate',
+       IFNULL(laa.total_overdue_derived, 0)                                                                AS 'totalDue',
+       ounder.id                                                                                           AS 'officeNumber',
+       ml.account_no                                                                                       AS 'loanAccountId',
+       gua.lastname                                                                                        AS 'guarantorLastName',
+       COUNT(gua.id)                                                                                       AS 'numberOfGuarantors',
+       g.display_name                                                                                      AS 'groupName',
+       DATEDIFF(CURDATE(), laa.overdue_since_date_derived)                                                 AS 'daysInArrears'
+
+FROM m_office mo
+         JOIN m_office ounder ON ounder.hierarchy LIKE CONCAT(mo.hierarchy, '%')
+         INNER JOIN m_client mc ON mc.office_id = ounder.id
+         INNER JOIN m_loan ml ON ml.client_id = mc.id
+         INNER JOIN r_enum_value rev ON rev.enum_id = ml.loan_status_id AND rev.enum_name = 'loan_status_id'
+         INNER JOIN m_loan_arrears_aging laa ON laa.loan_id = ml.id
+         LEFT JOIN m_currency cur ON cur.code = ml.currency_code
+         LEFT JOIN m_group_client gc ON gc.client_id = mc.id
+         LEFT JOIN m_group g ON g.id = gc.group_id
+         LEFT JOIN m_staff lo ON lo.id = ml.loan_officer_id
+         LEFT JOIN m_guarantor gua ON gua.loan_id = ml.id
+WHERE ml.loan_status_id = 300
+  AND mo.id = ${officeId}
+  AND (IFNULL(ml.loan_officer_id, -10) = ${loanOfficerId} OR '-1' = ${loanOfficerId})
+            AND (DATEDIFF(CURDATE(), laa.overdue_since_date_derived) BETWEEN ${fromX} AND ${toY})
+            GROUP BY ml.id
+            ORDER BY ounder.hierarchy, ml.currency_code, mc.account_no, ml.account_no "/>
+            <where>report_name = 'Loan in arrears'</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>
