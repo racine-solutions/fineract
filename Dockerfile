@@ -33,20 +33,20 @@ RUN mv /fineract/fineract-provider/build/libs/*.jar /fineract/fineract-provider/
 # allowing implementations to switch the driver used by changing start-up parameters (for both tenants and each tenant DB)
 # The commented out lines in the docker-compose.yml illustrate how to do this.
 WORKDIR /app/libs
-RUN wget -q https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/3.4.1/mariadb-java-client-3.4.1.jar
+RUN wget -q https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.23/mysql-connector-java-8.0.23.jar
 # =========================================
 
 FROM azul/zulu-openjdk-alpine:17 as fineract
 
 COPY --from=builder /fineract/fineract-report/pentahoReports/*.properties /root/.mifosx/pentahoReports/
 COPY --from=builder /fineract/fineract-report/pentahoReports/*.prpt /root/.mifosx/pentahoReports/
-COPY --from=builder /fineract/fineract-report/pentahoReports/fonts/*.ttf /usr/local/share/fonts/
+COPY --from=builder /fineract/fineract-report/pentahoReports/fonts/*.ttf /root/.mifosx/fonts/
 COPY --from=builder /fineract/fineract-provider/build/libs/ /app
 COPY --from=builder /app/libs /app/libs
 
 ENV TZ="UTC"
-ENV FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME="org.mariadb.jdbc.Driver"
-ENV FINERACT_HIKARI_JDBC_URL="jdbc:mariadb://localhost:3306/fineract_tenants"
+ENV FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME="com.mysql.cj.jdbc.Driver"
+ENV FINERACT_HIKARI_JDBC_URL="jdbc:mysql://localhost:3306/fineract_tenants"
 ENV FINERACT_HIKARI_USERNAME="root"
 ENV FINERACT_HIKARI_PASSWORD="mysql"
 ENV FINERACT_HIKARI_MINIMUM_IDLE="1"
