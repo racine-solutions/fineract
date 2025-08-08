@@ -232,6 +232,7 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             case PERCENT_OF_AMOUNT_AND_INTEREST:
             case PERCENT_OF_INTEREST:
             case PERCENT_OF_DISBURSEMENT_AMOUNT:
+            case PERCENT_OF_BASE_PRINCIPAL:
                 this.percentage = chargeAmount;
                 this.amountPercentageAppliedTo = amountPercentageAppliedTo;
                 if (loanCharge.compareTo(BigDecimal.ZERO) == 0) {
@@ -340,6 +341,7 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                 case PERCENT_OF_AMOUNT_AND_INTEREST:
                 case PERCENT_OF_INTEREST:
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
+                case PERCENT_OF_BASE_PRINCIPAL:
                     this.percentage = amount;
                     this.amountPercentageAppliedTo = loanPrincipal;
                     if (loanCharge.compareTo(BigDecimal.ZERO) == 0) {
@@ -382,6 +384,9 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
                     LoanTrancheDisbursementCharge loanTrancheDisbursementCharge = this.loanTrancheDisbursementCharge;
                     amountPercentageAppliedTo = loanTrancheDisbursementCharge.getloanDisbursementDetails().principal();
+                break;
+                case PERCENT_OF_BASE_PRINCIPAL:
+                    amountPercentageAppliedTo = this.loan.getPrincipal().getAmount();
                 break;
                 default:
                 break;
@@ -428,6 +433,7 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                 case PERCENT_OF_AMOUNT_AND_INTEREST:
                 case PERCENT_OF_INTEREST:
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
+                case PERCENT_OF_BASE_PRINCIPAL:
                     this.percentage = newValue;
                     this.amountPercentageAppliedTo = amount;
                     loanCharge = BigDecimal.ZERO;

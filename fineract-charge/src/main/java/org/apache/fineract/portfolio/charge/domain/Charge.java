@@ -344,6 +344,10 @@ public class Charge extends AbstractPersistableCustom<Long> {
         return ChargeCalculationType.fromInt(this.chargeCalculation).isPercentageOfDisbursementAmount();
     }
 
+    public boolean isPercentageOfBasePrincipal() {
+        return ChargeCalculationType.fromInt(this.chargeCalculation).isPercentOfBasePrincipal();
+    }
+
     public BigDecimal getMinCap() {
         return this.minCap;
     }

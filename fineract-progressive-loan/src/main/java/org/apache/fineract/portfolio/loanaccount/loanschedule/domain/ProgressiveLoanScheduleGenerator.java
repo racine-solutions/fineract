@@ -395,6 +395,8 @@ public class ProgressiveLoanScheduleGenerator implements LoanScheduleGenerator {
                         .add(principalInterestForThisPeriod.interest().getAmount());
             } else if (loanCharge.getChargeCalculation().isPercentageOfInterest()) {
                 amount = amount.add(principalInterestForThisPeriod.interest().getAmount());
+            } else if (loanCharge.getChargeCalculation().isPercentOfBasePrincipal()) {
+                amount = amount.add(loanCharge.getLoan().getPrincipal().getAmount());
             } else {
                 amount = amount.add(principalInterestForThisPeriod.principal().getAmount());
             }
@@ -413,6 +415,8 @@ public class ProgressiveLoanScheduleGenerator implements LoanScheduleGenerator {
             amount = amount.add(principalDisbursed.getAmount()).add(totalInterestChargedForFullLoanTerm.getAmount());
         } else if (loanCharge.getChargeCalculation().isPercentageOfInterest()) {
             amount = amount.add(totalInterestChargedForFullLoanTerm.getAmount());
+        } else if (loanCharge.getChargeCalculation().isPercentOfBasePrincipal()) {
+            amount = amount.add(loanCharge.getLoan().getPrincipal().getAmount());
         } else {
             amount = amount.add(principalDisbursed.getAmount());
         }

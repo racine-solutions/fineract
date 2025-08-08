@@ -37,7 +37,9 @@ public enum ChargeTimeType {
     SHAREACCOUNT_ACTIVATION(13, "chargeTimeType.activation"), // only for loan
     SHARE_PURCHASE(14, "chargeTimeType.sharespurchase"), SHARE_REDEEM(15, "chargeTimeType.sharesredeem"),
 
-    SAVINGS_NOACTIVITY_FEE(16, "chargeTimeType.savingsNoActivityFee");
+    SAVINGS_NOACTIVITY_FEE(16, "chargeTimeType.savingsNoActivityFee"),
+
+    PERCENT_OF_BASE_PRINCIPAL(17, "chargeTimeType.percentOfBasePrincipal");
 
     private final Integer value;
     private final String code;
@@ -58,7 +60,7 @@ public enum ChargeTimeType {
     public static Object[] validLoanValues() {
         return new Integer[] { ChargeTimeType.DISBURSEMENT.getValue(), ChargeTimeType.SPECIFIED_DUE_DATE.getValue(),
                 ChargeTimeType.INSTALMENT_FEE.getValue(), ChargeTimeType.OVERDUE_INSTALLMENT.getValue(),
-                ChargeTimeType.TRANCHE_DISBURSEMENT.getValue() };
+                ChargeTimeType.TRANCHE_DISBURSEMENT.getValue(), ChargeTimeType.PERCENT_OF_BASE_PRINCIPAL.getValue() };
     }
 
     public static Object[] validLoanChargeValues() {
@@ -133,6 +135,9 @@ public enum ChargeTimeType {
                 break;
                 case 16:
                     chargeTimeType = SAVINGS_NOACTIVITY_FEE;
+                break;
+                case 17:
+                    chargeTimeType = PERCENT_OF_BASE_PRINCIPAL;
                 break;
                 default:
                     chargeTimeType = INVALID;
@@ -221,5 +226,9 @@ public enum ChargeTimeType {
 
     public boolean isSharesRedeem() {
         return this.equals(ChargeTimeType.SHARE_REDEEM);
+    }
+
+    public boolean isPercentOfBasePrincipal() {
+        return this.equals(ChargeTimeType.PERCENT_OF_BASE_PRINCIPAL);
     }
 }

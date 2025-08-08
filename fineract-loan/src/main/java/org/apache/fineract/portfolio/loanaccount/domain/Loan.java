@@ -926,6 +926,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                     yield getPrincipal().getAmount();
                 }
             }
+            case PERCENT_OF_BASE_PRINCIPAL -> getPrincipal().getAmount();
             case INVALID, FLAT -> BigDecimal.ZERO;
         };
     }
@@ -974,6 +975,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             case PERCENT_OF_AMOUNT_AND_INTEREST ->
                 installment.getPrincipal(getCurrency()).plus(installment.getInterestCharged(getCurrency()));
             case PERCENT_OF_INTEREST -> installment.getInterestCharged(getCurrency());
+            case PERCENT_OF_BASE_PRINCIPAL -> installment.getPrincipal(getCurrency());
             case PERCENT_OF_DISBURSEMENT_AMOUNT, INVALID, FLAT -> Money.zero(getCurrency());
 
         };
