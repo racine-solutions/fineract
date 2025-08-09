@@ -358,7 +358,7 @@ public class ProgressiveLoanScheduleGenerator implements LoanScheduleGenerator {
             boolean isFirstPeriod, LoanCharge loanCharge, Money cumulative, MathContext mc) {
         boolean isDue = loanCharge.isDueInPeriod(periodStart, periodEnd, isFirstPeriod);
         if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable) {
-            cumulative = calculateInstallmentCharge(principalInterestForThisPeriod, cumulative, loanCharge, mc);
+            cumulative = calculateInstallmentCharge(principalInterestForThisPeriod, cumulative, loanCharge, mc, principalDisbursed);
         } else if (loanCharge.isOverdueInstallmentCharge() && isDue && loanCharge.getChargeCalculation().isPercentageBased()) {
             cumulative = cumulative.plus(loanCharge.chargeAmount());
         } else if (isDue && loanCharge.getChargeCalculation().isPercentageBased()) {
@@ -387,7 +387,7 @@ public class ProgressiveLoanScheduleGenerator implements LoanScheduleGenerator {
     }
 
     private Money calculateInstallmentCharge(final PrincipalInterest principalInterestForThisPeriod, Money cumulative,
-            final LoanCharge loanCharge, final MathContext mc) {
+            final LoanCharge loanCharge, final MathContext mc, final Money principalDisbursed) {
         if (loanCharge.getChargeCalculation().isPercentageBased()) {
             BigDecimal amount = BigDecimal.ZERO;
             if (loanCharge.getChargeCalculation().isPercentageOfAmountAndInterest()) {
@@ -395,6 +395,8 @@ public class ProgressiveLoanScheduleGenerator implements LoanScheduleGenerator {
                         .add(principalInterestForThisPeriod.interest().getAmount());
             } else if (loanCharge.getChargeCalculation().isPercentageOfInterest()) {
                 amount = amount.add(principalInterestForThisPeriod.interest().getAmount());
+            } else if (loanCharge.getChargeCalculation().isPercentageOfPrincipalAmount()) {
+                amount = amount.add(principalDisbursed.getAmount());
             } else {
                 amount = amount.add(principalInterestForThisPeriod.principal().getAmount());
             }
