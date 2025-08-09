@@ -243,6 +243,18 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                 this.amountWaived = null;
                 this.amountWrittenOff = null;
             break;
+            case PERCENT_OF_BASE_PRINCIPAL_AMOUNT:
+                this.percentage = chargeAmount;
+                this.amountPercentageAppliedTo = amountPercentageAppliedTo;
+                if (loanCharge.compareTo(BigDecimal.ZERO) == 0) {
+                    loanCharge = percentageOf(this.amountPercentageAppliedTo);
+                }
+                this.amount = minimumAndMaximumCap(loanCharge);
+                this.amountPaid = null;
+                this.amountOutstanding = calculateOutstanding();
+                this.amountWaived = null;
+                this.amountWrittenOff = null;
+            break;
         }
         this.amountOrPercentage = chargeAmount;
         if (this.loan != null && isInstalmentFee()) {
@@ -347,6 +359,14 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                     }
                     this.amount = minimumAndMaximumCap(loanCharge);
                 break;
+                case PERCENT_OF_BASE_PRINCIPAL_AMOUNT:
+                    this.percentage = amount;
+                    this.amountPercentageAppliedTo = loanPrincipal;
+                    if (loanCharge.compareTo(BigDecimal.ZERO) == 0) {
+                        loanCharge = percentageOf(this.amountPercentageAppliedTo);
+                    }
+                    this.amount = minimumAndMaximumCap(loanCharge);
+                break;
             }
             this.amountOrPercentage = amount;
             this.amountOutstanding = calculateOutstanding();
@@ -440,6 +460,14 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                     }
                     this.amount = minimumAndMaximumCap(loanCharge);
                     this.amountOutstanding = calculateOutstanding();
+                break;
+                case PERCENT_OF_BASE_PRINCIPAL_AMOUNT:
+                    this.percentage = amount;
+                    this.amountPercentageAppliedTo = amount;
+                    if (loanCharge.compareTo(BigDecimal.ZERO) == 0) {
+                        loanCharge = percentageOf(this.amountPercentageAppliedTo);
+                    }
+                    this.amount = minimumAndMaximumCap(loanCharge);
                 break;
             }
             this.amountOrPercentage = newValue;

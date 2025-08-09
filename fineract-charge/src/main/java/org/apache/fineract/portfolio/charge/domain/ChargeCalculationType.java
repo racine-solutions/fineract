@@ -25,7 +25,8 @@ public enum ChargeCalculationType {
     PERCENT_OF_AMOUNT(2, "chargeCalculationType.percent.of.amount"), //
     PERCENT_OF_AMOUNT_AND_INTEREST(3, "chargeCalculationType.percent.of.amount.and.interest"), //
     PERCENT_OF_INTEREST(4, "chargeCalculationType.percent.of.interest"), PERCENT_OF_DISBURSEMENT_AMOUNT(5,
-            "chargeCalculationType.percent.of.disbursement.amount");
+            "chargeCalculationType.percent.of.disbursement.amount"), PERCENT_OF_BASE_PRINCIPAL_AMOUNT(6,
+                    "chargeCalculationType.percent.of.base.principal.amount");
 
     private final Integer value;
     private final String code;
@@ -46,7 +47,8 @@ public enum ChargeCalculationType {
     public static Object[] validValuesForLoan() {
         return new Integer[] { ChargeCalculationType.FLAT.getValue(), ChargeCalculationType.PERCENT_OF_AMOUNT.getValue(),
                 ChargeCalculationType.PERCENT_OF_AMOUNT_AND_INTEREST.getValue(), ChargeCalculationType.PERCENT_OF_INTEREST.getValue(),
-                ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT.getValue() };
+                ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT.getValue(),
+                ChargeCalculationType.PERCENT_OF_BASE_PRINCIPAL_AMOUNT.getValue() };
     }
 
     public static Object[] validValuesForSavings() {
@@ -87,6 +89,9 @@ public enum ChargeCalculationType {
             case 5:
                 chargeCalculationType = PERCENT_OF_DISBURSEMENT_AMOUNT;
             break;
+            case 6:
+                chargeCalculationType = PERCENT_OF_BASE_PRINCIPAL_AMOUNT;
+            break;
         }
         return chargeCalculationType;
     }
@@ -115,9 +120,13 @@ public enum ChargeCalculationType {
         return isFlat();
     }
 
+    public boolean isPercentageOfPrincipalAmount() {
+        return this.value.equals(ChargeCalculationType.PERCENT_OF_BASE_PRINCIPAL_AMOUNT.getValue());
+    }
+
     public boolean isPercentageBased() {
-        return isPercentageOfAmount() || isPercentageOfAmountAndInterest() || isPercentageOfInterest()
-                || isPercentageOfDisbursementAmount();
+        return isPercentageOfAmount() || isPercentageOfAmountAndInterest() || isPercentageOfInterest() || isPercentageOfDisbursementAmount()
+                || isPercentageOfPrincipalAmount();
     }
 
     public boolean hasInterest() {

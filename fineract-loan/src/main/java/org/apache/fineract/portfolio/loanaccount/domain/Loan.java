@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.configuration.service.TemporaryConfigurationServiceContainer;
@@ -131,6 +132,7 @@ import org.apache.fineract.portfolio.rate.domain.Rate;
 import org.apache.fineract.portfolio.repaymentwithpostdatedchecks.domain.PostDatedChecks;
 import org.apache.fineract.useradministration.domain.AppUser;
 
+@Slf4j
 @Entity
 @Table(name = "m_loan", uniqueConstraints = { @UniqueConstraint(columnNames = { "account_no" }, name = "loan_account_no_UNIQUE"),
         @UniqueConstraint(columnNames = { "external_id" }, name = "loan_externalid_UNIQUE") })
@@ -927,6 +929,10 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                 }
             }
             case INVALID, FLAT -> BigDecimal.ZERO;
+            case PERCENT_OF_BASE_PRINCIPAL_AMOUNT -> {
+                yield getPrincipal().getAmount();
+            }
+
         };
     }
 
@@ -953,6 +959,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         List<LoanRepaymentScheduleInstallment> installments = getRepaymentScheduleInstallments();
         for (final LoanRepaymentScheduleInstallment installment : installments) {
             amount = amount.plus(calculateInstallmentChargeAmount(calculationType, percentage, installment));
+            log.info(installment.getId() + "Loan Amount :-" + amount);
         }
         return amount.getAmount();
     }
@@ -975,6 +982,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                 installment.getPrincipal(getCurrency()).plus(installment.getInterestCharged(getCurrency()));
             case PERCENT_OF_INTEREST -> installment.getInterestCharged(getCurrency());
             case PERCENT_OF_DISBURSEMENT_AMOUNT, INVALID, FLAT -> Money.zero(getCurrency());
+            case PERCENT_OF_BASE_PRINCIPAL_AMOUNT -> installment.getLoan().getPrincipal();
 
         };
         return Money.zero(getCurrency()) //

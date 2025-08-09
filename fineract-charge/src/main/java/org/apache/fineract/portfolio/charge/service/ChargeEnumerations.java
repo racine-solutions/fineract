@@ -165,6 +165,10 @@ public final class ChargeEnumerations {
                 optionData = new EnumOptionData(ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT.getValue().longValue(),
                         ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT.getCode(), "% Disbursement Amount");
             break;
+            case PERCENT_OF_BASE_PRINCIPAL_AMOUNT:
+                optionData = new EnumOptionData(ChargeCalculationType.PERCENT_OF_BASE_PRINCIPAL_AMOUNT.getValue().longValue(),
+                        ChargeCalculationType.PERCENT_OF_BASE_PRINCIPAL_AMOUNT.getCode(), "% Base Principal Amount");
+            break;
             default:
                 optionData = new EnumOptionData(ChargeCalculationType.INVALID.getValue().longValue(),
                         ChargeCalculationType.INVALID.getCode(), "Invalid");
