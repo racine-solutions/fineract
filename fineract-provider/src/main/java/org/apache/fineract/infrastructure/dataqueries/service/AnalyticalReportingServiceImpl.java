@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.infrastructure.dataqueries.service;
 
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.dataqueries.data.FineractAnalyticalDetails;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -43,7 +45,11 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
                 "savings_stats.activeSavingsAccountsCount, savings_stats.activeSavingsAccountsAmount, " +
                 "savings_stats.pendingApprovalSavingsAccountsCount, savings_stats.pendingApprovalSavingsAccountsAmount, " +
                 "savings_stats.closedSavingsAccountsCount, savings_stats.closedSavingsAccountsAmount, " +
-                "savings_stats.rejectedSavingsAccountsCount, savings_stats.rejectedSavingsAccountsAmount " +
+                "savings_stats.rejectedSavingsAccountsCount, savings_stats.rejectedSavingsAccountsAmount, " +
+                "arrears_aging_stats.totalOverduePrincipal, arrears_aging_stats.totalOverdueInterest, " +
+                "arrears_aging_stats.totalOverdueFees, arrears_aging_stats.totalOverduePenalties, " +
+                "arrears_aging_stats.averageOverdueDays, arrears_aging_stats.maxOverdueDays, " +
+                "arrears_aging_stats.highRiskCount, arrears_aging_stats.mediumRiskCount, arrears_aging_stats.lowRiskCount " +
                 "FROM (" +
                 "    SELECT " +
                 "        COUNT(CASE WHEN l.loan_status_id = 300 THEN 1 END) AS activeLoansCount, " +
@@ -54,13 +60,10 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
                 "        SUM(CASE WHEN l.loan_status_id IN (600, 601, 602) THEN l.principal_amount END) AS closedLoansAmount, " +
                 "        COUNT(CASE WHEN l.loan_status_id = 500 THEN 1 END) AS rejectedLoansCount, " +
                 "        SUM(CASE WHEN l.loan_status_id = 500 THEN l.principal_amount END) AS rejectedLoansAmount, " +
-
                 "        SUM(l.interest_charged_derived) AS totalInterestExpected, " +
                 "        SUM(l.interest_repaid_derived) AS totalInterestPaid, " +
-
                 "        SUM(l.penalty_charges_charged_derived) AS totalPenaltiesGenerated, " +
                 "        SUM(l.penalty_charges_repaid_derived) AS totalPenaltiesPaid, " +
-
                 "        SUM(l.penalty_charges_waived_derived) AS totalPenaltiesWaived " +
                 "    FROM m_loan l) AS loan_stats " +
                 "CROSS JOIN " +
@@ -79,7 +82,19 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
                 "        SUM(CASE WHEN s.status_enum = 600 THEN s.account_balance_derived END) AS closedSavingsAccountsAmount, " +
                 "        COUNT(CASE WHEN s.status_enum = 500 THEN 1 END) AS rejectedSavingsAccountsCount, " +
                 "        SUM(CASE WHEN s.status_enum = 500 THEN s.account_balance_derived END) AS rejectedSavingsAccountsAmount " +
-                "    FROM m_savings_account s) AS savings_stats";
+                "    FROM m_savings_account s) AS savings_stats " +
+                "CROSS JOIN " +
+                "    (SELECT " +
+                "        SUM(laa.principal_overdue_derived) AS totalOverduePrincipal, " +
+                "        SUM(laa.interest_overdue_derived) AS totalOverdueInterest, " +
+                "        SUM(laa.fee_charges_overdue_derived) AS totalOverdueFees, " +
+                "        SUM(laa.penalty_charges_overdue_derived) AS totalOverduePenalties, " +
+                "        AVG(DATEDIFF(CURDATE(), laa.overdue_since_date_derived)) AS averageOverdueDays, " +
+                "        MAX(DATEDIFF(CURDATE(), laa.overdue_since_date_derived)) AS maxOverdueDays, " +
+                "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) > 90 THEN 1 END) AS highRiskCount, " +
+                "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) BETWEEN 31 AND 90 THEN 1 END) AS mediumRiskCount, " +
+                "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) BETWEEN 1 AND 30 THEN 1 END) AS lowRiskCount " +
+                "    FROM m_loan_arrears_aging laa) AS arrears_aging_stats";
 
         jdbcTemplate.query(sql, rs -> {
             details.setActiveLoansCount(rs.getLong("activeLoansCount"));
@@ -108,6 +123,19 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
             details.setClosedSavingsAccountsAmount(rs.getBigDecimal("closedSavingsAccountsAmount"));
             details.setRejectedSavingsAccountsCount(rs.getLong("rejectedSavingsAccountsCount"));
             details.setRejectedSavingsAccountsAmount(rs.getBigDecimal("rejectedSavingsAccountsAmount"));
+
+            details.setTotalOverduePrincipal(rs.getBigDecimal("totalOverduePrincipal"));
+            details.setTotalOverdueInterest(rs.getBigDecimal("totalOverdueInterest"));
+            details.setTotalOverdueFees(rs.getBigDecimal("totalOverdueFees"));
+            details.setTotalOverduePenalties(rs.getBigDecimal("totalOverduePenalties"));
+            details.setAverageOverdueDays(rs.getDouble("averageOverdueDays"));
+            details.setMaxOverdueDays(rs.getLong("maxOverdueDays"));
+
+            final Map<String, Long> overdueLoansByRiskLevel = new java.util.HashMap<>();
+            overdueLoansByRiskLevel.put("High", rs.getLong("highRiskCount"));
+            overdueLoansByRiskLevel.put("Medium", rs.getLong("mediumRiskCount"));
+            overdueLoansByRiskLevel.put("Low", rs.getLong("lowRiskCount"));
+            details.setOverdueLoansByRiskLevel(overdueLoansByRiskLevel);
         });
 
         return details;

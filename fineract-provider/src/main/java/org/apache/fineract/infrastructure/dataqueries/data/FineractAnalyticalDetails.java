@@ -19,6 +19,7 @@
 package org.apache.fineract.infrastructure.dataqueries.data;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import lombok.Data;
 
 @Data
@@ -55,4 +56,13 @@ public class FineractAnalyticalDetails {
     private BigDecimal closedSavingsAccountsAmount;
     private long rejectedSavingsAccountsCount;
     private BigDecimal rejectedSavingsAccountsAmount;
+
+    // Loan arrears aging stats
+    private BigDecimal totalOverduePrincipal;
+    private BigDecimal totalOverdueInterest;
+    private BigDecimal totalOverdueFees;
+    private BigDecimal totalOverduePenalties;
+    private double averageOverdueDays;
+    private long maxOverdueDays;
+    private Map<String, Long> overdueLoansByRiskLevel;
 }
