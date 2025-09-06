@@ -44,6 +44,7 @@ public class FineractAnalyticalDetails {
     // Client stats
     private long totalClients;
     private long activeClients;
+    private long pendingClients;
 
     // Savings stats
     private long activeSavingsAccountsCount;

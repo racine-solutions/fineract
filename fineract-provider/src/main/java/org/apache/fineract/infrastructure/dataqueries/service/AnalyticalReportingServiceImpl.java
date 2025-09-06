@@ -39,7 +39,7 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
                 "loan_stats.rejectedLoansCount, loan_stats.rejectedLoansAmount, " +
                 "loan_stats.totalInterestExpected, loan_stats.totalInterestPaid, " +
                 "loan_stats.totalPenaltiesGenerated, loan_stats.totalPenaltiesPaid, loan_stats.totalPenaltiesWaived, " +
-                "client_stats.totalClients, client_stats.activeClients, " +
+                "client_stats.totalClients, client_stats.activeClients,client_stats.pendingClients, " +
                 "savings_stats.activeSavingsAccountsCount, savings_stats.activeSavingsAccountsAmount, " +
                 "savings_stats.pendingApprovalSavingsAccountsCount, savings_stats.pendingApprovalSavingsAccountsAmount, " +
                 "savings_stats.closedSavingsAccountsCount, savings_stats.closedSavingsAccountsAmount, " +
@@ -66,7 +66,8 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
                 "CROSS JOIN " +
                 "    (SELECT " +
                 "        COUNT(*) AS totalClients, " +
-                "        COUNT(CASE WHEN c.status_enum = 300 THEN 1 END) AS activeClients " +
+                "        COUNT(CASE WHEN c.status_enum = 300 THEN 1 END) AS activeClients, " +
+                "        COUNT(CASE WHEN c.status_enum = 100 THEN 1 END) AS pendingClients " +
                 "    FROM m_client c) AS client_stats " +
                 "CROSS JOIN " +
                 "    (SELECT " +
@@ -97,6 +98,7 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
 
             details.setTotalClients(rs.getLong("totalClients"));
             details.setActiveClients(rs.getLong("activeClients"));
+            details.setPendingClients(rs.getLong("pendingClients"));
 
             details.setActiveSavingsAccountsCount(rs.getLong("activeSavingsAccountsCount"));
             details.setActiveSavingsAccountsAmount(rs.getBigDecimal("activeSavingsAccountsAmount"));
