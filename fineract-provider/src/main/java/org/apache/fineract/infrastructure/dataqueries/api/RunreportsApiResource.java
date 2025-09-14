@@ -41,6 +41,8 @@ import jakarta.ws.rs.core.UriInfo;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.api.ApiParameterHelper;
 import org.apache.fineract.infrastructure.core.exception.PlatformServiceUnavailableException;
+import org.apache.fineract.infrastructure.dataqueries.data.FineractAnalyticalDetails;
+import org.apache.fineract.infrastructure.dataqueries.service.AnalyticalReportingService;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.dataqueries.service.ReadReportingService;
 import org.apache.fineract.infrastructure.report.provider.ReportingProcessServiceProvider;
@@ -62,6 +64,7 @@ public class RunreportsApiResource {
     private final PlatformSecurityContext context;
     private final ReadReportingService readExtraDataAndReportingService;
     private final ReportingProcessServiceProvider reportingProcessServiceProvider;
+    private final AnalyticalReportingService analyticalReportingService;
 
     @GET
     @Path("/availableExports/{reportName}")
@@ -142,5 +145,18 @@ public class RunreportsApiResource {
                 throw new NoAuthorizationException("Not authorised to run report: " + reportName);
             }
         }
+    }
+
+    @GET
+    @Path("/analyticsReport")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Return all available export types for the specific report", description = "Returns the list of all available export types.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "", content = @Content(array = @ArraySchema(schema = @Schema(implementation = FineractAnalyticalDetails.class)))) })
+
+    public Response getAnalyticalDetails() {
+        FineractAnalyticalDetails analyticalDetails = this.analyticalReportingService.getAnalyticalDetails();
+        return Response.ok().entity(analyticalDetails).build();
     }
 }
