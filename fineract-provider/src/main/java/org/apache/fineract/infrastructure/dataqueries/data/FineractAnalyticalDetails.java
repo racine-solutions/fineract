@@ -65,4 +65,28 @@ public class FineractAnalyticalDetails {
     private double averageOverdueDays;
     private long maxOverdueDays;
     private Map<String, Long> overdueLoansByRiskLevel;
+
+    // Client stats
+    private long newClientsThisMonth;
+    private long newClientsThisQuarter;
+    private long newClientsLast7Days;
+    private long newClientsLast30Days;
+    private long newClientsLast90Days;
+    private BigDecimal clientGrowthRateLast30Days;
+    private BigDecimal clientGrowthRate;
+    private Map<String, Long> clientsByGender;
+    private Map<String, Long> clientsByAgeGroup;
+    private long clientsWithActiveLoan;
+    private long clientsWithActiveSavingsAccount;
+    private long clientsWithBothLoanAndSavings;
+
+    // Today's stats
+    private long loansActivatedTodayCount;
+    private BigDecimal loansActivatedTodayAmount;
+    private long savingsActivatedTodayCount;
+    private BigDecimal savingsActivatedTodayAmount;
+
+    // Product stats
+    private Map<String, Long> activeLoansByProduct;
+    private Map<String, Long> activeSavingsByProduct;
 }
