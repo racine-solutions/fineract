@@ -187,11 +187,15 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
             return details;
         });
 
-        final String genderSql = "SELECT cv.code_value, COUNT(c.id) as count FROM m_client c JOIN m_code_value cv ON c.gender_cv_id = cv.id GROUP BY c.gender_cv_id";
+        final String genderSql = "SELECT cv.code_value, COUNT(c.id) as count FROM m_client c LEFT JOIN m_code_value cv ON c.gender_cv_id = cv.id GROUP BY c.gender_cv_id";
         final Map<String, Long> clientsByGender = new HashMap<>();
         jdbcTemplate.query(genderSql, (rs) -> {
             while (rs.next()) {
-                clientsByGender.put(rs.getString("code_value"), rs.getLong("count"));
+                String gender = rs.getString("code_value");
+                if (gender == null) {
+                    gender = "N/A";
+                }
+                clientsByGender.put(gender, rs.getLong("count"));
             }
             return clientsByGender;
         });
@@ -203,7 +207,8 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
                 "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 26 AND 35 THEN 1 ELSE 0 END) as '26-35', " +
                 "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 36 AND 45 THEN 1 ELSE 0 END) as '36-45', " +
                 "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 46 AND 55 THEN 1 ELSE 0 END) as '46-55', " +
-                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 > 55 THEN 1 ELSE 0 END) as '>55' " +
+                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 > 55 THEN 1 ELSE 0 END) as '>55', " +
+                "SUM(CASE WHEN c.date_of_birth IS NULL THEN 1 ELSE 0 END) as 'N/A' " +
                 "FROM m_client c";
         final Map<String, Long> clientsByAgeGroup = new HashMap<>();
         jdbcTemplate.query(ageSql, (rs) -> {
@@ -214,6 +219,7 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
                 clientsByAgeGroup.put("36-45", rs.getLong("36-45"));
                 clientsByAgeGroup.put("46-55", rs.getLong("46-55"));
                 clientsByAgeGroup.put(">55", rs.getLong(">55"));
+                clientsByAgeGroup.put("N/A", rs.getLong("N/A"));
             }
             return clientsByAgeGroup;
         });
