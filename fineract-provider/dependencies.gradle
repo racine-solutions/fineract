@@ -114,7 +114,7 @@ dependencies {
     implementation 'org.apache.tika:tika-core:2.7.0'
     implementation 'org.apache.tika:tika-parser-microsoft-module:2.7.0'
     implementation 'org.apache.tika:tika-parser-miscoffice-module:2.7.0'
-    implementation 'org.apache.commons:commons-compress:1.23.0'
+
     implementation 'software.amazon.msk:aws-msk-iam-auth'
 
     implementation 'io.swagger.core.v3:swagger-jaxrs2-jakarta'
