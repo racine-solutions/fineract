@@ -38,10 +38,10 @@ RUN wget -q https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.23/mys
 
 FROM azul/zulu-openjdk:17 as fineract
 
-# RUN apk add --no-cache fontconfig ttf-dejavu
+# RUN apk add --no-cache fontconfig
 COPY --from=builder /fineract/fineract-report/pentahoReports/*.properties /root/.mifosx/pentahoReports/
 COPY --from=builder /fineract/fineract-report/pentahoReports/*.prpt /root/.mifosx/pentahoReports/
-COPY --from=builder /fineract/fineract-report/pentahoReports/fonts/*.ttf /root/.mifosx/fonts/
+COPY --from=builder /fineract/fineract-report/pentahoReports/fonts/*.ttf /usr/local/share/fonts/
 COPY --from=builder /fineract/fineract-provider/build/libs/ /app
 COPY --from=builder /app/libs /app/libs
 
@@ -79,4 +79,4 @@ ENV FINERACT_DEFAULT_TENANTDB_DESCRIPTION="Showroom "
 ENV FINERACT_SERVER_SSL_ENABLED="true"
 ENV FINERACT_SERVER_PORT="8443"
 
-ENTRYPOINT ["java", "-Djava.awt.headless=true", "-Dloader.path=/app/libs/", "-jar", "/app/fineract-provider.jar"]
+ENTRYPOINT ["java", "-Dloader.path=/app/libs/", "-jar", "/app/fineract-provider.jar"]

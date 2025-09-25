@@ -42,7 +42,11 @@ import org.apache.fineract.infrastructure.core.service.database.DatabasePassword
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.annotation.ReportService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
-import org.pentaho.reporting.engine.classic.core.*;
+import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
+import org.pentaho.reporting.engine.classic.core.CompoundDataFactory;
+import org.pentaho.reporting.engine.classic.core.DataFactory;
+import org.pentaho.reporting.engine.classic.core.DefaultReportEnvironment;
+import org.pentaho.reporting.engine.classic.core.MasterReport;
 import org.pentaho.reporting.engine.classic.core.modules.misc.datafactory.sql.DriverConnectionProvider;
 import org.pentaho.reporting.engine.classic.core.modules.misc.datafactory.sql.SQLReportDataFactory;
 import org.pentaho.reporting.engine.classic.core.modules.output.pageable.pdf.PdfReportUtil;
@@ -71,10 +75,8 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
     private final PlatformSecurityContext context;
     private final DataSource tenantDataSource;
-
     @Value("${FINERACT_PENTAHO_REPORTS_PATH:./fineract-report/pentahoReports}")
     private String fineractPentahoBaseDir;
-
     @Autowired
     FineractProperties fineractProperties;
 
@@ -86,7 +88,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
     @Autowired
     public PentahoReportingProcessServiceImpl(final PlatformSecurityContext context,
-            final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource, DatabasePasswordEncryptor databasePasswordEncryptor) {
+                                              final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource, DatabasePasswordEncryptor databasePasswordEncryptor) {
         ClassicEngineBoot.getInstance().start();
         this.tenantDataSource = tenantDataSource;
         this.context = context;
@@ -280,7 +282,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
                         logger.debug("ParamValue: {}", pValue.toString());
                         String myDate = pValue.toString();
                         SimpleDateFormat sdf = new SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH);
-                        Date date = sdf.parse(myDate);
+                        java.util.Date date = sdf.parse(myDate);
                         long millis = date.getTime();
                         java.sql.Date mySQLDate = new java.sql.Date(millis);
                         rptParamValues.put(paramName, mySQLDate);
