@@ -38,7 +38,7 @@ RUN wget -q https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.23/mys
 
 FROM azul/zulu-openjdk:17 as fineract
 
-RUN apk add --no-cache fontconfig ttf-dejavu
+# RUN apk add --no-cache fontconfig ttf-dejavu
 COPY --from=builder /fineract/fineract-report/pentahoReports/*.properties /root/.mifosx/pentahoReports/
 COPY --from=builder /fineract/fineract-report/pentahoReports/*.prpt /root/.mifosx/pentahoReports/
 COPY --from=builder /fineract/fineract-report/pentahoReports/fonts/*.ttf /root/.mifosx/fonts/
