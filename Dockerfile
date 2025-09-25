@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-FROM azul/zulu-openjdk:17 AS builder
+FROM azul/zulu-openjdk-alpine:17 AS builder
 
 RUN apk update && apk add wget
 
