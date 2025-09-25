@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-FROM azul/zulu-openjdk-alpine:17 AS builder
+FROM azul/zulu-openjdk:17 AS builder
 
 RUN apk update && apk add wget
 
@@ -36,7 +36,7 @@ WORKDIR /app/libs
 RUN wget -q https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.23/mysql-connector-java-8.0.23.jar
 # =========================================
 
-FROM azul/zulu-openjdk-alpine:17 as fineract
+FROM azul/zulu-openjdk:17 as fineract
 
 RUN apk add --no-cache fontconfig ttf-dejavu
 COPY --from=builder /fineract/fineract-report/pentahoReports/*.properties /root/.mifosx/pentahoReports/
