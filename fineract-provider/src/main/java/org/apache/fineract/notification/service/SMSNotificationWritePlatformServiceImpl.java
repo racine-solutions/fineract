@@ -125,28 +125,21 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
             Request request = new Request.Builder().url(url).post(formBody).build();
 
-            List<Throwable> exceptions = new ArrayList<>();
-            String resObject = null;
             try {
                 response = client.newCall(request).execute();
-                resObject = response.body().string();
+                String resObject = response.body().string();
 
                 if (response.isSuccessful()) {
-
                     log.info("Sms Message Response :=>" + resObject);
-
                 } else {
                     log.error("Failed to deliver sms message notification :" + resObject);
-
                     handleAPIIntegrityIssues(resObject);
-
                 }
             } catch (Exception e) {
                 log.error("Posting sms notification has failed " + e);
-                exceptions.add(e);
             }
             assert response != null;
-            cacheSmsNotification(messageData, smsType, response.isSuccessful(), resObject);
+            cacheSmsNotification(messageData, smsType, response.isSuccessful(), response.body().string());
 
         } else {
             log.info("** SMS Notification is disabled for this Tenant :-> " + ThreadLocalContextUtil.getTenant().getName());

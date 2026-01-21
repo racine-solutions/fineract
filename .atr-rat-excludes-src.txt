@@ -52,5 +52,6 @@
 org.springframework.boot.autoconfigure.AutoConfiguration.imports
 **/*.properties
 **/*.PROPERTIES
+/fineract-report/pentahoReports/classic-engine.properties
 
 # vim:ft=conf
