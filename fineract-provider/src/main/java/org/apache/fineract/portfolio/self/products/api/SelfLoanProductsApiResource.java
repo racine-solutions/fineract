@@ -33,6 +33,8 @@ import lombok.RequiredArgsConstructor;
 import org.apache.fineract.portfolio.loanaccount.api.LoanApiConstants;
 import org.apache.fineract.portfolio.loanproduct.api.LoanProductsApiResource;
 import org.apache.fineract.portfolio.self.client.service.AppuserClientMapperReadService;
+import org.apache.fineract.portfolio.self.config.SelfServiceModuleIsEnabledCondition;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
 
 @Path("/v1/self/loanproducts")
@@ -61,7 +63,7 @@ import org.springframework.stereotype.Component;
         + "Example Values: 0=Equal principle payments, 1=Equal installments\n" + "interestType\n"
         + "Used like: interestRatePerPeriod% interestRateFrequencyType - interestType\n" + "e.g. 12.0000% Per year - Declining Balance \n"
         + "Example Values: 0=Declining Balance, 1=Flat\n" + "interestCalculationPeriodType\n"
-        + "Example Values: 0=Daily, 1=Same as repayment period\n" + "allowPartialPeriodInterestCalcualtion\n"
+        + "Example Values: 0=Daily, 1=Same as repayment period\n" + "allowPartialPeriodInterestCalculation\n"
         + "This value will be supported along with interestCalculationPeriodType as Same as repayment period to calculate interest for partial periods. Example: Interest charged from is 5th of April , Principal is 10000 and interest is 1% per month then the interest will be (10000 * 1%)* (25/30) , it calculates for the month first then calculates exact periods between start date and end date(can be a decimal)\n"
         + "inArrearsTolerance\n" + "The amount that can be 'waived' at end of all loan payments because it is too small to worry about.\n"
         + "This is also the tolerance amount assessed when determining if a loan is in arrears.\n"
@@ -114,6 +116,7 @@ import org.springframework.stereotype.Component;
         + "If Specified as true, arrears will be identified based on original schedule.\n" + "allowAttributeOverrides\n"
         + "Specifies if select attributes may be overridden for individual loan accounts.")
 @RequiredArgsConstructor
+@Conditional(SelfServiceModuleIsEnabledCondition.class)
 public class SelfLoanProductsApiResource {
 
     private final LoanProductsApiResource loanProductsApiResource;

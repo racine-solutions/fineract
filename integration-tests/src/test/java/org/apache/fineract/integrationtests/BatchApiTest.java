@@ -18,7 +18,6 @@
  */
 package org.apache.fineract.integrationtests;
 
-import static java.lang.Integer.parseInt;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,8 +40,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.fineract.batch.command.internal.AdjustLoanTransactionCommandStrategy;
 import org.apache.fineract.batch.command.internal.CreateTransactionLoanCommandStrategy;
 import org.apache.fineract.batch.command.internal.GetDatatableEntryByAppTableIdAndDataTableIdCommandStrategy;
@@ -414,7 +413,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
                 .withInterestTypeAsDecliningBalance() //
                 .currencyDetails("0", "100").build(null);
 
-        final Long applyLoanRequestId = Long.valueOf(RandomStringUtils.randomNumeric(4));
+        final Long applyLoanRequestId = ThreadLocalRandom.current().nextLong(1000, 10_000);
         final Long approveLoanRequestId = applyLoanRequestId + 1;
         final Long disburseLoanRequestId = approveLoanRequestId + 1;
         final Long createChargeRequestId = disburseLoanRequestId + 1;
@@ -475,7 +474,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
                 .withInterestTypeAsDecliningBalance() //
                 .currencyDetails("0", "100").build(null);
 
-        final Long applyLoanRequestId = Long.valueOf(RandomStringUtils.randomNumeric(4));
+        final Long applyLoanRequestId = ThreadLocalRandom.current().nextLong(1000, 10_000);
         final Long approveLoanRequestId = applyLoanRequestId + 1;
         final Long disburseLoanRequestId = approveLoanRequestId + 1;
         final Long createChargeRequestId = disburseLoanRequestId + 1;
@@ -1672,7 +1671,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
         final Integer productId = new LoanTransactionHelper(this.requestSpec, this.responseSpec).getLoanProductId(loanProductJSON);
 
         final LocalDate date = LocalDate.now(Utils.getZoneIdOfTenant());
-        final Long applyLoanRequestId = Long.valueOf(RandomStringUtils.randomNumeric(4));
+        final Long applyLoanRequestId = ThreadLocalRandom.current().nextLong(1000, 10_000);
         final Long approveLoanRequestId = applyLoanRequestId + 1;
         final Long disburseLoanRequestId = approveLoanRequestId + 1;
         final Long getLoanBeforeTxnRequestId = disburseLoanRequestId + 1;
@@ -2276,7 +2275,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
                 .withInterestTypeAsDecliningBalance() //
                 .currencyDetails("0", "100").build(null);
 
-        final Long applyLoanRequestId = RandomUtils.nextLong(100, 1000);
+        final Long applyLoanRequestId = ThreadLocalRandom.current().nextLong(100, 1000);
         final Long approveLoanRequestId = applyLoanRequestId + 1;
         final Long disburseLoanRequestId = approveLoanRequestId + 1;
         final Long updateLoanRequestId = disburseLoanRequestId + 1;
@@ -2333,7 +2332,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
                 .withInterestTypeAsDecliningBalance() //
                 .currencyDetails("0", "100").build(null);
 
-        final Long applyLoanRequestId = RandomUtils.nextLong(100, 1000);
+        final long applyLoanRequestId = ThreadLocalRandom.current().nextLong(100, 1000);
         final Long approveLoanRequestId = applyLoanRequestId + 1;
         final Long disburseLoanRequestId = approveLoanRequestId + 1;
         final Long updateLoanRequestId = disburseLoanRequestId + 1;
@@ -2400,7 +2399,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
                 .withInterestTypeAsDecliningBalance() //
                 .currencyDetails("0", "100").build(null);
 
-        final Long applyLoanRequestId = RandomUtils.nextLong(100, 1000);
+        final long applyLoanRequestId = ThreadLocalRandom.current().nextLong(100, 1000);
         final Long approveLoanRequestId = applyLoanRequestId + 1;
         final Long disburseLoanRequestId = approveLoanRequestId + 1;
         final Long getLoanRequestId = disburseLoanRequestId + 1;
@@ -2459,7 +2458,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
         ResponseSpecification conflictResponseSpec = new ResponseSpecBuilder().expectStatusCode(409).build();
         ErrorResponse errorResponse = BatchHelper.postBatchRequestsWithoutEnclosingTransactionError(requestSpec, conflictResponseSpec,
                 jsonifiedRepaymentRequest);
-        assertEquals(409, parseInt(errorResponse.getHttpStatusCode()));
+        assertEquals(409, errorResponse.getHttpStatusCode());
     }
 
     /**
@@ -2482,7 +2481,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
                 .withInterestTypeAsDecliningBalance() //
                 .currencyDetails("0", "100").build(null);
 
-        final Long applyLoanRequestId = RandomUtils.nextLong(100, 1000);
+        final Long applyLoanRequestId = ThreadLocalRandom.current().nextLong(100, 1000);
         final Long approveLoanRequestId = applyLoanRequestId + 1;
         final Long disburseLoanRequestId = approveLoanRequestId + 1;
         final Long getLoanRequestId = disburseLoanRequestId + 1;
@@ -2541,7 +2540,7 @@ public class BatchApiTest extends BaseLoanIntegrationTest {
         ResponseSpecification conflictResponseSpec = new ResponseSpecBuilder().expectStatusCode(409).build();
         ErrorResponse errorResponse = BatchHelper.postBatchRequestsWithoutEnclosingTransactionError(requestSpec, conflictResponseSpec,
                 jsonifiedRepaymentRequest);
-        assertEquals(409, parseInt(errorResponse.getHttpStatusCode()));
+        assertEquals(409, errorResponse.getHttpStatusCode());
     }
 
     @Test

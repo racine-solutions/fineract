@@ -24,8 +24,8 @@ import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.fineract.client.models.ChargeRequest;
 import org.apache.fineract.client.models.GetLoansLoanIdResponse;
-import org.apache.fineract.client.models.PostChargesRequest;
 import org.apache.fineract.client.models.PostChargesResponse;
 import org.apache.fineract.client.models.PostClientsResponse;
 import org.apache.fineract.client.models.PostLoanProductsResponse;
@@ -63,9 +63,9 @@ public class AccrualsOnLoanClosureTest extends BaseLoanIntegrationTest {
         Assertions.assertNotNull(loanId);
         disburseLoan(loanId, BigDecimal.valueOf(disbursementAmount), disbursementDate);
 
-        penaltyResponse = chargesHelper.createCharges(new PostChargesRequest().active(true).chargeTimeType(2).chargeAppliesTo(1)
-                .chargeCalculationType(1).penalty(true).amount(20.0).currencyCode("USD").locale("en").chargePaymentMode(0)
-                .name(Utils.randomStringGenerator("PENALTY_", 6)));
+        penaltyResponse = chargesHelper.createCharges(
+                new ChargeRequest().active(true).chargeTimeType(2).chargeAppliesTo(1).chargeCalculationType(1).penalty(true).amount(20.0)
+                        .currencyCode("USD").locale("en").chargePaymentMode(0).name(Utils.randomStringGenerator("PENALTY_", 6)));
         runAt(startDate, () -> {
             globalConfigurationHelper.updateGlobalConfiguration(CHARGE_ACCRUAL_DATE,
                     new PutGlobalConfigurationsRequest().stringValue("submitted-date"));
@@ -86,6 +86,9 @@ public class AccrualsOnLoanClosureTest extends BaseLoanIntegrationTest {
                     transaction(800.0, "Disbursement", "22 April 2024", 800.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
                     transaction(820.0, "Repayment", "25 April 2024", 0.0, 800.0, 0.0, 0.0, 20.0, 0.0, 0.0),
                     transaction(20.0, "Accrual", "25 April 2024", 0.0, 0.0, 0.0, 0.0, 20.0, 0.0, 0.0));
+
+            globalConfigurationHelper.updateGlobalConfiguration(CHARGE_ACCRUAL_DATE,
+                    new PutGlobalConfigurationsRequest().stringValue("due-date"));
         });
     }
 }

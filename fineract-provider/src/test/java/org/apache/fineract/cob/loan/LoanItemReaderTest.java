@@ -32,8 +32,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.fineract.cob.common.CustomJobParameterResolver;
-import org.apache.fineract.cob.data.LoanCOBParameter;
+import java.util.stream.Stream;
+import org.apache.fineract.cob.data.COBParameter;
 import org.apache.fineract.cob.domain.LoanAccountLock;
 import org.apache.fineract.cob.domain.LockOwner;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
@@ -47,6 +47,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.item.ExecutionContext;
 
@@ -60,13 +61,12 @@ class LoanItemReaderTest {
     private RetrieveLoanIdService retrieveLoanIdService;
 
     @Mock
-    private CustomJobParameterResolver customJobParameterResolver;
-
-    @Mock
     private LoanLockingService loanLockingService;
 
     @Mock
     private StepExecution stepExecution;
+    @Mock
+    private JobExecution jobExecution;
 
     @Mock
     private ExecutionContext executionContext;
@@ -83,14 +83,15 @@ class LoanItemReaderTest {
     public void testLoanItemReaderSimple() throws Exception {
         // given
         ThreadLocalContextUtil.setTenant(new FineractPlatformTenant(1L, "test", "test", "UTC", null));
-        LoanItemReader loanItemReader = new LoanItemReader(loanRepository, retrieveLoanIdService, customJobParameterResolver,
-                loanLockingService);
+        LoanItemReader loanItemReader = new LoanItemReader(loanRepository, retrieveLoanIdService, loanLockingService);
         when(stepExecution.getExecutionContext()).thenReturn(executionContext);
-        LoanCOBParameter loanCOBParameter = new LoanCOBParameter(1L, 5L);
+        when(stepExecution.getJobExecution()).thenReturn(jobExecution);
+        when(jobExecution.getExecutionContext()).thenReturn(executionContext);
+        COBParameter loanCOBParameter = new COBParameter(1L, 5L);
         when(executionContext.get(LoanCOBConstant.LOAN_COB_PARAMETER)).thenReturn(loanCOBParameter);
         when(retrieveLoanIdService.retrieveAllNonClosedLoansByLastClosedBusinessDateAndMinAndMaxLoanId(loanCOBParameter, false))
                 .thenReturn(new ArrayList<>(List.of(1L, 2L, 3L, 4L, 5L)));
-        List<LoanAccountLock> accountLocks = List.of(1L, 2L, 3L, 4L, 5L).stream()
+        List<LoanAccountLock> accountLocks = Stream.of(1L, 2L, 3L, 4L, 5L)
                 .map(l -> new LoanAccountLock(l, LockOwner.LOAN_COB_CHUNK_PROCESSING, LocalDate.of(2023, 7, 25))).toList();
         when(loanLockingService.findAllByLoanIdInAndLockOwner(List.of(1L, 2L, 3L, 4L, 5L), LockOwner.LOAN_COB_CHUNK_PROCESSING))
                 .thenReturn(accountLocks);
@@ -111,10 +112,11 @@ class LoanItemReaderTest {
     public void testLoanItemReadNoOpenLoansFound() throws Exception {
         // given
         ThreadLocalContextUtil.setTenant(new FineractPlatformTenant(1L, "test", "test", "UTC", null));
-        LoanItemReader loanItemReader = new LoanItemReader(loanRepository, retrieveLoanIdService, customJobParameterResolver,
-                loanLockingService);
+        LoanItemReader loanItemReader = new LoanItemReader(loanRepository, retrieveLoanIdService, loanLockingService);
         when(stepExecution.getExecutionContext()).thenReturn(executionContext);
-        LoanCOBParameter loanCOBParameter = new LoanCOBParameter(1L, 5L);
+        when(stepExecution.getJobExecution()).thenReturn(jobExecution);
+        when(jobExecution.getExecutionContext()).thenReturn(executionContext);
+        COBParameter loanCOBParameter = new COBParameter(1L, 5L);
         when(executionContext.get(LoanCOBConstant.LOAN_COB_PARAMETER)).thenReturn(loanCOBParameter);
         when(retrieveLoanIdService.retrieveAllNonClosedLoansByLastClosedBusinessDateAndMinAndMaxLoanId(loanCOBParameter, false))
                 .thenReturn(new ArrayList<>(List.of()));
@@ -132,10 +134,11 @@ class LoanItemReaderTest {
     public void testLoanItemReaderMultiThreadRead() throws Exception {
         // given
         ThreadLocalContextUtil.setTenant(new FineractPlatformTenant(1L, "test", "test", "UTC", null));
-        LoanItemReader loanItemReader = new LoanItemReader(loanRepository, retrieveLoanIdService, customJobParameterResolver,
-                loanLockingService);
+        LoanItemReader loanItemReader = new LoanItemReader(loanRepository, retrieveLoanIdService, loanLockingService);
         when(stepExecution.getExecutionContext()).thenReturn(executionContext);
-        LoanCOBParameter loanCOBParameter = new LoanCOBParameter(1L, 100L);
+        when(stepExecution.getJobExecution()).thenReturn(jobExecution);
+        when(jobExecution.getExecutionContext()).thenReturn(executionContext);
+        COBParameter loanCOBParameter = new COBParameter(1L, 100L);
         when(executionContext.get(LoanCOBConstant.LOAN_COB_PARAMETER)).thenReturn(loanCOBParameter);
         when(retrieveLoanIdService.retrieveAllNonClosedLoansByLastClosedBusinessDateAndMinAndMaxLoanId(loanCOBParameter, false))
                 .thenReturn(new ArrayList<>(IntStream.rangeClosed(1, 100).boxed().map(Long::valueOf).toList()));
