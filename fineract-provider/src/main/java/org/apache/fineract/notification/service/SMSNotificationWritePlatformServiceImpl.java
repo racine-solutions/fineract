@@ -20,6 +20,8 @@ package org.apache.fineract.notification.service;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import java.io.IOException;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -139,7 +141,11 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
                 log.error("Posting sms notification has failed " + e);
             }
             assert response != null;
-            cacheSmsNotification(messageData, smsType, response.isSuccessful(), response.body().string());
+            try {
+                cacheSmsNotification(messageData, smsType, response.isSuccessful(), response.body().string());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
 
         } else {
             log.info("** SMS Notification is disabled for this Tenant :-> " + ThreadLocalContextUtil.getTenant().getName());
