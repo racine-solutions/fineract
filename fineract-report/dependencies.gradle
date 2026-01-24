@@ -54,6 +54,7 @@ dependencies {
             fileTree('thirdparty') {
                 include '*.jar'
             },
+            'com.lowagie:itext:2.1.7'
             )
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
