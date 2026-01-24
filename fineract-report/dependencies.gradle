@@ -51,6 +51,7 @@ dependencies {
             'org.apache.httpcomponents:httpcore',
             'org.codehaus.groovy:groovy-all:3.0.9',
             'org.apache.commons:commons-compress:1.26.2',
+            'com.lowagie:itext:2.1.7',
             fileTree('thirdparty') {
                 include '*.jar'
             },
