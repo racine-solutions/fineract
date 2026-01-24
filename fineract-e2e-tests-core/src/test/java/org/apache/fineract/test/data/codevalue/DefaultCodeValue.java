@@ -21,7 +21,12 @@ package org.apache.fineract.test.data.codevalue;
 public enum DefaultCodeValue implements CodeValue {
 
     // Charge-off reason
-    FRAUD("Fraud"), DELINQUENT("Delinquent"), OTHER("Other");
+    FRAUD("Fraud"), //
+    DELINQUENT("Delinquent"), //
+    OTHER("Other"), //
+    BAD_DEBT("Bad Debt"), //
+    FORGIVEN("Forgiven"), //
+    TEST("Test"); //
 
     private final String customName;
 

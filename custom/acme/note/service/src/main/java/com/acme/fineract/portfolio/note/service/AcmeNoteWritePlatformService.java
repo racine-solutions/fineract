@@ -43,6 +43,11 @@ public class AcmeNoteWritePlatformService implements NoteWritePlatformService, I
     }
 
     @Override
+    public void createLoanTransactionNote(Long loanTransactionId, String note) {
+        throw new UnsupportedOperationException("createLoanTransactionNote() is not yet implemented.");
+    }
+
+    @Override
     public CommandProcessingResult updateNote(JsonCommand command) {
         throw new UnsupportedOperationException("updateNote() is not yet implemented.");
     }

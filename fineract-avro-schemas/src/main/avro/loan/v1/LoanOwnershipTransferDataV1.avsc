@@ -57,6 +57,14 @@
         },
         {
             "default": null,
+            "name": "previousOwnerExternalId",
+            "type": [
+                "null",
+                "string"
+            ]
+        },
+        {
+            "default": null,
             "name": "currency",
             "type": [
                 "null",
@@ -160,6 +168,17 @@
             "type": [
                 "null",
                 "string"
+            ]
+        },
+        {
+            "default": null,
+            "name": "customData",
+            "type": [
+                "null",
+                {
+                    "values": "bytes",
+                    "type": "map"
+                }
             ]
         }
     ]

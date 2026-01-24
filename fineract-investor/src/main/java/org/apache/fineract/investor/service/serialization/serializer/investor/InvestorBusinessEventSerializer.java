@@ -39,7 +39,8 @@ import org.apache.fineract.avro.generic.v1.CurrencyDataV1;
 import org.apache.fineract.avro.loan.v1.LoanOwnershipTransferDataV1;
 import org.apache.fineract.avro.loan.v1.UnpaidChargeDataV1;
 import org.apache.fineract.infrastructure.event.business.domain.BusinessEvent;
-import org.apache.fineract.infrastructure.event.external.service.serialization.serializer.BusinessEventSerializer;
+import org.apache.fineract.infrastructure.event.external.service.serialization.serializer.AbstractBusinessEventWithCustomDataSerializer;
+import org.apache.fineract.infrastructure.event.external.service.serialization.serializer.ExternalEventCustomDataSerializer;
 import org.apache.fineract.investor.data.ExternalTransferData;
 import org.apache.fineract.investor.data.ExternalTransferStatus;
 import org.apache.fineract.investor.data.ExternalTransferSubStatus;
@@ -47,23 +48,23 @@ import org.apache.fineract.investor.domain.InvestorBusinessEvent;
 import org.apache.fineract.investor.service.ExternalAssetOwnersReadService;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
-import org.jetbrains.annotations.NotNull;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class InvestorBusinessEventSerializer implements BusinessEventSerializer {
+public class InvestorBusinessEventSerializer extends AbstractBusinessEventWithCustomDataSerializer<InvestorBusinessEvent> {
 
     private static final Set<ExternalTransferStatus> EXECUTED_TRANSFER_STATUSES = Set.of(ACTIVE, ACTIVE_INTERMEDIATE, BUYBACK,
             BUYBACK_INTERMEDIATE);
 
     private final ExternalAssetOwnersReadService externalAssetOwnersReadService;
+    private final List<ExternalEventCustomDataSerializer<InvestorBusinessEvent>> externalEventCustomDataSerializers;
 
     private static CurrencyDataV1 getCurrencyFromEvent(InvestorBusinessEvent event) {
         MonetaryCurrency loanCurrency = event.getLoan().getCurrency();
-        CurrencyDataV1 currency = CurrencyDataV1.newBuilder().setCode(loanCurrency.getCode())
-                .setDecimalPlaces(loanCurrency.getDigitsAfterDecimal()).setInMultiplesOf(loanCurrency.getCurrencyInMultiplesOf()).build();
-        return currency;
+        return CurrencyDataV1.newBuilder().setCode(loanCurrency.getCode()).setDecimalPlaces(loanCurrency.getDigitsAfterDecimal())
+                .setInMultiplesOf(loanCurrency.getInMultiplesOf()).build();
     }
 
     @Override
@@ -74,6 +75,11 @@ public class InvestorBusinessEventSerializer implements BusinessEventSerializer 
     @Override
     public Class<? extends GenericContainer> getSupportedSchema() {
         return LoanOwnershipTransferDataV1.class;
+    }
+
+    @Override
+    protected List<ExternalEventCustomDataSerializer<InvestorBusinessEvent>> getExternalEventCustomDataSerializers() {
+        return externalEventCustomDataSerializers;
     }
 
     @Override
@@ -90,12 +96,14 @@ public class InvestorBusinessEventSerializer implements BusinessEventSerializer 
         LoanOwnershipTransferDataV1.Builder builder = LoanOwnershipTransferDataV1.newBuilder().setLoanId(transferData.getLoan().getLoanId())
                 .setLoanExternalId(transferData.getLoan().getExternalId()).setTransferExternalId(transferData.getTransferExternalId())
                 .setAssetOwnerExternalId(transferData.getOwner().getExternalId())
+                .setPreviousOwnerExternalId(
+                        transferData.getPreviousOwner() != null ? transferData.getPreviousOwner().getExternalId() : null)
                 .setTransferExternalGroupId(transferData.getTransferExternalGroupId())
                 .setPurchasePriceRatio(transferData.getPurchasePriceRatio()).setCurrency(getCurrencyFromEvent(event))
                 .setSettlementDate(transferData.getSettlementDate().format(DEFAULT_DATE_FORMATTER))
                 .setSubmittedDate(transferData.getSettlementDate().format(DEFAULT_DATE_FORMATTER)).setType(transferType)
                 .setTransferStatus(getStatus(transferData.getStatus()))
-                .setTransferStatusReason(getTransferStatusReason(transferData.getSubStatus()));
+                .setTransferStatusReason(getTransferStatusReason(transferData.getSubStatus())).setCustomData(collectCustomData(event));
 
         if (transferData.getDetails() != null) {
             builder.setTotalOutstandingBalanceAmount(transferData.getDetails().getTotalOutstanding())
@@ -109,7 +117,7 @@ public class InvestorBusinessEventSerializer implements BusinessEventSerializer 
         return builder.build();
     }
 
-    @NotNull
+    @NonNull
     private static String getType(ExternalTransferStatus transferStatus) {
         if (transferStatus == BUYBACK || transferStatus == BUYBACK_INTERMEDIATE) {
             return "BUYBACK";

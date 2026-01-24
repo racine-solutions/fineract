@@ -34,97 +34,79 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
     @Override
     public FineractAnalyticalDetails getAnalyticalDetails() {
         final FineractAnalyticalDetails details = new FineractAnalyticalDetails();
-        final String sql = "SELECT " +
-                "loan_stats.activeLoansCount, loan_stats.activeLoansAmount, " +
-                "loan_stats.pendingApprovalLoansCount, loan_stats.pendingApprovalLoansAmount, " +
-                "loan_stats.closedLoansCount, loan_stats.closedLoansAmount, " +
-                "loan_stats.rejectedLoansCount, loan_stats.rejectedLoansAmount, " +
-                "loan_stats.totalInterestExpected, loan_stats.totalInterestPaid, " +
-                "loan_stats.totalPenaltiesGenerated, loan_stats.totalPenaltiesPaid, loan_stats.totalPenaltiesWaived, " +
-                "client_stats.totalClients, client_stats.activeClients, client_stats.pendingClients, " +
-                "savings_stats.activeSavingsAccountsCount, savings_stats.activeSavingsAccountsAmount, " +
-                "savings_stats.pendingApprovalSavingsAccountsCount, savings_stats.pendingApprovalSavingsAccountsAmount, " +
-                "savings_stats.closedSavingsAccountsCount, savings_stats.closedSavingsAccountsAmount, " +
-                "savings_stats.rejectedSavingsAccountsCount, savings_stats.rejectedSavingsAccountsAmount, " +
-                "arrears_aging_stats.totalOverduePrincipal, arrears_aging_stats.totalOverdueInterest, " +
-                "arrears_aging_stats.totalOverdueFees, arrears_aging_stats.totalOverduePenalties, " +
-                "arrears_aging_stats.averageOverdueDays, arrears_aging_stats.maxOverdueDays, " +
-                "arrears_aging_stats.highRiskCount, arrears_aging_stats.mediumRiskCount, arrears_aging_stats.lowRiskCount, " +
-                "todays_stats.loansActivatedTodayCount, todays_stats.loansActivatedTodayAmount, " +
-                "todays_stats.savingsActivatedTodayCount, todays_stats.savingsActivatedTodayAmount, " +
-                "client_growth_stats.newClientsThisMonth, client_growth_stats.newClientsThisQuarter, " +
-                "client_growth_stats.newClientsLast7Days, client_growth_stats.newClientsLast30Days, client_growth_stats.newClientsLast90Days, " +
-                "client_growth_stats.clientGrowthRateLast30Days, " +
-                "client_activity_stats.clientsWithActiveLoan, client_activity_stats.clientsWithActiveSavingsAccount, client_activity_stats.clientsWithBothLoanAndSavings " +
-                "FROM (" +
-                "    SELECT " +
-                "        COUNT(CASE WHEN l.loan_status_id = 300 THEN 1 END) AS activeLoansCount, " +
-                "        SUM(CASE WHEN l.loan_status_id = 300 THEN l.principal_amount END) AS activeLoansAmount, " +
-                "        COUNT(CASE WHEN l.loan_status_id = 100 THEN 1 END) AS pendingApprovalLoansCount, " +
-                "        SUM(CASE WHEN l.loan_status_id = 100 THEN l.principal_amount END) AS pendingApprovalLoansAmount, " +
-                "        COUNT(CASE WHEN l.loan_status_id IN (600, 601, 602) THEN 1 END) AS closedLoansCount, " +
-                "        SUM(CASE WHEN l.loan_status_id IN (600, 601, 602) THEN l.principal_amount END) AS closedLoansAmount, " +
-                "        COUNT(CASE WHEN l.loan_status_id = 500 THEN 1 END) AS rejectedLoansCount, " +
-                "        SUM(CASE WHEN l.loan_status_id = 500 THEN l.principal_amount END) AS rejectedLoansAmount, " +
-                "        SUM(l.interest_charged_derived) AS totalInterestExpected, " +
-                "        SUM(l.interest_repaid_derived) AS totalInterestPaid, " +
-                "        SUM(l.penalty_charges_charged_derived) AS totalPenaltiesGenerated, " +
-                "        SUM(l.penalty_charges_repaid_derived) AS totalPenaltiesPaid, " +
-                "        SUM(l.penalty_charges_waived_derived) AS totalPenaltiesWaived " +
-                "    FROM m_loan l) AS loan_stats " +
-                "CROSS JOIN " +
-                "    (SELECT " +
-                "        COUNT(*) AS totalClients, " +
-                "        COUNT(CASE WHEN c.status_enum = 300 THEN 1 END) AS activeClients, " +
-                "        COUNT(CASE WHEN c.status_enum = 100 THEN 1 END) AS pendingClients " +
-                "    FROM m_client c) AS client_stats " +
-                "CROSS JOIN " +
-                "    (SELECT " +
-                "        COUNT(CASE WHEN s.status_enum = 300 THEN 1 END) AS activeSavingsAccountsCount, " +
-                "        SUM(CASE WHEN s.status_enum = 300 THEN s.account_balance_derived END) AS activeSavingsAccountsAmount, " +
-                "        COUNT(CASE WHEN s.status_enum = 100 THEN 1 END) AS pendingApprovalSavingsAccountsCount, " +
-                "        SUM(CASE WHEN s.status_enum = 100 THEN s.account_balance_derived END) AS pendingApprovalSavingsAccountsAmount, " +
-                "        COUNT(CASE WHEN s.status_enum = 600 THEN 1 END) AS closedSavingsAccountsCount, " +
-                "        SUM(CASE WHEN s.status_enum = 600 THEN s.account_balance_derived END) AS closedSavingsAccountsAmount, " +
-                "        COUNT(CASE WHEN s.status_enum = 500 THEN 1 END) AS rejectedSavingsAccountsCount, " +
-                "        SUM(CASE WHEN s.status_enum = 500 THEN s.account_balance_derived END) AS rejectedSavingsAccountsAmount " +
-                "    FROM m_savings_account s) AS savings_stats " +
-                "CROSS JOIN " +
-                "    (SELECT " +
-                "        SUM(laa.principal_overdue_derived) AS totalOverduePrincipal, " +
-                "        SUM(laa.interest_overdue_derived) AS totalOverdueInterest, " +
-                "        SUM(laa.fee_charges_overdue_derived) AS totalOverdueFees, " +
-                "        SUM(laa.penalty_charges_overdue_derived) AS totalOverduePenalties, " +
-                "        AVG(DATEDIFF(CURDATE(), laa.overdue_since_date_derived)) AS averageOverdueDays, " +
-                "        MAX(DATEDIFF(CURDATE(), laa.overdue_since_date_derived)) AS maxOverdueDays, " +
-                "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) > 90 THEN 1 END) AS highRiskCount, " +
-                "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) BETWEEN 31 AND 90 THEN 1 END) AS mediumRiskCount, " +
-                "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) BETWEEN 1 AND 30 THEN 1 END) AS lowRiskCount " +
-                "    FROM m_loan_arrears_aging laa) AS arrears_aging_stats " +
-                "CROSS JOIN " +
-                "    (SELECT " +
-                "        COUNT(CASE WHEN l.disbursedon_date = CURDATE() THEN 1 END) as loansActivatedTodayCount, " +
-                "        SUM(CASE WHEN l.disbursedon_date = CURDATE() THEN l.principal_amount END) as loansActivatedTodayAmount, " +
-                "        (SELECT COUNT(CASE WHEN s.activatedon_date = CURDATE() THEN 1 END) FROM m_savings_account s) as savingsActivatedTodayCount, " +
-                "        (SELECT SUM(CASE WHEN s.activatedon_date = CURDATE() THEN s.account_balance_derived END) FROM m_savings_account s) as savingsActivatedTodayAmount " +
-                "    FROM m_loan l) as todays_stats " +
-                "CROSS JOIN " +
-                "    (SELECT " +
-                "        COUNT(CASE WHEN c.submittedon_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 END) as newClientsThisMonth, " +
-                "        COUNT(CASE WHEN c.submittedon_date >= DATE_FORMAT(CURDATE(), '%Y-%q-01') THEN 1 END) as newClientsThisQuarter, " +
-                "        COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 7 DAY THEN 1 END) as newClientsLast7Days, " +
-                "        COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 30 DAY THEN 1 END) as newClientsLast30Days, " +
-                "        COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 90 DAY THEN 1 END) as newClientsLast90Days, " +
-                "        (COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 30 DAY THEN 1 END) - COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 60 DAY AND c.submittedon_date < CURDATE() - INTERVAL 30 DAY THEN 1 END)) / NULLIF(COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 60 DAY AND c.submittedon_date < CURDATE() - INTERVAL 30 DAY THEN 1 END), 0) * 100 as clientGrowthRateLast30Days " +
-                "    FROM m_client c) as client_growth_stats " +
-                "CROSS JOIN " +
-                "    (SELECT " +
-                "        COUNT(DISTINCT l.client_id) as clientsWithActiveLoan, " +
-                "        (SELECT COUNT(DISTINCT s.client_id) FROM m_savings_account s WHERE s.status_enum = 300) as clientsWithActiveSavingsAccount, " +
-                "        COUNT(DISTINCT CASE WHEN l.client_id IS NOT NULL AND s.client_id IS NOT NULL THEN l.client_id END) as clientsWithBothLoanAndSavings " +
-                "    FROM m_loan l " +
-                "    INNER JOIN m_savings_account s ON l.client_id = s.client_id " +
-                "    WHERE l.loan_status_id = 300 AND s.status_enum = 300) as client_activity_stats";
+        final String sql = "SELECT " + "loan_stats.activeLoansCount, loan_stats.activeLoansAmount, "
+                + "loan_stats.pendingApprovalLoansCount, loan_stats.pendingApprovalLoansAmount, "
+                + "loan_stats.closedLoansCount, loan_stats.closedLoansAmount, "
+                + "loan_stats.rejectedLoansCount, loan_stats.rejectedLoansAmount, "
+                + "loan_stats.totalInterestExpected, loan_stats.totalInterestPaid, "
+                + "loan_stats.totalPenaltiesGenerated, loan_stats.totalPenaltiesPaid, loan_stats.totalPenaltiesWaived, "
+                + "client_stats.totalClients, client_stats.activeClients, client_stats.pendingClients, "
+                + "savings_stats.activeSavingsAccountsCount, savings_stats.activeSavingsAccountsAmount, "
+                + "savings_stats.pendingApprovalSavingsAccountsCount, savings_stats.pendingApprovalSavingsAccountsAmount, "
+                + "savings_stats.closedSavingsAccountsCount, savings_stats.closedSavingsAccountsAmount, "
+                + "savings_stats.rejectedSavingsAccountsCount, savings_stats.rejectedSavingsAccountsAmount, "
+                + "arrears_aging_stats.totalOverduePrincipal, arrears_aging_stats.totalOverdueInterest, "
+                + "arrears_aging_stats.totalOverdueFees, arrears_aging_stats.totalOverduePenalties, "
+                + "arrears_aging_stats.averageOverdueDays, arrears_aging_stats.maxOverdueDays, "
+                + "arrears_aging_stats.highRiskCount, arrears_aging_stats.mediumRiskCount, arrears_aging_stats.lowRiskCount, "
+                + "todays_stats.loansActivatedTodayCount, todays_stats.loansActivatedTodayAmount, "
+                + "todays_stats.savingsActivatedTodayCount, todays_stats.savingsActivatedTodayAmount, "
+                + "client_growth_stats.newClientsThisMonth, client_growth_stats.newClientsThisQuarter, "
+                + "client_growth_stats.newClientsLast7Days, client_growth_stats.newClientsLast30Days, client_growth_stats.newClientsLast90Days, "
+                + "client_growth_stats.clientGrowthRateLast30Days, "
+                + "client_activity_stats.clientsWithActiveLoan, client_activity_stats.clientsWithActiveSavingsAccount, client_activity_stats.clientsWithBothLoanAndSavings "
+                + "FROM (" + "    SELECT " + "        COUNT(CASE WHEN l.loan_status_id = 300 THEN 1 END) AS activeLoansCount, "
+                + "        SUM(CASE WHEN l.loan_status_id = 300 THEN l.principal_amount END) AS activeLoansAmount, "
+                + "        COUNT(CASE WHEN l.loan_status_id = 100 THEN 1 END) AS pendingApprovalLoansCount, "
+                + "        SUM(CASE WHEN l.loan_status_id = 100 THEN l.principal_amount END) AS pendingApprovalLoansAmount, "
+                + "        COUNT(CASE WHEN l.loan_status_id IN (600, 601, 602) THEN 1 END) AS closedLoansCount, "
+                + "        SUM(CASE WHEN l.loan_status_id IN (600, 601, 602) THEN l.principal_amount END) AS closedLoansAmount, "
+                + "        COUNT(CASE WHEN l.loan_status_id = 500 THEN 1 END) AS rejectedLoansCount, "
+                + "        SUM(CASE WHEN l.loan_status_id = 500 THEN l.principal_amount END) AS rejectedLoansAmount, "
+                + "        SUM(l.interest_charged_derived) AS totalInterestExpected, "
+                + "        SUM(l.interest_repaid_derived) AS totalInterestPaid, "
+                + "        SUM(l.penalty_charges_charged_derived) AS totalPenaltiesGenerated, "
+                + "        SUM(l.penalty_charges_repaid_derived) AS totalPenaltiesPaid, "
+                + "        SUM(l.penalty_charges_waived_derived) AS totalPenaltiesWaived " + "    FROM m_loan l) AS loan_stats "
+                + "CROSS JOIN " + "    (SELECT " + "        COUNT(*) AS totalClients, "
+                + "        COUNT(CASE WHEN c.status_enum = 300 THEN 1 END) AS activeClients, "
+                + "        COUNT(CASE WHEN c.status_enum = 100 THEN 1 END) AS pendingClients " + "    FROM m_client c) AS client_stats "
+                + "CROSS JOIN " + "    (SELECT " + "        COUNT(CASE WHEN s.status_enum = 300 THEN 1 END) AS activeSavingsAccountsCount, "
+                + "        SUM(CASE WHEN s.status_enum = 300 THEN s.account_balance_derived END) AS activeSavingsAccountsAmount, "
+                + "        COUNT(CASE WHEN s.status_enum = 100 THEN 1 END) AS pendingApprovalSavingsAccountsCount, "
+                + "        SUM(CASE WHEN s.status_enum = 100 THEN s.account_balance_derived END) AS pendingApprovalSavingsAccountsAmount, "
+                + "        COUNT(CASE WHEN s.status_enum = 600 THEN 1 END) AS closedSavingsAccountsCount, "
+                + "        SUM(CASE WHEN s.status_enum = 600 THEN s.account_balance_derived END) AS closedSavingsAccountsAmount, "
+                + "        COUNT(CASE WHEN s.status_enum = 500 THEN 1 END) AS rejectedSavingsAccountsCount, "
+                + "        SUM(CASE WHEN s.status_enum = 500 THEN s.account_balance_derived END) AS rejectedSavingsAccountsAmount "
+                + "    FROM m_savings_account s) AS savings_stats " + "CROSS JOIN " + "    (SELECT "
+                + "        SUM(laa.principal_overdue_derived) AS totalOverduePrincipal, "
+                + "        SUM(laa.interest_overdue_derived) AS totalOverdueInterest, "
+                + "        SUM(laa.fee_charges_overdue_derived) AS totalOverdueFees, "
+                + "        SUM(laa.penalty_charges_overdue_derived) AS totalOverduePenalties, "
+                + "        AVG(DATEDIFF(CURDATE(), laa.overdue_since_date_derived)) AS averageOverdueDays, "
+                + "        MAX(DATEDIFF(CURDATE(), laa.overdue_since_date_derived)) AS maxOverdueDays, "
+                + "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) > 90 THEN 1 END) AS highRiskCount, "
+                + "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) BETWEEN 31 AND 90 THEN 1 END) AS mediumRiskCount, "
+                + "        COUNT(CASE WHEN DATEDIFF(CURDATE(), laa.overdue_since_date_derived) BETWEEN 1 AND 30 THEN 1 END) AS lowRiskCount "
+                + "    FROM m_loan_arrears_aging laa) AS arrears_aging_stats " + "CROSS JOIN " + "    (SELECT "
+                + "        COUNT(CASE WHEN l.disbursedon_date = CURDATE() THEN 1 END) as loansActivatedTodayCount, "
+                + "        SUM(CASE WHEN l.disbursedon_date = CURDATE() THEN l.principal_amount END) as loansActivatedTodayAmount, "
+                + "        (SELECT COUNT(CASE WHEN s.activatedon_date = CURDATE() THEN 1 END) FROM m_savings_account s) as savingsActivatedTodayCount, "
+                + "        (SELECT SUM(CASE WHEN s.activatedon_date = CURDATE() THEN s.account_balance_derived END) FROM m_savings_account s) as savingsActivatedTodayAmount "
+                + "    FROM m_loan l) as todays_stats " + "CROSS JOIN " + "    (SELECT "
+                + "        COUNT(CASE WHEN c.submittedon_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 END) as newClientsThisMonth, "
+                + "        COUNT(CASE WHEN c.submittedon_date >= DATE_FORMAT(CURDATE(), '%Y-%q-01') THEN 1 END) as newClientsThisQuarter, "
+                + "        COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 7 DAY THEN 1 END) as newClientsLast7Days, "
+                + "        COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 30 DAY THEN 1 END) as newClientsLast30Days, "
+                + "        COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 90 DAY THEN 1 END) as newClientsLast90Days, "
+                + "        (COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 30 DAY THEN 1 END) - COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 60 DAY AND c.submittedon_date < CURDATE() - INTERVAL 30 DAY THEN 1 END)) / NULLIF(COUNT(CASE WHEN c.submittedon_date >= CURDATE() - INTERVAL 60 DAY AND c.submittedon_date < CURDATE() - INTERVAL 30 DAY THEN 1 END), 0) * 100 as clientGrowthRateLast30Days "
+                + "    FROM m_client c) as client_growth_stats " + "CROSS JOIN " + "    (SELECT "
+                + "        COUNT(DISTINCT l.client_id) as clientsWithActiveLoan, "
+                + "        (SELECT COUNT(DISTINCT s.client_id) FROM m_savings_account s WHERE s.status_enum = 300) as clientsWithActiveSavingsAccount, "
+                + "        COUNT(DISTINCT CASE WHEN l.client_id IS NOT NULL AND s.client_id IS NOT NULL THEN l.client_id END) as clientsWithBothLoanAndSavings "
+                + "    FROM m_loan l " + "    INNER JOIN m_savings_account s ON l.client_id = s.client_id "
+                + "    WHERE l.loan_status_id = 300 AND s.status_enum = 300) as client_activity_stats";
 
         jdbcTemplate.query(sql, (rs) -> {
             if (rs.next()) {
@@ -201,15 +183,13 @@ public class AnalyticalReportingServiceImpl implements AnalyticalReportingServic
         });
         details.setClientsByGender(clientsByGender);
 
-        final String ageSql = "SELECT " +
-                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 < 18 THEN 1 ELSE 0 END) as '<18', " +
-                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 18 AND 25 THEN 1 ELSE 0 END) as '18-25', " +
-                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 26 AND 35 THEN 1 ELSE 0 END) as '26-35', " +
-                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 36 AND 45 THEN 1 ELSE 0 END) as '36-45', " +
-                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 46 AND 55 THEN 1 ELSE 0 END) as '46-55', " +
-                "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 > 55 THEN 1 ELSE 0 END) as '>55', " +
-                "SUM(CASE WHEN c.date_of_birth IS NULL THEN 1 ELSE 0 END) as 'N/A' " +
-                "FROM m_client c";
+        final String ageSql = "SELECT " + "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 < 18 THEN 1 ELSE 0 END) as '<18', "
+                + "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 18 AND 25 THEN 1 ELSE 0 END) as '18-25', "
+                + "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 26 AND 35 THEN 1 ELSE 0 END) as '26-35', "
+                + "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 36 AND 45 THEN 1 ELSE 0 END) as '36-45', "
+                + "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 BETWEEN 46 AND 55 THEN 1 ELSE 0 END) as '46-55', "
+                + "SUM(CASE WHEN DATEDIFF(CURDATE(), c.date_of_birth)/365 > 55 THEN 1 ELSE 0 END) as '>55', "
+                + "SUM(CASE WHEN c.date_of_birth IS NULL THEN 1 ELSE 0 END) as 'N/A' " + "FROM m_client c";
         final Map<String, Long> clientsByAgeGroup = new HashMap<>();
         jdbcTemplate.query(ageSql, (rs) -> {
             if (rs.next()) {
