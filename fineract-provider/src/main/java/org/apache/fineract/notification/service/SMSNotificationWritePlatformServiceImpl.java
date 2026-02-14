@@ -20,7 +20,6 @@ package org.apache.fineract.notification.service;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
 import java.io.IOException;
 import java.math.RoundingMode;
 import java.util.ArrayList;
