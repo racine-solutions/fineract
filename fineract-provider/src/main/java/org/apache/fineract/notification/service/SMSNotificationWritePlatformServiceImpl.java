@@ -20,7 +20,6 @@ package org.apache.fineract.notification.service;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import java.io.IOException;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -38,7 +37,6 @@ import okhttp3.Response;
 import org.apache.fineract.infrastructure.configuration.api.GlobalConfigurationConstants;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationProperty;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationRepositoryWrapper;
-import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.event.external.repository.SmsEventConfigurationRepository;
@@ -120,30 +118,25 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
             log.info("SMS URL :=>" + url);
             OkHttpClient client = new OkHttpClient();
-            Response response = null;
 
             RequestBody formBody = RequestBody.create(MediaType.parse(FORM_URL_CONTENT_TYPE), notificationObj);
 
             Request request = new Request.Builder().url(url).post(formBody).build();
 
-            try {
-                response = client.newCall(request).execute();
-                String resObject = response.body().string();
+            try (Response response = client.newCall(request).execute()) {
+                // Read the body exactly once – ResponseBody can only be consumed once.
+                String resObject = response.body() != null ? response.body().string() : "";
 
                 if (response.isSuccessful()) {
                     log.info("Sms Message Response :=>" + resObject);
                 } else {
-                    log.error("Failed to deliver sms message notification :" + resObject);
-                    handleAPIIntegrityIssues(resObject);
+                    log.error("Failed to deliver sms message notification: " + resObject);
                 }
+
+                cacheSmsNotification(messageData, smsType, response.isSuccessful(), resObject);
             } catch (Exception e) {
-                log.error("Posting sms notification has failed " + e);
-            }
-            assert response != null;
-            try {
-                cacheSmsNotification(messageData, smsType, response.isSuccessful(), response.body().string());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                // SMS delivery failures must never propagate to callers (e.g. loan repayment).
+                log.error("Posting sms notification has failed: {}", e.getMessage(), e);
             }
 
         } else {
@@ -165,10 +158,6 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
     private String getConfigProperty(String propertyName) {
         return this.env.getProperty(propertyName);
-    }
-
-    private void handleAPIIntegrityIssues(String httpResponse) {
-        throw new PlatformDataIntegrityException(httpResponse, httpResponse);
     }
 
     @Override
