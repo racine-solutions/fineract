@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet author="johnboscomwesigye@gmail.com" id="add_payment_type_for_ussd_momo_pay">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_payment_type WHERE value = 'Ussd Momo Pay'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_payment_type">
+            <column name="value" value="Ussd Momo Pay"/>
+            <column name="description" value="Ussd Momo Pay payment type for mobile money transactions"/>
+            <column name="is_cash_payment" valueBoolean="false"/>
+            <column name="order_position" valueNumeric="100"/>
+            <column name="code_name" value="USSD_MOMO_PAY"/>
+            <column name="is_system_defined" valueBoolean="true"/>
+        </insert>
+    </changeSet>
+
+    <changeSet author="johnboscomwesigye@gmail.com" id="add_enable_ussd_momo_pay_configuration">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM c_configuration WHERE name = 'enable-ussd-momo-pay'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="enable-ussd-momo-pay"/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="description" value="If enabled, allows your clients to make loan repayments and savings deposits via Ussd App on their Phone"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet author="johnboscomwesigye@gmail.com" id="add_external_id_to_savings_account_transaction">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_savings_account_transaction" columnName="external_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_savings_account_transaction">
+            <column name="external_id" type="VARCHAR(100)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="uq_savings_txn_external_id"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

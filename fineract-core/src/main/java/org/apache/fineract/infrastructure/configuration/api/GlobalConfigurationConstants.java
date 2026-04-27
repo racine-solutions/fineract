@@ -80,6 +80,7 @@ public final class GlobalConfigurationConstants {
     public static final String ALLOWED_LOAN_STATUSES_FOR_EXTERNAL_ASSET_TRANSFER = "allowed-loan-statuses-for-external-asset-transfer";
     public static final String ALLOWED_LOAN_STATUSES_OF_DELAYED_SETTLEMENT_FOR_EXTERNAL_ASSET_TRANSFER = "allowed-loan-statuses-of-delayed-settlement-for-external-asset-transfer";
     public static final String ENABLE_SMS_NOTIFICATIONS = "enable-sms-notifications";
+    public static final String ENABLE_USSD_MOMO_PAY = "enable-ussd-momo-pay";
 
     private GlobalConfigurationConstants() {}
 }

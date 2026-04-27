@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.fineract.infrastructure.core.domain.AbstractAuditableWithUTCDateTimeCustom;
+import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.domain.LocalDateInterval;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
@@ -137,6 +138,9 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
 
     @Column(name = "ref_no", nullable = true)
     private String refNo;
+
+    @Column(name = "external_id", length = 100, unique = true)
+    private ExternalId externalId;
 
     SavingsAccountTransaction() {}
 
@@ -445,6 +449,14 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
 
     public String getRefNo() {
         return this.refNo;
+    }
+
+    public ExternalId getExternalId() {
+        return this.externalId == null ? ExternalId.empty() : this.externalId;
+    }
+
+    public void setExternalId(final ExternalId externalId) {
+        this.externalId = externalId;
     }
 
     public PaymentDetail getPaymentDetail() {

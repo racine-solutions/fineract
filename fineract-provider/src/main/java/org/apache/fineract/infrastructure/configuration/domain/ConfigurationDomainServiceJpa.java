@@ -548,4 +548,9 @@ public class ConfigurationDomainServiceJpa implements ConfigurationDomainService
         return getGlobalConfigurationPropertyData(
                 GlobalConfigurationConstants.ASSET_OWNER_TRANSFER_OUTSTANDING_INTEREST_CALCULATION_STRATEGY).getStringValue();
     }
+
+    @Override
+    public boolean isUssdMomoPayEnabled() {
+        return getGlobalConfigurationPropertyData(GlobalConfigurationConstants.ENABLE_USSD_MOMO_PAY).isEnabled();
+    }
 }

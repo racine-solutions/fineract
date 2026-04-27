@@ -110,6 +110,8 @@ public class SavingsAccountTransactionData implements Serializable {
     private Long accountCredit;
     private Long accountDebit;
 
+    private String externalId;
+
     protected SavingsAccountTransactionData(final Long id, final SavingsAccountTransactionEnumData transactionType,
             final PaymentDetailData paymentDetailData, final Long savingsId, final String savingsAccountNo, final LocalDate transactionDate,
             final CurrencyData currency, final BigDecimal amount, final BigDecimal outstandingChargeAmount, final BigDecimal runningBalance,
@@ -698,5 +700,9 @@ public class SavingsAccountTransactionData implements Serializable {
 
     public void setAccountDebit(Long accountDebit) {
         this.accountDebit = accountDebit;
+    }
+
+    public void setExternalId(final String externalId) {
+        this.externalId = externalId;
     }
 }

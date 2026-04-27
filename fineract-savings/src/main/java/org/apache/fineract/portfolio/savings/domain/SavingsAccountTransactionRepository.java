@@ -21,6 +21,8 @@ package org.apache.fineract.portfolio.savings.domain;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -49,6 +51,8 @@ public interface SavingsAccountTransactionRepository
     List<SavingsAccountTransaction> findBySavingsAccount(@Param("savingsAccount") SavingsAccount savingsAccount);
 
     List<SavingsAccountTransaction> findByRefNo(@Param("refNo") String refNo);
+
+    Optional<SavingsAccountTransaction> findByExternalId(@Param("externalId") ExternalId externalId);
 
     @Query("select sat from SavingsAccountTransaction sat where sat.savingsAccount.id = :savingsId and sat.dateOf <= :transactionDate and sat.reversed=false")
     List<SavingsAccountTransaction> findBySavingsAccountIdAndLessThanDateOfAndReversedIsFalse(@Param("savingsId") Long savingsId,
