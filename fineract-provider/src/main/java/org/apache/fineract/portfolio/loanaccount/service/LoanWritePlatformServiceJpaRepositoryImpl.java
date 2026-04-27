@@ -1101,6 +1101,19 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
         Loan loan = this.loanAssembler.assembleFrom(loanId);
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
+
+        if (paymentDetail != null && paymentDetail.getPaymentType() != null
+                && "Ussd Momo Pay".equalsIgnoreCase(paymentDetail.getPaymentType().getName())) {
+            if (!this.configurationDomainService.isUssdMomoPayEnabled()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.not.enabled",
+                        "Ussd Momo Pay payment type is not enabled. Please enable the 'enable-ussd-momo-pay' configuration to use this payment type for loan repayments.");
+            }
+            if (txnExternalId.isEmpty()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.external.id.required",
+                        "An externalId is required when using Ussd Momo Pay as the payment type for loan repayments.");
+            }
+        }
+
         final Boolean isHolidayValidationDone = false;
         final HolidayDetailDTO holidayDetailDto = null;
         boolean isAccountTransfer = false;

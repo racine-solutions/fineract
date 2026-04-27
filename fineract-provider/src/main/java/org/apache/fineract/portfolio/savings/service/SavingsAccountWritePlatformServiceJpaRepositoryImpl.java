@@ -304,6 +304,15 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
 
         final Map<String, Object> changes = new LinkedHashMap<>();
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
+
+        if (paymentDetail != null && paymentDetail.getPaymentType() != null
+                && "Ussd Momo Pay".equalsIgnoreCase(paymentDetail.getPaymentType().getName())) {
+            if (!this.configurationDomainService.isUssdMomoPayEnabled()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.not.enabled",
+                        "Ussd Momo Pay payment type is not enabled. Please enable the 'enable-ussd-momo-pay' configuration to use this payment type for savings deposits.");
+            }
+        }
+
         boolean isAccountTransfer = false;
         boolean isRegularTransaction = true;
         final SavingsAccountTransaction deposit = this.savingsAccountDomainService.handleDeposit(account, fmt, transactionDate,

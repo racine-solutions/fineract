@@ -228,4 +228,5 @@
     <include file="parts/0207_add_allow_full_term_for_tranche.xml" relativeToChangelogFile="true" />
     <include file="parts/Racine-add-sms-support.xml" relativeToChangelogFile="true" />
     <include file="parts/RPAY-41_Loan_arrears_total_days.xml" relativeToChangelogFile="true" />
+    <include file="parts/0208_add_ussd_momo_pay.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

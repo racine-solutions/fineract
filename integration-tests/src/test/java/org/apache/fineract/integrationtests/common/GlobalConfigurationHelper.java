@@ -568,6 +568,13 @@ public class GlobalConfigurationHelper {
                 "ACTIVE,TRANSFER_IN_PROGRESS,TRANSFER_ON_HOLD,OVERPAID,CLOSED_OBLIGATIONS_MET");
         defaults.add(allowedLoanStatusesForDelayedSettlementExternalAssetTransfer);
 
+        HashMap<String, Object> enableUssdMomoPay = new HashMap<>();
+        enableUssdMomoPay.put("name", GlobalConfigurationConstants.ENABLE_USSD_MOMO_PAY);
+        enableUssdMomoPay.put("value", 0L);
+        enableUssdMomoPay.put("enabled", false);
+        enableUssdMomoPay.put("trapDoor", false);
+        defaults.add(enableUssdMomoPay);
+
         return defaults;
     }
 
