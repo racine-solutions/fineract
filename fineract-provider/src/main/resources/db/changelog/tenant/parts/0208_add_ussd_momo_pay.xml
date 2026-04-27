@@ -53,4 +53,17 @@
         </insert>
     </changeSet>
 
+    <changeSet author="johnboscomwesigye@gmail.com" id="add_external_id_to_savings_account_transaction">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_savings_account_transaction" columnName="external_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_savings_account_transaction">
+            <column name="external_id" type="VARCHAR(100)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="uq_savings_txn_external_id"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>
