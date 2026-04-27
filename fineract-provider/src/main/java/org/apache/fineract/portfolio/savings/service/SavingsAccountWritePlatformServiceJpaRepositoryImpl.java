@@ -308,15 +308,20 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
         final Map<String, Object> changes = new LinkedHashMap<>();
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
 
+        final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, SavingsApiConstants.externalIdParamName);
+
         if (paymentDetail != null && paymentDetail.getPaymentType() != null
                 && "Ussd Momo Pay".equalsIgnoreCase(paymentDetail.getPaymentType().getName())) {
             if (!this.configurationDomainService.isUssdMomoPayEnabled()) {
                 throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.not.enabled",
                         "Ussd Momo Pay payment type is not enabled. Please enable the 'enable-ussd-momo-pay' configuration to use this payment type for savings deposits.");
             }
+            if (txnExternalId.isEmpty()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.external.id.required",
+                        "An externalId is required when using Ussd Momo Pay as the payment type for savings deposits.");
+            }
         }
 
-        final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, SavingsApiConstants.externalIdParamName);
         if (!txnExternalId.isEmpty()) {
             if (this.savingsAccountTransactionRepository.findByExternalId(txnExternalId).isPresent()) {
                 throw new GeneralPlatformDomainRuleException("error.msg.savings.transaction.external.id.already.exists",
@@ -403,6 +408,19 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
         this.savingsAccountTransactionDataValidator.validateTransactionWithPivotDate(transactionDate, account);
 
         final ExternalId withdrawalExternalId = externalIdFactory.createFromCommand(command, SavingsApiConstants.externalIdParamName);
+
+        if (paymentDetail != null && paymentDetail.getPaymentType() != null
+                && "Ussd Momo Pay".equalsIgnoreCase(paymentDetail.getPaymentType().getName())) {
+            if (!this.configurationDomainService.isUssdMomoPayEnabled()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.not.enabled",
+                        "Ussd Momo Pay payment type is not enabled. Please enable the 'enable-ussd-momo-pay' configuration to use this payment type for savings withdrawals.");
+            }
+            if (withdrawalExternalId.isEmpty()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.external.id.required",
+                        "An externalId is required when using Ussd Momo Pay as the payment type for savings withdrawals.");
+            }
+        }
+
         if (!withdrawalExternalId.isEmpty()) {
             if (this.savingsAccountTransactionRepository.findByExternalId(withdrawalExternalId).isPresent()) {
                 throw new GeneralPlatformDomainRuleException("error.msg.savings.transaction.external.id.already.exists",
