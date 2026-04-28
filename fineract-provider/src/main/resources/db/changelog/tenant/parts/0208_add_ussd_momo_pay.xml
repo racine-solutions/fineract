@@ -23,13 +23,14 @@
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
 
-    <changeSet author="johnboscomwesigye@gmail.com" id="add_payment_type_for_ussd_momo_pay">
+    <changeSet author="johnboscomwesigye@gmail.com" id="add_payment_type_for_ussd_momo_pay_with_id">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT COUNT(1) FROM m_payment_type WHERE value = 'Ussd Momo Pay'
+                SELECT COUNT(1) FROM m_payment_type WHERE id = 100
             </sqlCheck>
         </preConditions>
         <insert tableName="m_payment_type">
+            <column name="id" value="100"/>
             <column name="value" value="Ussd Momo Pay"/>
             <column name="description" value="Ussd Momo Pay payment type for mobile money transactions"/>
             <column name="is_cash_payment" valueBoolean="false"/>
