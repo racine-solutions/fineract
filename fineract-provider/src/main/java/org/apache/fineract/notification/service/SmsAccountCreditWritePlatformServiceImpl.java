@@ -63,6 +63,13 @@ public class SmsAccountCreditWritePlatformServiceImpl implements SmsAccountCredi
                         "SMS notification account does not exist. Please create one first.",
                         "accountId"));
 
+        if (!Boolean.TRUE.equals(account.getIsActive())) {
+            throw new PlatformApiDataValidationException(
+                    "error.msg.sms.account.not.active",
+                    "SMS notification account is not active. Please activate it before crediting.",
+                    "isActive");
+        }
+
         // ── 2. Derive SMS credit units ───────────────────────────────────────
         final int smsCredit = amount.divide(smsCost, 0, RoundingMode.FLOOR).intValue();
 

@@ -47,6 +47,7 @@ import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.event.external.data.SmsEventConfigurationData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationAccountData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationMessageData;
+import org.apache.fineract.infrastructure.event.external.data.SmsWalletTransactionData;
 import org.apache.fineract.infrastructure.event.sms.service.SmsEventConfigurationReadPlatformService;
 import org.apache.fineract.infrastructure.event.sms.service.SmsNotificationReadPlatformService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
@@ -68,6 +69,7 @@ public class SmsEventConfigurationApiResource {
     private final DefaultToApiJsonSerializer<SmsEventConfigurationData> jsonSerializer;
     private final DefaultToApiJsonSerializer<SmsNotificationAccountData> accountSerializer;
     private final DefaultToApiJsonSerializer<Page<SmsNotificationMessageData>> messagesSerializer;
+    private final DefaultToApiJsonSerializer<Page<SmsWalletTransactionData>> walletTransactionsSerializer;
     private final SmsEventConfigurationReadPlatformService readPlatformService;
     private final SmsNotificationReadPlatformService smsNotificationReadPlatformService;
 
@@ -119,6 +121,20 @@ public class SmsEventConfigurationApiResource {
         final Page<SmsNotificationMessageData> messages = smsNotificationReadPlatformService.retrieveMessages(searchParameters);
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return messagesSerializer.serialize(settings, messages);
+    }
+
+    @GET
+    @Path("/getSmsWalletTransactions")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String retrieveWalletTransactions(@Context final UriInfo uriInfo,
+            @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
+            @QueryParam("limit") @DefaultValue("50") @Parameter(description = "limit") final Integer limit) {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        final SearchParameters searchParameters = SearchParameters.builder().limit(limit).offset(offset).build();
+        final Page<SmsWalletTransactionData> transactions = smsNotificationReadPlatformService.retrieveWalletTransactions(searchParameters);
+        final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return walletTransactionsSerializer.serialize(settings, transactions);
     }
 
     @POST

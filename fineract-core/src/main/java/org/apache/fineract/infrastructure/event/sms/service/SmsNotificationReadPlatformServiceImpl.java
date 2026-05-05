@@ -30,6 +30,7 @@ import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationAccountData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationMessageData;
+import org.apache.fineract.infrastructure.event.external.data.SmsWalletTransactionData;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -105,5 +106,44 @@ public class SmsNotificationReadPlatformServiceImpl implements SmsNotificationRe
         }
 
         return paginationHelper.fetchPage(jdbcTemplate, sqlBuilder.toString(), new Object[] {}, new SmsMessageRowMapper());
+    }
+
+    private static final class WalletTransactionRowMapper implements RowMapper<SmsWalletTransactionData> {
+
+        @Override
+        public SmsWalletTransactionData mapRow(ResultSet rs, int rowNum) throws SQLException {
+            Long id = rs.getLong("id");
+            java.math.BigDecimal amount = rs.getBigDecimal("amount");
+            java.math.BigDecimal smsCost = rs.getBigDecimal("sms_cost");
+            Integer smsCredit = rs.getInt("sms_credit");
+            Integer previousBalance = rs.getInt("previous_balance");
+            String note = rs.getString("note");
+            OffsetDateTime createdOnUtc = null;
+            Timestamp ts = rs.getTimestamp("created_on_utc");
+            if (ts != null) {
+                createdOnUtc = ts.toInstant().atOffset(ZoneOffset.UTC);
+            }
+            return new SmsWalletTransactionData(id, amount, smsCost, smsCredit, previousBalance, note, createdOnUtc);
+        }
+    }
+
+    @Override
+    public Page<SmsWalletTransactionData> retrieveWalletTransactions(final SearchParameters searchParameters) {
+        final StringBuilder sqlBuilder = new StringBuilder();
+        sqlBuilder.append("SELECT ").append(sqlGenerator.calcFoundRows()).append(" ");
+        sqlBuilder.append("id, amount, sms_cost, sms_credit, previous_balance, note, created_on_utc ");
+        sqlBuilder.append("FROM m_sms_notification_account_transaction ");
+        sqlBuilder.append("ORDER BY created_on_utc DESC");
+
+        if (searchParameters.hasLimit()) {
+            sqlBuilder.append(" ");
+            if (searchParameters.hasOffset()) {
+                sqlBuilder.append(sqlGenerator.limit(searchParameters.getLimit(), searchParameters.getOffset()));
+            } else {
+                sqlBuilder.append(sqlGenerator.limit(searchParameters.getLimit()));
+            }
+        }
+
+        return paginationHelper.fetchPage(jdbcTemplate, sqlBuilder.toString(), new Object[] {}, new WalletTransactionRowMapper());
     }
 }

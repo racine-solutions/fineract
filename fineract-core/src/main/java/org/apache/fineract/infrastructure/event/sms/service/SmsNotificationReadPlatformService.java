@@ -22,10 +22,13 @@ import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationAccountData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationMessageData;
+import org.apache.fineract.infrastructure.event.external.data.SmsWalletTransactionData;
 
 public interface SmsNotificationReadPlatformService {
 
     SmsNotificationAccountData retrieveSmsAccount();
 
     Page<SmsNotificationMessageData> retrieveMessages(SearchParameters searchParameters);
+
+    Page<SmsWalletTransactionData> retrieveWalletTransactions(SearchParameters searchParameters);
 }
