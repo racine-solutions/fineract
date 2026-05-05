@@ -238,4 +238,59 @@
         </update>
     </changeSet>
 
+    <changeSet id="add-credit-sms-notification-account-permission" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_permission WHERE code = 'CREDIT_SMS_NOTIFICATION_ACCOUNT'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="configuration"/>
+            <column name="code" value="CREDIT_SMS_NOTIFICATION_ACCOUNT"/>
+            <column name="entity_name" value="SMS_NOTIFICATION_ACCOUNT"/>
+            <column name="action_name" value="CREDIT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="create-m_sms_notification_account_transaction" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_sms_notification_account_transaction"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_sms_notification_account_transaction">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="amount" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sms_cost" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sms_credit" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="previous_balance" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="note" type="VARCHAR(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_by" type="bigint">
+                <constraints nullable="true" foreignKeyName="FK_m_sms_notification_account_txn-created_by" references="m_appuser(id)"/>
+            </column>
+            <column name="last_modified_by" type="bigint">
+                <constraints nullable="true" foreignKeyName="FK_m_sms_notification_account_txn-lastmodifiedby_id" references="m_appuser(id)"/>
+            </column>
+            <column name="created_on_utc" type="timestamp" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_on_utc" type="timestamp" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
 </databaseChangeLog>

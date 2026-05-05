@@ -3690,6 +3690,13 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder creditSmsNotificationAccount() {
+        this.actionName = "CREDIT";
+        this.entityName = "SMS_NOTIFICATION_ACCOUNT";
+        this.href = "/smsevents/configuration/credit";
+        return this;
+    }
+
     public CommandWrapperBuilder chargeOff(final Long loanId) {
         this.actionName = "CHARGEOFF";
         this.entityName = "LOAN";

@@ -23,6 +23,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -87,13 +88,12 @@ public class SmsEventConfigurationApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String updateSmsEventConfigurationsDetails(@Parameter(hidden = true) final String apiRequestBodyAsJson) {
         context.authenticatedUser().validateHasUpdatePermission(RESOURCE_NAME_FOR_PERMISSIONS);
-        final CommandWrapper commandRequest = new CommandWrapperBuilder() //
-                .updateSmsEventConfigurations() //
-                .withJson(apiRequestBodyAsJson) //
+        final CommandWrapper commandRequest = new CommandWrapperBuilder()
+                .updateSmsEventConfigurations()
+                .withJson(apiRequestBodyAsJson)
                 .build();
         final CommandProcessingResult result = this.commandWritePlatformService.logCommandSource(commandRequest);
         return this.jsonSerializer.serialize(result);
-
     }
 
     @GET
@@ -112,12 +112,26 @@ public class SmsEventConfigurationApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveSmsMessages(@Context final UriInfo uriInfo,
-                                      @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
-                                      @QueryParam("limit") @DefaultValue("50") @Parameter(description = "limit") final Integer limit) {
+            @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
+            @QueryParam("limit") @DefaultValue("50") @Parameter(description = "limit") final Integer limit) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
         final SearchParameters searchParameters = SearchParameters.builder().limit(limit).offset(offset).build();
         final Page<SmsNotificationMessageData> messages = smsNotificationReadPlatformService.retrieveMessages(searchParameters);
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return messagesSerializer.serialize(settings, messages);
+    }
+
+    @POST
+    @Path("/credit")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String creditSmsAccount(@Parameter(hidden = true) final String apiRequestBodyAsJson) {
+        context.authenticatedUser();
+        final CommandWrapper commandRequest = new CommandWrapperBuilder()
+                .creditSmsNotificationAccount()
+                .withJson(apiRequestBodyAsJson)
+                .build();
+        final CommandProcessingResult result = commandWritePlatformService.logCommandSource(commandRequest);
+        return jsonSerializer.serialize(result);
     }
 }
