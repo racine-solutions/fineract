@@ -37,6 +37,7 @@ import okhttp3.Response;
 import org.apache.fineract.infrastructure.configuration.api.GlobalConfigurationConstants;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationProperty;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationRepositoryWrapper;
+import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.event.external.repository.SmsEventConfigurationRepository;
@@ -97,6 +98,17 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
             return;
         }
 
+        final SmsNotificationAccount account = smsAccount.get();
+
+        if (account.getSmsTotalBalance() == null || account.getSmsTotalBalance() <= 0) {
+            log.warn("Insufficient SMS credit balance ({}) for tenant :- {}. Message not sent.",
+                    account.getSmsTotalBalance(), ThreadLocalContextUtil.getTenant().getName());
+            throw new PlatformApiDataValidationException(
+                    "error.msg.sms.insufficient.balance",
+                    "Insufficient SMS credit balance. Please top up your SMS account before sending messages.",
+                    "smsTotalBalance");
+        }
+
         if (property.isEnabled()) {
             Gson gson = new GsonBuilder().create();
 
@@ -129,6 +141,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
                 if (response.isSuccessful()) {
                     log.info("Sms Message Response :=>" + resObject);
+                    debitSmsAccount(account);
                 } else {
                     log.error("Failed to deliver sms message notification: " + resObject);
                 }
@@ -142,6 +155,13 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         } else {
             log.info("** SMS Notification is disabled for this Tenant :-> " + ThreadLocalContextUtil.getTenant().getName());
         }
+    }
+
+    private void debitSmsAccount(SmsNotificationAccount account) {
+        int newBalance = account.getSmsTotalBalance() - 1;
+        account.setSmsTotalBalance(newBalance);
+        smsNotificationAccountRepository.saveAndFlush(account);
+        log.info("SMS credit debited. Remaining balance: {}", newBalance);
     }
 
     private void cacheSmsNotification(SmsMessageData messageData, SmsTypeEnum smsType, Boolean hasPassed, String response) {

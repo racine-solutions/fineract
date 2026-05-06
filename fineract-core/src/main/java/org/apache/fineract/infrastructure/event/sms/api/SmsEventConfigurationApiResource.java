@@ -21,10 +21,13 @@ package org.apache.fineract.infrastructure.event.sms.api;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
@@ -39,13 +42,19 @@ import org.apache.fineract.infrastructure.core.api.ApiRequestParameterHelper;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSerializer;
+import org.apache.fineract.infrastructure.core.service.Page;
+import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.event.external.data.SmsEventConfigurationData;
+import org.apache.fineract.infrastructure.event.external.data.SmsNotificationAccountData;
+import org.apache.fineract.infrastructure.event.external.data.SmsNotificationMessageData;
+import org.apache.fineract.infrastructure.event.external.data.SmsWalletTransactionData;
 import org.apache.fineract.infrastructure.event.sms.service.SmsEventConfigurationReadPlatformService;
+import org.apache.fineract.infrastructure.event.sms.service.SmsNotificationReadPlatformService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
-@Path("/v1/smsevents/configuration")
+@Path("/v1/sms")
 @Component
 @Tag(name = "SMS event configuration", description = "SMS event configuration enables user to enable/disable event posting to downstream message channel")
 public class SmsEventConfigurationApiResource {
@@ -58,9 +67,14 @@ public class SmsEventConfigurationApiResource {
     private final ApiRequestParameterHelper apiRequestParameterHelper;
     private final PortfolioCommandSourceWritePlatformService commandWritePlatformService;
     private final DefaultToApiJsonSerializer<SmsEventConfigurationData> jsonSerializer;
+    private final DefaultToApiJsonSerializer<SmsNotificationAccountData> accountSerializer;
+    private final DefaultToApiJsonSerializer<Page<SmsNotificationMessageData>> messagesSerializer;
+    private final DefaultToApiJsonSerializer<Page<SmsWalletTransactionData>> walletTransactionsSerializer;
     private final SmsEventConfigurationReadPlatformService readPlatformService;
+    private final SmsNotificationReadPlatformService smsNotificationReadPlatformService;
 
     @GET
+    @Path("/smsevents/configuration")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveSmsEventConfiguration(@Context final UriInfo uriInfo) {
@@ -71,16 +85,69 @@ public class SmsEventConfigurationApiResource {
     }
 
     @PUT
+    @Path("/smsevents/configuration")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String updateSmsEventConfigurationsDetails(@Parameter(hidden = true) final String apiRequestBodyAsJson) {
         context.authenticatedUser().validateHasUpdatePermission(RESOURCE_NAME_FOR_PERMISSIONS);
-        final CommandWrapper commandRequest = new CommandWrapperBuilder() //
-                .updateSmsEventConfigurations() //
-                .withJson(apiRequestBodyAsJson) //
+        final CommandWrapper commandRequest = new CommandWrapperBuilder()
+                .updateSmsEventConfigurations()
+                .withJson(apiRequestBodyAsJson)
                 .build();
         final CommandProcessingResult result = this.commandWritePlatformService.logCommandSource(commandRequest);
         return this.jsonSerializer.serialize(result);
+    }
 
+    @GET
+    @Path("/account")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String retrieveSmsAccount(@Context final UriInfo uriInfo) {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        final SmsNotificationAccountData accountData = smsNotificationReadPlatformService.retrieveSmsAccount();
+        final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return accountSerializer.serialize(settings, accountData);
+    }
+
+    @GET
+    @Path("/messages")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String retrieveSmsMessages(@Context final UriInfo uriInfo,
+            @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
+            @QueryParam("limit") @DefaultValue("50") @Parameter(description = "limit") final Integer limit) {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        final SearchParameters searchParameters = SearchParameters.builder().limit(limit).offset(offset).build();
+        final Page<SmsNotificationMessageData> messages = smsNotificationReadPlatformService.retrieveMessages(searchParameters);
+        final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return messagesSerializer.serialize(settings, messages);
+    }
+
+    @GET
+    @Path("/getSmsWalletTransactions")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String retrieveWalletTransactions(@Context final UriInfo uriInfo,
+            @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
+            @QueryParam("limit") @DefaultValue("50") @Parameter(description = "limit") final Integer limit) {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        final SearchParameters searchParameters = SearchParameters.builder().limit(limit).offset(offset).build();
+        final Page<SmsWalletTransactionData> transactions = smsNotificationReadPlatformService.retrieveWalletTransactions(searchParameters);
+        final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return walletTransactionsSerializer.serialize(settings, transactions);
+    }
+
+    @POST
+    @Path("/credit")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String creditSmsAccount(@Parameter(hidden = true) final String apiRequestBodyAsJson) {
+        context.authenticatedUser();
+        final CommandWrapper commandRequest = new CommandWrapperBuilder()
+                .creditSmsNotificationAccount()
+                .withJson(apiRequestBodyAsJson)
+                .build();
+        final CommandProcessingResult result = commandWritePlatformService.logCommandSource(commandRequest);
+        return jsonSerializer.serialize(result);
     }
 }
