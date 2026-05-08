@@ -293,4 +293,20 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="seed-sms-notification-account" author="johnboscomwesigye@gmail.com">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_notification_account
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_notification_account">
+            <column name="total_payment_amount" valueNumeric="0"/>
+            <column name="sms_total_credit" valueNumeric="0"/>
+            <column name="sms_total_balance" valueNumeric="0"/>
+            <column name="is_active" valueBoolean="true"/>
+            <column name="created_on_utc" valueComputed="now()"/>
+            <column name="last_modified_on_utc" valueComputed="now()"/>
+        </insert>
+    </changeSet>
+
 </databaseChangeLog>
