@@ -44,7 +44,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class NotificationSenderService {
 
-    private final DeviceRegistrationRepositoryWrapper deviceRegistrationRepositoryWrapper;
     private final SmsMessageRepository smsMessageRepository;
     private final ExternalServicesPropertiesReadPlatformService propertiesReadPlatformService;
 
@@ -74,12 +73,8 @@ public class NotificationSenderService {
 
     public void sendNotification(Long clientId, List<SmsMessage> smsList) {
 
-        DeviceRegistration deviceRegistration = deviceRegistrationRepositoryWrapper.findDeviceRegistrationByClientId(clientId);
         NotificationConfigurationData notificationConfigurationData = propertiesReadPlatformService.getNotificationConfiguration();
         String registrationId = null;
-        if (deviceRegistration != null) {
-            registrationId = deviceRegistration.getRegistrationId();
-        }
         for (SmsMessage smsMessage : smsList) {
             try {
                 Notification notification = new Notification.Builder(GcmConstants.defaultIcon).title(GcmConstants.title)

@@ -25,6 +25,11 @@ import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
+<<<<<<<< HEAD:fineract-core/src/main/java/org/apache/fineract/infrastructure/event/external/data/SmsEventConfigurationData.java
+public class SmsEventConfigurationData {
+
+    private List<SmsEventConfigurationItemData> smsEventConfiguration;
+========
 public class FundRequest implements Serializable {
 
     @Serial
@@ -32,4 +37,5 @@ public class FundRequest implements Serializable {
 
     private String name;
     private String externalId;
+>>>>>>>> origin/racine-dev-1.15.0-preview:fineract-provider/src/main/java/org/apache/fineract/portfolio/fund/data/FundRequest.java
 }

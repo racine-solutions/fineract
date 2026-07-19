@@ -16,6 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+<<<<<<<< HEAD:fineract-core/src/main/java/org/apache/fineract/infrastructure/event/sms/service/SmsEventConfigurationReadPlatformService.java
+package org.apache.fineract.infrastructure.event.sms.service;
+
+import org.apache.fineract.infrastructure.event.external.data.SmsEventConfigurationData;
+
+public interface SmsEventConfigurationReadPlatformService {
+
+    SmsEventConfigurationData findAllSmsEventConfigurations();
+========
 package org.apache.fineract.test.messaging.event.loan.transaction;
 
 public class LoanUndoContractTerminationBusinessEvent extends AbstractLoanTransactionEvent {
@@ -24,4 +33,5 @@ public class LoanUndoContractTerminationBusinessEvent extends AbstractLoanTransa
     public String getEventName() {
         return "LoanUndoContractTerminationBusinessEvent";
     }
+>>>>>>>> origin/racine-dev-1.15.0-preview:fineract-e2e-tests-core/src/test/java/org/apache/fineract/test/messaging/event/loan/transaction/LoanUndoContractTerminationBusinessEvent.java
 }

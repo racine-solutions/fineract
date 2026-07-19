@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody.Part;
 import okhttp3.ResponseBody;
@@ -38,9 +39,9 @@ import retrofit2.Response;
  *
  * @author Michael Vorburger.ch
  */
-public class DocumentTest extends IntegrationTest {
+class DocumentTest extends IntegrationTest {
 
-    final File testFile = new File(getClass().getResource("/michael.vorburger-crepes.jpg").getFile());
+    final File testFile = Path.of(getClass().getResource("/michael.vorburger-crepes.jpg").getFile()).toFile();
 
     Long clientId = new ClientTest().getClientId();
     Long documentId;
@@ -87,7 +88,11 @@ public class DocumentTest extends IntegrationTest {
         try (ResponseBody body = r.body()) {
             assertThat(body.contentType()).isEqualTo(MediaType.get("image/jpeg"));
             assertThat(body.bytes().length).isEqualTo(testFile.length());
-            assertThat(body.contentLength()).isEqualTo(testFile.length());
+            // NOTE: now that everything is properly streamed and NOT loaded into memory the framework (Jersey) uses
+            // chunked encoding to serve dynamic aka large content; this is more efficient and outweighs the presenće of
+            // this information beforehand; the user can always count bytes after the download of the content; just to
+            // say: this here is a feature and intentional
+            // assertThat(body.contentLength()).isEqualTo(testFile.length());
         }
         assertThat(Parts.fileName(r)).hasValue(testFile.getName());
     }

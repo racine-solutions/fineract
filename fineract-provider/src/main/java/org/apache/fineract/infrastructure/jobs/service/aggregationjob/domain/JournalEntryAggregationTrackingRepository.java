@@ -16,7 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+<<<<<<<< HEAD:fineract-provider/src/main/java/org/apache/fineract/portfolio/self/device/domain/DeviceRegistrationRepository.java
+package org.apache.fineract.portfolio.self.device.domain;
+========
 package org.apache.fineract.infrastructure.jobs.service.aggregationjob.domain;
+>>>>>>>> origin/racine-dev-1.15.0-preview:fineract-provider/src/main/java/org/apache/fineract/infrastructure/jobs/service/aggregationjob/domain/JournalEntryAggregationTrackingRepository.java
 
 import java.time.LocalDate;
 import org.springframework.data.jpa.repository.JpaRepository;

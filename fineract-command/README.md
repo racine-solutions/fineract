@@ -89,15 +89,11 @@ These different perfromance level implementations need to be absolute drop-in re
 
 NOTE: we should consider providing a command processing implementation based on Apache Camel once this concept is approved and we migrated already a couple of services. They are specialized for exactly this kind of use cases and have more dedicated people working on it's implementation. Could give more flexibility without us needing to maintain code.
 
-3. Middlewares
+3. Command Handlers
 
 TBD
 
-4. Command Handlers
-
-TBD
-
-5. References to users (aka AppUser)
+4. References to users (aka AppUser)
 
 Keep things lightweight and only reference users by their user names.f
 
@@ -118,7 +114,7 @@ You can try it out with the following instructions (it's still in a private repo
 ```
 git clone git@github.com:vidakovic/fineract.git
 cd fineract
-git checkout feature/FINERACT-2169
+git switch feature/FINERACT-2169
 ./gradlew :fineract-command:build
 ./gradlew :fineract-command:jmh
 ```

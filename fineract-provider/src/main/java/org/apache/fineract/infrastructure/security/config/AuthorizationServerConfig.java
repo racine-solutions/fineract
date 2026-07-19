@@ -35,12 +35,14 @@ import org.apache.fineract.infrastructure.core.service.MDCWrapper;
 import org.apache.fineract.infrastructure.instancemode.filter.FineractInstanceModeApiFilter;
 import org.apache.fineract.infrastructure.jobs.filter.LoanCOBApiFilter;
 import org.apache.fineract.infrastructure.jobs.filter.LoanCOBFilterHelper;
+import org.apache.fineract.infrastructure.jobs.filter.ProgressiveLoanModelCheckerFilter;
 import org.apache.fineract.infrastructure.security.converter.FineractJwtAuthenticationTokenConverter;
 import org.apache.fineract.infrastructure.security.data.TenantAuthenticationDetails;
 import org.apache.fineract.infrastructure.security.filter.BusinessDateFilter;
 import org.apache.fineract.infrastructure.security.filter.TenantAwareAuthenticationFilter;
 import org.apache.fineract.infrastructure.security.filter.TwoFactorAuthenticationFilter;
 import org.apache.fineract.infrastructure.security.service.AuthTenantDetailsService;
+import org.apache.fineract.infrastructure.security.service.TemporaryPasswordAwareAuthenticationProvider;
 import org.apache.fineract.infrastructure.security.service.TenantAwareJpaPlatformUserDetailsService;
 import org.apache.fineract.infrastructure.security.service.TwoFactorService;
 import org.apache.fineract.useradministration.domain.AppUser;
@@ -55,6 +57,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -79,9 +82,6 @@ import org.springframework.security.web.access.ExceptionTranslationFilter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Configuration
@@ -118,6 +118,9 @@ public class AuthorizationServerConfig {
     @Autowired
     private BusinessDateReadPlatformService businessDateReadPlatformService;
 
+    @Autowired
+    ProgressiveLoanModelCheckerFilter progressiveLoanModelCheckerFilter;
+
     @Bean
     @Order(1)
     public SecurityFilterChain publicEndpoints(HttpSecurity http) throws Exception {
@@ -142,8 +145,8 @@ public class AuthorizationServerConfig {
                 // TODO: Make it configurable
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
-                .apply(authorizationServerConfigurer);
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
+        http.with(authorizationServerConfigurer, Customizer.withDefaults());
 
         if (fineractProperties.getSecurity().getCors().isEnabled()) {
             http.cors(Customizer.withDefaults());
@@ -162,7 +165,8 @@ public class AuthorizationServerConfig {
                     if (fineractProperties.getSecurity().getTwoFactor().isEnabled()) {
                         auth.anyRequest().hasAuthority("TWOFACTOR_AUTHENTICATED");
                     }
-                }).formLogin(form -> form.loginPage("/login").authenticationDetailsSource(tenantAuthDetailsSource()).permitAll())
+                }).authenticationProvider(customAuthenticationProvider())
+                .formLogin(form -> form.loginPage("/login").authenticationDetailsSource(tenantAuthDetailsSource()).permitAll())
                 .oauth2ResourceServer(
                         resourceServer -> resourceServer.jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter())))
                 .addFilterAfter(tenantAwareAuthenticationFilter(), SecurityContextHolderFilter.class)//
@@ -173,9 +177,12 @@ public class AuthorizationServerConfig {
         if (!Objects.isNull(loanCOBFilterHelper)) {
             http.addFilterAfter(loanCOBApiFilter(), FineractInstanceModeApiFilter.class) //
                     .addFilterAfter(idempotencyStoreFilter(), LoanCOBApiFilter.class); //
+            http.addFilterBefore(progressiveLoanModelCheckerFilter, LoanCOBApiFilter.class);
         } else {
             http.addFilterAfter(idempotencyStoreFilter(), FineractInstanceModeApiFilter.class); //
+            http.addFilterAfter(progressiveLoanModelCheckerFilter, FineractInstanceModeApiFilter.class);
         }
+
         if (fineractProperties.getIpTracking().isEnabled()) {
             http.addFilterAfter(callerIpTrackingFilter(), RequestResponseFilter.class);
         }
@@ -186,21 +193,6 @@ public class AuthorizationServerConfig {
             http.cors(Customizer.withDefaults());
         }
         return http.build();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        FineractProperties.CorsProperties corsConfiguration = fineractProperties.getSecurity().getCors();
-        config.setAllowedOriginPatterns(corsConfiguration.getAllowedOriginPatterns());
-        config.setAllowedMethods(corsConfiguration.getAllowedMethods());
-        config.setAllowedHeaders(corsConfiguration.getAllowedHeaders());
-        config.setExposedHeaders(corsConfiguration.getExposedHeaders());
-        config.setAllowCredentials(corsConfiguration.isAllowCredentials()); // if you use cookies / Authorization header
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
     }
 
     @Bean
@@ -221,6 +213,13 @@ public class AuthorizationServerConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider customAuthenticationProvider() {
+        DaoAuthenticationProvider authProvider = new TemporaryPasswordAwareAuthenticationProvider(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
     }
 
     @Bean

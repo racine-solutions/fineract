@@ -29,10 +29,14 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+<<<<<<<< HEAD:fineract-core/src/main/java/org/apache/fineract/infrastructure/event/external/data/SmsEventConfigurationItemData.java
+public class SmsEventConfigurationItemData {
+========
 public class ExternalEventConfigurationItemResponse implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
+>>>>>>>> origin/racine-dev-1.15.0-preview:fineract-core/src/main/java/org/apache/fineract/infrastructure/event/external/data/ExternalEventConfigurationItemResponse.java
 
     private String type;
     private boolean enabled;

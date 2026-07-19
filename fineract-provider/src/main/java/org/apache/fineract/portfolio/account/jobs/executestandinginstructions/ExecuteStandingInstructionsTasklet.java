@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.exception.AbstractPlatformServiceUnavailableException;
@@ -30,6 +31,7 @@ import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidati
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.jobs.exception.JobExecutionException;
+import org.apache.fineract.portfolio.account.PortfolioAccountType;
 import org.apache.fineract.portfolio.account.data.AccountTransferDTO;
 import org.apache.fineract.portfolio.account.data.StandingInstructionData;
 import org.apache.fineract.portfolio.account.data.StandingInstructionDuesData;
@@ -48,29 +50,15 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
+@RequiredArgsConstructor
 public class ExecuteStandingInstructionsTasklet implements Tasklet {
 
     private final StandingInstructionReadPlatformService standingInstructionReadPlatformService;
     private final JdbcTemplate jdbcTemplate;
     private final DatabaseSpecificSQLGenerator sqlGenerator;
     private final AccountTransfersWritePlatformService accountTransfersWritePlatformService;
-    private final TransactionTemplate requiresNewTransactionTemplate;
-
-    public ExecuteStandingInstructionsTasklet(StandingInstructionReadPlatformService standingInstructionReadPlatformService,
-            JdbcTemplate jdbcTemplate, DatabaseSpecificSQLGenerator sqlGenerator,
-            AccountTransfersWritePlatformService accountTransfersWritePlatformService,
-            PlatformTransactionManager transactionManager) {
-        this.standingInstructionReadPlatformService = standingInstructionReadPlatformService;
-        this.jdbcTemplate = jdbcTemplate;
-        this.sqlGenerator = sqlGenerator;
-        this.accountTransfersWritePlatformService = accountTransfersWritePlatformService;
-        this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
-        this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionTemplate.PROPAGATION_REQUIRES_NEW);
-    }
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
@@ -102,7 +90,7 @@ public class ExecuteStandingInstructionsTasklet implements Tasklet {
 
             }
             BigDecimal transactionAmount = data.getAmount();
-            if (data.getToAccountType().isLoanAccount()
+            if (PortfolioAccountType.LOAN.equals(data.getToAccountType())
                     && (recurrenceType.isDuesRecurrence() || (isDueForTransfer && instructionType.isDuesAmoutTransfer()))) {
                 StandingInstructionDuesData standingInstructionDuesData = standingInstructionReadPlatformService
                         .retriveLoanDuesData(data.getToAccount().getId());
@@ -145,10 +133,7 @@ public class ExecuteStandingInstructionsTasklet implements Tasklet {
                 "INSERT INTO m_account_transfer_standing_instructions_history (standing_instruction_id, " + sqlGenerator.escape("status")
                         + ", amount,execution_time, error_log) VALUES (");
         try {
-            requiresNewTransactionTemplate.execute(status -> {
-                accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
-                return null;
-            });
+            accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
         } catch (final PlatformApiDataValidationException e) {
             errors.add(new Exception("Validation exception while transfering funds for standing Instruction id" + instructionId + " from "
                     + accountTransferDTO.getFromAccountId() + " to " + accountTransferDTO.getToAccountId(), e));

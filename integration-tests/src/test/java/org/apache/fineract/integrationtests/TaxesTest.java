@@ -18,9 +18,13 @@
  */
 package org.apache.fineract.integrationtests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.fineract.client.feign.util.CallFailedRuntimeException;
 import org.apache.fineract.client.models.GetTaxesComponentsResponse;
 import org.apache.fineract.client.models.GetTaxesGroupResponse;
 import org.apache.fineract.client.models.GetTaxesGroupTaxAssociations;
@@ -29,28 +33,39 @@ import org.apache.fineract.client.models.PostTaxesComponentsResponse;
 import org.apache.fineract.client.models.PostTaxesGroupRequest;
 import org.apache.fineract.client.models.PostTaxesGroupResponse;
 import org.apache.fineract.client.models.PostTaxesGroupTaxComponents;
-import org.apache.fineract.integrationtests.common.TaxComponentHelper;
-import org.apache.fineract.integrationtests.common.TaxGroupHelper;
+import org.apache.fineract.integrationtests.client.feign.helpers.FeignTaxComponentHelper;
+import org.apache.fineract.integrationtests.client.feign.helpers.FeignTaxGroupHelper;
+import org.apache.fineract.integrationtests.common.FineractFeignClientHelper;
 import org.apache.fineract.integrationtests.common.Utils;
 import org.apache.fineract.integrationtests.common.accounting.Account;
 import org.apache.fineract.integrationtests.common.accounting.AccountHelper;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class TaxesTest {
+
+    private FeignTaxComponentHelper taxComponentHelper;
+    private FeignTaxGroupHelper taxGroupHelper;
+
+    @BeforeEach
+    public void setup() {
+        taxComponentHelper = new FeignTaxComponentHelper(FineractFeignClientHelper.getFineractFeignClient());
+        taxGroupHelper = new FeignTaxGroupHelper(FineractFeignClientHelper.getFineractFeignClient());
+    }
 
     @Test
     public void createTaxComponentTest() {
         Long taxComponentId = createTaxComponentWithLiabilityToCredit("taxComponent");
 
-        GetTaxesComponentsResponse taxComponentDetails = TaxComponentHelper.retrieveTaxComponent(taxComponentId);
+        GetTaxesComponentsResponse taxComponentDetails = taxComponentHelper.retrieveTaxComponent(taxComponentId);
         Assertions.assertNotNull(taxComponentDetails);
         Assertions.assertNotNull(taxComponentDetails.getId());
         Assertions.assertEquals(taxComponentId, taxComponentDetails.getId());
 
         taxComponentId = createTaxComponentWithLiabilityToDebit("taxComponent");
 
-        taxComponentDetails = TaxComponentHelper.retrieveTaxComponent(taxComponentId);
+        taxComponentDetails = taxComponentHelper.retrieveTaxComponent(taxComponentId);
         Assertions.assertNotNull(taxComponentDetails);
         Assertions.assertNotNull(taxComponentDetails.getId());
         Assertions.assertEquals(taxComponentId, taxComponentDetails.getId());
@@ -58,7 +73,7 @@ public class TaxesTest {
 
     @Test
     public void createTaxGroupTest() {
-        List<GetTaxesGroupResponse> allTaxGroups = TaxGroupHelper.retrieveAllTaxGroups();
+        List<GetTaxesGroupResponse> allTaxGroups = taxGroupHelper.retrieveAllTaxGroups();
         Assertions.assertNotNull(allTaxGroups);
 
         final Long taxComponentId = createTaxComponentWithLiabilityToCredit("taxComponent");
@@ -67,11 +82,11 @@ public class TaxesTest {
         taxComponentsSet.add(new PostTaxesGroupTaxComponents().taxComponentId(taxComponentId).startDate("01 January 2023"));
         final PostTaxesGroupRequest taxGroupRequest = new PostTaxesGroupRequest().name(Utils.randomStringGenerator("TAX_GRP_", 4))
                 .taxComponents(taxComponentsSet).dateFormat("dd MMMM yyyy").locale("en");
-        final PostTaxesGroupResponse taxGroupResponse = TaxGroupHelper.createTaxGroup(taxGroupRequest);
+        final PostTaxesGroupResponse taxGroupResponse = taxGroupHelper.createTaxGroup(taxGroupRequest);
         Assertions.assertNotNull(taxGroupResponse);
         Assertions.assertNotNull(taxGroupResponse.getResourceId());
 
-        final GetTaxesGroupResponse taxGroupDetails = TaxGroupHelper.retrieveTaxGroup(taxGroupResponse.getResourceId());
+        final GetTaxesGroupResponse taxGroupDetails = taxGroupHelper.retrieveTaxGroup(taxGroupResponse.getResourceId());
         Assertions.assertNotNull(taxGroupDetails);
         Assertions.assertEquals(taxGroupResponse.getResourceId(), taxGroupDetails.getId());
         Assertions.assertFalse(taxGroupDetails.getTaxAssociations().isEmpty());
@@ -79,7 +94,7 @@ public class TaxesTest {
         Assertions.assertNotNull(taxAssociation);
         Assertions.assertEquals(taxComponentId, taxAssociation.getTaxComponent().getId());
 
-        allTaxGroups = TaxGroupHelper.retrieveAllTaxGroups();
+        allTaxGroups = taxGroupHelper.retrieveAllTaxGroups();
         Assertions.assertNotNull(allTaxGroups);
         Assertions.assertTrue(allTaxGroups.size() > 0);
     }
@@ -92,7 +107,7 @@ public class TaxesTest {
                 .creditAccountType(Integer.valueOf(taxComponentGlAccount.getAccountType().toString()))
                 .creditAccountId(taxComponentGlAccount.getAccountID().longValue()).dateFormat(Utils.DATE_FORMAT).locale(Utils.LOCALE);
 
-        final PostTaxesComponentsResponse taxComponentRespose = TaxComponentHelper.createTaxComponent(taxComponentRequest);
+        final PostTaxesComponentsResponse taxComponentRespose = taxComponentHelper.createTaxComponent(taxComponentRequest);
         Assertions.assertNotNull(taxComponentRespose);
         Assertions.assertNotNull(taxComponentRespose.getResourceId());
 
@@ -107,11 +122,33 @@ public class TaxesTest {
                 .debitAccountType(Integer.valueOf(taxComponentGlAccount.getAccountType().toString()))
                 .debitAccountId(taxComponentGlAccount.getAccountID().longValue()).dateFormat(Utils.DATE_FORMAT).locale(Utils.LOCALE);
 
-        final PostTaxesComponentsResponse taxComponentRespose = TaxComponentHelper.createTaxComponent(taxComponentRequest);
+        final PostTaxesComponentsResponse taxComponentRespose = taxComponentHelper.createTaxComponent(taxComponentRequest);
         Assertions.assertNotNull(taxComponentRespose);
         Assertions.assertNotNull(taxComponentRespose.getResourceId());
 
         return taxComponentRespose.getResourceId();
+    }
+
+    @Test
+    void retrieveTaxGroupWithNonExistentId_shouldReturn404() {
+        final Long nonExistentTaxGroupId = 99999L;
+
+        CallFailedRuntimeException exception = taxGroupHelper.retrieveTaxGroupExpectingError(nonExistentTaxGroupId);
+
+        assertEquals(404, exception.getStatus());
+        assertTrue(exception.getMessage().contains("error.msg.tax.group.id.invalid"),
+                "Response should contain the error code for tax group not found");
+    }
+
+    @Test
+    void retrieveTaxComponentWithNonExistentId_shouldReturn404() {
+        final Long nonExistentTaxComponentId = 99999L;
+
+        CallFailedRuntimeException exception = taxComponentHelper.retrieveTaxComponentExpectingError(nonExistentTaxComponentId);
+
+        assertEquals(404, exception.getStatus());
+        assertTrue(exception.getMessage().contains("error.msg.tax.component.id.invalid"),
+                "Response should contain the error code for tax component not found");
     }
 
 }

@@ -51,7 +51,6 @@ war {
     def legalFiles = [
         file("$rootDir/LICENSE_RELEASE"),
         file("$rootDir/NOTICE_RELEASE"),
-        file("$rootDir/DISCLAIMER")
     ].findAll { it.exists() }
     
     if (!legalFiles.empty) {
@@ -83,6 +82,7 @@ dependencies {
     implementation project(':fineract-investor')
     implementation project(':fineract-branch')
     implementation project(':fineract-document')
+    implementation project(':fineract-mix')
     implementation project(':fineract-charge')
     implementation project(':fineract-rates')
     implementation project(':fineract-loan')
@@ -90,6 +90,7 @@ dependencies {
     implementation project(':fineract-progressive-loan')
     implementation project(':fineract-savings')
     implementation project(':fineract-provider')
+    implementation project(':fineract-working-capital-loan')
 }
 
 tasks.withType(Tar) {
@@ -132,7 +133,6 @@ distributions {
             rename ('LICENSE_RELEASE', 'LICENSE')
             rename ('NOTICE_RELEASE', 'NOTICE')
 
-            from "$rootDir/DISCLAIMER"
             from "$rootDir/README.md"
 
             from "$rootDir/fineract-doc/build/docs/pdf/en/index.pdf"

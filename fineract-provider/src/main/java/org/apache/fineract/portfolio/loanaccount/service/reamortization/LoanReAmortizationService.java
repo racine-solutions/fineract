@@ -110,7 +110,8 @@ public class LoanReAmortizationService {
                 .withClientId(loan.getClientId()) //
                 .withGroupId(loan.getGroupId()) //
                 .withLoanId(command.getLoanId()) //
-                .with(changes).build();
+                .with(changes) //
+                .build();
     }
 
     public CommandProcessingResult undoReAmortize(Long loanId, JsonCommand command) {
@@ -138,7 +139,8 @@ public class LoanReAmortizationService {
                 .withClientId(loan.getClientId()) //
                 .withGroupId(loan.getGroupId()) //
                 .withLoanId(command.getLoanId()) //
-                .with(changes).build();
+                .with(changes) //
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -150,7 +152,7 @@ public class LoanReAmortizationService {
     }
 
     private LoanScheduleData previewReAmortization(final Loan loan, final ReAmortizationPreviewRequest reAmortizationPreviewRequest) {
-        reAmortizationValidator.validateReAmortize(loan);
+        reAmortizationValidator.validateReAmortize(loan, reAmortizationPreviewRequest);
 
         final LoanTransaction reAmortizeTransaction = createReAmortizeTransactionFromPreviewRequest(loan, reAmortizationPreviewRequest);
         processReAmortizationTransaction(loan, reAmortizeTransaction, false);

@@ -26,7 +26,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class CustomLoanAccountLockRepositoryImpl implements CustomLoanAccountLockRepository {
+public class CustomLoanAccountLockRepositoryImpl implements CustomLoanAccountLockRepository<LoanAccountLock> {
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -52,4 +52,5 @@ public class CustomLoanAccountLockRepositoryImpl implements CustomLoanAccountLoc
         entityManager.createNativeQuery(sql).executeUpdate();
         entityManager.flush();
     }
+
 }

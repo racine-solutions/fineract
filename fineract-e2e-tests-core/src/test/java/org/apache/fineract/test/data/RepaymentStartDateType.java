@@ -1,0 +1,40 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements. See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership. The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+<<<<<<<< HEAD:fineract-provider/src/main/java/org/apache/fineract/portfolio/self/device/api/DeviceRegistrationApiConstants.java
+package org.apache.fineract.portfolio.self.device.api;
+========
+package org.apache.fineract.test.data;
+>>>>>>>> origin/racine-dev-1.15.0-preview:fineract-e2e-tests-core/src/test/java/org/apache/fineract/test/data/RepaymentStartDateType.java
+
+import lombok.Getter;
+
+@Getter
+public enum RepaymentStartDateType {
+
+    INVALID(0), //
+    DISBURSEMENT_DATE(1), //
+    SUBMITTED_ON_DATE(2);
+
+    public final Integer value;
+
+    RepaymentStartDateType(Integer value) {
+        this.value = value;
+    }
+
+}

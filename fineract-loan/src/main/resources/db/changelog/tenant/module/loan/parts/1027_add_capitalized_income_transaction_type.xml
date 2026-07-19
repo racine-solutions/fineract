@@ -19,6 +19,30 @@
     under the License.
 
 -->
+<<<<<<<< HEAD:fineract-command/src/main/resources/jpa/static-weaving/module/fineract-command/persistence.xml
+
+
+<persistence version="2.0"
+             xmlns="http://java.sun.com/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
+
+    <!--  This file is only used for static weaving, nothing more.  -->
+    <!--  You can find the runtime configuration in the JPAConfig class  -->
+    <persistence-unit name="jpa-pu" transaction-type="RESOURCE_LOCAL">
+        <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+
+        <!-- Command Module Entities -->
+        <class>org.apache.fineract.command.persistence.domain.CommandEntity</class>
+        <class>org.apache.fineract.command.persistence.converter.JsonAttributeConverter</class>
+
+        <exclude-unlisted-classes>false</exclude-unlisted-classes>
+        <properties>
+            <property name="eclipselink.weaving" value="static" />
+        </properties>
+    </persistence-unit>
+</persistence>
+========
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
@@ -32,3 +56,4 @@
         </insert>
     </changeSet>
 </databaseChangeLog>
+>>>>>>>> origin/racine-dev-1.15.0-preview:fineract-loan/src/main/resources/db/changelog/tenant/module/loan/parts/1027_add_capitalized_income_transaction_type.xml
