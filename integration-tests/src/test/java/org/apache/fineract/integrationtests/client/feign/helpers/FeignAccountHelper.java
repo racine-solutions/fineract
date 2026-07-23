@@ -44,6 +44,10 @@ public class FeignAccountHelper {
         return createAccount(name, "2", "LIABILITY");
     }
 
+    public Account createEquityAccount(String name) {
+        return createAccount(name, "3", "EQUITY");
+    }
+
     public Account createIncomeAccount(String name) {
         return createAccount(name, "4", "INCOME");
     }
@@ -63,12 +67,18 @@ public class FeignAccountHelper {
                 .type(getAccountTypeId(type))//
                 .usage(1);
 
-        PostGLAccountsResponse response = ok(() -> fineractClient.generalLedgerAccount().createGLAccount1(request));
+        PostGLAccountsResponse response = ok(() -> fineractClient.generalLedgerAccount().createGLAccount(request));
 
         GetGLAccountsResponse account = ok(
                 () -> fineractClient.generalLedgerAccount().retreiveAccount(response.getResourceId(), Collections.emptyMap()));
 
         return new Account(account.getId().intValue(), getAccountType(type));
+    }
+
+    public String getGlCode(Account account) {
+        GetGLAccountsResponse response = ok(
+                () -> fineractClient.generalLedgerAccount().retreiveAccount(account.getAccountID().longValue(), Collections.emptyMap()));
+        return response.getGlCode();
     }
 
     private Integer getAccountTypeId(String type) {

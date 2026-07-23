@@ -25,8 +25,9 @@ import org.apache.fineract.integrationtests.common.accounting.Account;
 
 public final class LoanTestData {
 
-    public static final String DATETIME_PATTERN = "dd MMMM yyyy";
-    public static final String LOCALE = "en";
+    public static final String DATETIME_PATTERN = FeignTestConstants.DATETIME_PATTERN;
+    public static final String ISO_DATE_PATTERN = FeignTestConstants.ISO_DATE_PATTERN;
+    public static final String LOCALE = FeignTestConstants.LOCALE;
 
     private LoanTestData() {}
 
@@ -111,6 +112,7 @@ public final class LoanTestData {
 
     public static final class AmortizationType {
 
+        public static final Integer EQUAL_PRINCIPAL = 0;
         public static final Integer EQUAL_INSTALLMENTS = 1;
 
         private AmortizationType() {}

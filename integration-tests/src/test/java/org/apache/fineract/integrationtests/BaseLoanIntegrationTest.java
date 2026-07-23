@@ -84,7 +84,6 @@ import org.apache.fineract.client.models.PostLoansRequest;
 import org.apache.fineract.client.models.PostLoansResponse;
 import org.apache.fineract.client.models.PostRolesRequest;
 import org.apache.fineract.client.models.PostUsersRequest;
-import org.apache.fineract.client.models.PutGlobalConfigurationsRequest;
 import org.apache.fineract.client.models.PutLoanProductsProductIdRequest;
 import org.apache.fineract.client.models.PutLoansApprovedAmountRequest;
 import org.apache.fineract.client.models.PutLoansApprovedAmountResponse;
@@ -96,13 +95,10 @@ import org.apache.fineract.client.models.RetrieveLoansPointInTimeRequest;
 import org.apache.fineract.client.util.CallFailedRuntimeException;
 import org.apache.fineract.client.util.Calls;
 import org.apache.fineract.client.util.FineractClient;
-import org.apache.fineract.infrastructure.configuration.api.GlobalConfigurationConstants;
 import org.apache.fineract.infrastructure.event.external.data.ExternalEventResponse;
 import org.apache.fineract.integrationtests.client.IntegrationTest;
 import org.apache.fineract.integrationtests.common.BatchHelper;
-import org.apache.fineract.integrationtests.common.BusinessDateHelper;
 import org.apache.fineract.integrationtests.common.ClientHelper;
-import org.apache.fineract.integrationtests.common.GlobalConfigurationHelper;
 import org.apache.fineract.integrationtests.common.SchedulerJobHelper;
 import org.apache.fineract.integrationtests.common.Utils;
 import org.apache.fineract.integrationtests.common.accounting.Account;
@@ -137,9 +133,6 @@ import retrofit2.Response;
 @Slf4j
 @ExtendWith({ LoanTestLifecycleExtension.class, ExternalEventsExtension.class })
 public abstract class BaseLoanIntegrationTest extends IntegrationTest {
-
-    protected static final String DATETIME_PATTERN = "dd MMMM yyyy";
-    protected static final String LOCALE = "en";
 
     static {
         Utils.initializeRESTAssured();
@@ -182,11 +175,7 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
     protected ClientHelper clientHelper = new ClientHelper(requestSpec, responseSpec);
     protected SchedulerJobHelper schedulerJobHelper = new SchedulerJobHelper(requestSpec);
     protected final InlineLoanCOBHelper inlineLoanCOBHelper = new InlineLoanCOBHelper(requestSpec, responseSpec);
-    protected final LoanAccountLockHelper loanAccountLockHelper = new LoanAccountLockHelper(requestSpec,
-            createResponseSpecification(Matchers.is(202)));
-    protected BusinessDateHelper businessDateHelper = new BusinessDateHelper();
     protected DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(DATETIME_PATTERN);
-    protected GlobalConfigurationHelper globalConfigurationHelper = new GlobalConfigurationHelper();
     protected final CodeHelper codeHelper = new CodeHelper();
     protected final ChargesHelper chargesHelper = new ChargesHelper();
     protected final ExternalEventHelper externalEventHelper = new ExternalEventHelper();
@@ -295,7 +284,8 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
     }
 
     protected GetLoansLoanIdTransactionsTemplateResponse getPrepayAmount(Long loanId, String date) {
-        return ok(fineractClient().loanTransactions.retrieveTransactionTemplate(loanId, "prepayLoan", DATETIME_PATTERN, date, "en", null));
+        return ok(fineractClient().loanTransactions.retrieveTemplateLoanTransaction(loanId, "prepayLoan", DATETIME_PATTERN, date, "en",
+                null));
     }
 
     protected Long verifyPrepayAmountByRepayment(Long loanId, String date) {
@@ -330,8 +320,8 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
      */
     public PostLoansLoanIdTransactionsResponse makeLoanTransactionWithPermissionVerification(final Long loanId,
             PostLoansLoanIdTransactionsRequest postLoansLoanIdTransactionsRequest, final String command, final String permission) {
-        return performPermissionTestForRequest(permission, fineractClient -> fineractClient.loanTransactions.executeLoanTransaction(loanId,
-                postLoansLoanIdTransactionsRequest, command));
+        return performPermissionTestForRequest(permission, fineractClient -> fineractClient.loanTransactions
+                .handleCommandsLoanTransaction(loanId, postLoansLoanIdTransactionsRequest, command));
     }
 
     /**
@@ -368,13 +358,13 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
         Calls.ok(fineractClient().roles.updateRolePermissions(roleId,
                 new PutRolesRoleIdPermissionsRequest().putPermissionsItem(permission, false)));
         // create user with role
-        String firstname = "Test";
-        String lastname = Utils.uniqueRandomStringGenerator("User", 6);
+        String firstname = Utils.randomFirstNameGenerator();
+        String lastname = Utils.randomLastNameGenerator();
         String userName = Utils.uniqueRandomStringGenerator("testUserName", 4);
         String password = "AKleRbDhK421$";
         String email = firstname + "." + lastname + "@whatever.mifos.org";
         Calls.ok(fineractClient().users
-                .create15(new PostUsersRequest().addRolesItem(roleId).email(email).firstname(firstname).lastname(lastname)
+                .createUser(new PostUsersRequest().addRolesItem(roleId).email(email).firstname(firstname).lastname(lastname)
                         .repeatPassword(password).sendPasswordToEmail(false).officeId(1L).username(userName).password(password)));
 
         // login user
@@ -408,7 +398,7 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
     }
 
     protected PostLoanProductsRequest create4ICumulative() {
-        final Integer delinquencyBucketId = DelinquencyBucketsHelper.createDelinquencyBucket(requestSpec, responseSpec);
+        final Long delinquencyBucketId = DelinquencyBucketsHelper.createDefaultBucket();
         Assertions.assertNotNull(delinquencyBucketId);
 
         return new PostLoanProductsRequest().name(Utils.uniqueRandomStringGenerator("4I_PROGRESSIVE_", 6))//
@@ -606,7 +596,7 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
     }
 
     protected PostLoanProductsRequest create4IProgressive() {
-        final Integer delinquencyBucketId = DelinquencyBucketsHelper.createDelinquencyBucket(requestSpec, responseSpec);
+        final Long delinquencyBucketId = DelinquencyBucketsHelper.createDefaultBucket();
         Assertions.assertNotNull(delinquencyBucketId);
 
         return new PostLoanProductsRequest().name(Utils.uniqueRandomStringGenerator("4I_PROGRESSIVE_", 6))//
@@ -1003,11 +993,11 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
     }
 
     protected void placeHardLockOnLoan(Long loanId) {
-        loanAccountLockHelper.placeSoftLockOnLoanAccount(loanId.intValue(), "LOAN_COB_CHUNK_PROCESSING");
+        LoanAccountLockHelper.placeSoftLockOnLoanAccount(loanId, "LOAN_COB_CHUNK_PROCESSING");
     }
 
     protected void placeHardLockOnLoan(Long loanId, String error) {
-        loanAccountLockHelper.placeSoftLockOnLoanAccount(loanId.intValue(), "LOAN_COB_CHUNK_PROCESSING", error);
+        LoanAccountLockHelper.placeSoftLockOnLoanAccount(loanId, "LOAN_COB_CHUNK_PROCESSING", error);
     }
 
     protected void executeInlineCOB(Long loanId) {
@@ -1083,17 +1073,17 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
 
     protected PutLoansApprovedAmountResponse modifyLoanApprovedAmount(Long loanId, BigDecimal approvedAmount) {
         PutLoansApprovedAmountRequest request = new PutLoansApprovedAmountRequest().amount(approvedAmount).locale("en");
-        return Calls.ok(fineractClient().loans.modifyLoanApprovedAmount(loanId, request));
+        return Calls.ok(fineractClient().loans.updateApprovedAmountLoan(loanId, request));
     }
 
     protected List<LoanApprovedAmountHistoryData> getLoanApprovedAmountHistory(Long loanId) {
-        return Calls.ok(fineractClient().loans.getLoanApprovedAmountHistory(loanId));
+        return Calls.ok(fineractClient().loans.retrieveApprovedAmountHistoryLoan(loanId));
     }
 
     protected PutLoansAvailableDisbursementAmountResponse modifyLoanAvailableDisbursementAmount(Long loanId, BigDecimal approvedAmount) {
         PutLoansAvailableDisbursementAmountRequest request = new PutLoansAvailableDisbursementAmountRequest().amount(approvedAmount)
                 .locale("en");
-        return Calls.ok(fineractClient().loans.modifyLoanAvailableDisbursementAmount(loanId, request));
+        return Calls.ok(fineractClient().loans.updateAvailableDisbursementAmountLoan(loanId, request));
     }
 
     protected void verifyOutstanding(LoanPointInTimeData loan, OutstandingAmounts outstanding) {
@@ -1331,19 +1321,6 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
         }
     }
 
-    protected void runAt(String date, Runnable runnable) {
-        try {
-            globalConfigurationHelper.updateGlobalConfiguration(GlobalConfigurationConstants.ENABLE_BUSINESS_DATE,
-                    new PutGlobalConfigurationsRequest().enabled(true));
-            businessDateHelper.updateBusinessDate(new BusinessDateUpdateRequest().type(BusinessDateUpdateRequest.TypeEnum.BUSINESS_DATE)
-                    .date(date).dateFormat(DATETIME_PATTERN).locale("en"));
-            runnable.run();
-        } finally {
-            globalConfigurationHelper.updateGlobalConfiguration(GlobalConfigurationConstants.ENABLE_BUSINESS_DATE,
-                    new PutGlobalConfigurationsRequest().enabled(false));
-        }
-    }
-
     protected void runAsNonByPass(Runnable runnable) {
         RequestSpecificationImpl requestSpecImpl = (RequestSpecificationImpl) requestSpec;
         try {
@@ -1537,7 +1514,7 @@ public abstract class BaseLoanIntegrationTest extends IntegrationTest {
     }
 
     protected void deactivateOverdueLoanCharges(Long loanId, String fromDueDate) {
-        ok(fineractClient().loanCharges.executeLoanCharge(loanId,
+        ok(fineractClient().loanCharges.createOrPayLoanCharge(loanId,
                 new PostLoansLoanIdChargesRequest().dueDate(fromDueDate).dateFormat(DATETIME_PATTERN).locale("en"), "deactivateOverdue"));
     }
 

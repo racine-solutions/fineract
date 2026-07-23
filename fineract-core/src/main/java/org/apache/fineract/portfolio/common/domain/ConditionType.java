@@ -57,7 +57,7 @@ public enum ConditionType {
 
     @Override
     public String toString() {
-        return name().toString().replace("_", " ");
+        return name().replace("_", " ");
     }
 
     public Integer getValue() {
@@ -66,11 +66,6 @@ public enum ConditionType {
 
     public String getCode() {
         return this.code;
-    }
-
-    // TODO: why not just use the enum values... just more boilerplate code here!!
-    public boolean isInvalid() {
-        return ConditionType.INVALID.getValue().equals(this.value);
     }
 
     // TODO: do we really need this?!?

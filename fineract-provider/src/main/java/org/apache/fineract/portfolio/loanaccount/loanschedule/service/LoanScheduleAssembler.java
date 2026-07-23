@@ -271,7 +271,14 @@ public class LoanScheduleAssembler {
         LocalDate repaymentsStartingFromDate = this.fromApiJsonHelper.extractLocalDateNamed("repaymentsStartingFromDate", element);
         final LocalDate submittedOnDate = this.fromApiJsonHelper.extractLocalDateNamed("submittedOnDate", element);
 
-        final RepaymentStartDateType repaymentStartDateType = loanProduct.getRepaymentStartDateType();
+        RepaymentStartDateType repaymentStartDateType = loanProduct.getRepaymentStartDateType();
+        if (this.fromApiJsonHelper.parameterExists("repaymentStartDateType", element)) {
+            RepaymentStartDateType paramValue = RepaymentStartDateType
+                    .fromInt(this.fromApiJsonHelper.extractIntegerWithLocaleNamed(LoanApiConstants.REPAYMENT_START_DATE_TYPE, element));
+            if (paramValue != RepaymentStartDateType.INVALID) {
+                repaymentStartDateType = paramValue;
+            }
+        }
 
         LocalDate calculatedRepaymentsStartingFromDate = repaymentsStartingFromDate;
 
@@ -314,8 +321,6 @@ public class LoanScheduleAssembler {
             calculatedRepaymentsStartingFromDate = deriveFirstRepaymentDate(loanType, repaymentEvery, expectedDisbursementDate,
                     repaymentPeriodFrequencyType, loanProduct.getMinimumDaysBetweenDisbursalAndFirstRepayment(), calendar, submittedOnDate,
                     repaymentStartDateType);
-            // If calculated repayment start date does not match due to minimum days between disbursal and first
-            // repayment rule, we set repaymentsStartingFromDate (which will be used as seed date later)
             if (!tmpCalculatedRepaymentsStartingFromDate.equals(calculatedRepaymentsStartingFromDate)) {
                 repaymentsStartingFromDate = calculatedRepaymentsStartingFromDate;
             }
@@ -479,8 +484,10 @@ public class LoanScheduleAssembler {
             officeId = group.getOffice().getId();
         }
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
-        final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(officeId, expectedDisbursementDate,
-                HolidayStatusType.ACTIVE.getValue());
+        final List<Holiday> holidays = officeId != null
+                ? this.holidayRepository.findByOfficeIdAndGreaterThanDate(officeId, expectedDisbursementDate,
+                        HolidayStatusType.ACTIVE.getValue())
+                : List.of();
         final WorkingDays workingDays = this.workingDaysRepository.findOne();
         HolidayDetailDTO detailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
         final boolean isInterestToBeRecoveredFirstWhenGreaterThanEMI = this.configurationDomainService
@@ -699,10 +706,6 @@ public class LoanScheduleAssembler {
         return loanProductRelatedDetail;
     }
 
-    public LoanProductRelatedDetail assembleLoanProductRelatedDetail(final JsonElement element, final LoanProduct loanProduct) {
-        return assembleLoanProductRelatedDetail(assembleLoanApplicationTermsFrom(element, loanProduct), element);
-    }
-
     public LoanScheduleModel assembleLoanScheduleFrom(final JsonElement element) {
         // This method is getting called from calculate loan schedule.
         final LoanApplicationTerms loanApplicationTerms = assembleLoanTerms(element);
@@ -724,8 +727,10 @@ public class LoanScheduleAssembler {
         }
 
         final LocalDate expectedDisbursementDate = this.fromApiJsonHelper.extractLocalDateNamed("expectedDisbursementDate", element);
-        final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(officeId, expectedDisbursementDate,
-                HolidayStatusType.ACTIVE.getValue());
+        final List<Holiday> holidays = officeId != null
+                ? this.holidayRepository.findByOfficeIdAndGreaterThanDate(officeId, expectedDisbursementDate,
+                        HolidayStatusType.ACTIVE.getValue())
+                : List.of();
         final WorkingDays workingDays = this.workingDaysRepository.findOne();
 
         validateDisbursementDateIsOnNonWorkingDay(loanApplicationTerms.getExpectedDisbursementDate(), workingDays);
@@ -748,18 +753,9 @@ public class LoanScheduleAssembler {
         final MathContext mc = MoneyHelper.getMathContext();
         HolidayDetailDTO detailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
 
-        LoanScheduleGenerator loanScheduleGenerator = this.loanScheduleFactory.create(loanApplicationTerms.getLoanScheduleType(),
-                loanApplicationTerms.getInterestMethod());
+        LoanScheduleGenerator loanScheduleGenerator;
         if (loanApplicationTerms.isEqualAmortization()) {
-            if (loanApplicationTerms.getInterestMethod().isDecliningBalance()) {
-                final LoanScheduleGenerator decliningLoanScheduleGenerator = this.loanScheduleFactory
-                        .create(loanApplicationTerms.getLoanScheduleType(), InterestMethod.DECLINING_BALANCE);
-                LoanScheduleModel loanSchedule = decliningLoanScheduleGenerator.generate(mc, loanApplicationTerms, loanCharges, detailDTO);
-
-                loanApplicationTerms
-                        .updateTotalInterestDue(Money.of(loanApplicationTerms.getCurrency(), loanSchedule.getTotalInterestCharged()));
-
-            }
+            updateInterestForEqualAmortization(mc, loanApplicationTerms, loanCharges, detailDTO);
             loanScheduleGenerator = this.loanScheduleFactory.create(loanApplicationTerms.getLoanScheduleType(), InterestMethod.FLAT);
         } else {
             loanScheduleGenerator = this.loanScheduleFactory.create(loanApplicationTerms.getLoanScheduleType(),
@@ -1599,6 +1595,18 @@ public class LoanScheduleAssembler {
                     loanScheduleModelPeriod.addLoanCharges(loanCharge.getAmountOutstanding(), BigDecimal.ZERO);
                 }
             }
+        }
+    }
+
+    private void updateInterestForEqualAmortization(final MathContext mc, final LoanApplicationTerms loanApplicationTerms,
+            final Set<LoanCharge> loanCharges, final HolidayDetailDTO detailDTO) {
+        if (loanApplicationTerms.getInterestMethod().isDecliningBalance()) {
+            final LoanScheduleGenerator decliningLoanScheduleGenerator = this.loanScheduleFactory
+                    .create(loanApplicationTerms.getLoanScheduleType(), InterestMethod.DECLINING_BALANCE);
+            LoanScheduleModel loanSchedule = decliningLoanScheduleGenerator.generate(mc, loanApplicationTerms, loanCharges, detailDTO);
+
+            loanApplicationTerms
+                    .updateTotalInterestDue(Money.of(loanApplicationTerms.getCurrency(), loanSchedule.getTotalInterestCharged()));
         }
     }
 

@@ -87,6 +87,9 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
     @Column(name = "is_reversed", nullable = false)
     private boolean reversed;
 
+    @Column(name = "external_id", length = 100, nullable = true, unique = true)
+    private ExternalId externalId = ExternalId.empty();
+
     @Column(name = "running_balance_derived", scale = 6, precision = 19, nullable = true)
     private BigDecimal runningBalance;
 
@@ -138,9 +141,6 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
 
     @Column(name = "ref_no", nullable = true)
     private String refNo;
-
-    @Column(name = "external_id", length = 100, unique = true)
-    private ExternalId externalId;
 
     SavingsAccountTransaction() {}
 
@@ -375,6 +375,14 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
         return this.dateOf;
     }
 
+    public ExternalId getExternalId() {
+        return this.externalId;
+    }
+
+    public void updateExternalId(final ExternalId externalId) {
+        this.externalId = externalId;
+    }
+
     public LocalDate getEndOfBalanceDate() {
         return balanceEndDate;
     }
@@ -451,9 +459,6 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
         return this.refNo;
     }
 
-    public ExternalId getExternalId() {
-        return this.externalId == null ? ExternalId.empty() : this.externalId;
-    }
 
     public void setExternalId(final ExternalId externalId) {
         this.externalId = externalId;

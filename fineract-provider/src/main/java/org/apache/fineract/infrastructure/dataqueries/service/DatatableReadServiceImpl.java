@@ -52,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class DatatableReadServiceImpl implements DatatableReadService {
 
     private static final String APPLICATION_TABLE_NAME = "application_table_name";
@@ -263,8 +264,8 @@ public class DatatableReadServiceImpl implements DatatableReadService {
     @Override
     public Long countDatatableEntries(final String datatableName, final Long appTableId, String foreignKeyColumn) {
         final String sqlString = "SELECT COUNT(" + sqlGenerator.escape(foreignKeyColumn) + ") FROM " + sqlGenerator.escape(datatableName)
-                + " WHERE " + sqlGenerator.escape(foreignKeyColumn) + " = " + appTableId;
-        return this.jdbcTemplate.queryForObject(sqlString, Long.class); // NOSONAR
+                + " WHERE " + sqlGenerator.escape(foreignKeyColumn) + " = ?";
+        return this.jdbcTemplate.queryForObject(sqlString, Long.class, appTableId); // NOSONAR
     }
 
     @Override

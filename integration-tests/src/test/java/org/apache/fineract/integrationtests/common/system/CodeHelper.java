@@ -386,7 +386,11 @@ public final class CodeHelper {
     }
 
     public List<GetCodesResponse> retrieveCodes() {
-        return Calls.ok(FineractClientHelper.getFineractClient().codes.retrieveCodes());
+        return Calls.ok(FineractClientHelper.getFineractClient().codes.retrieveAllCodes());
+    }
+
+    public GetCodesResponse retrieveCodeByName(final String codeName) {
+        return Calls.ok(FineractClientHelper.getFineractClient().codes.retrieveOneCodeByName(codeName));
     }
 
     public GetCodesResponse retrieveCodeByName(final String codeName) {
