@@ -459,7 +459,6 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
         return this.refNo;
     }
 
-
     public void setExternalId(final ExternalId externalId) {
         this.externalId = externalId;
     }

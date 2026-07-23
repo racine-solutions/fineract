@@ -90,9 +90,7 @@ public class SmsEventConfigurationApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String updateSmsEventConfigurationsDetails(@Parameter(hidden = true) final String apiRequestBodyAsJson) {
         context.authenticatedUser().validateHasUpdatePermission(RESOURCE_NAME_FOR_PERMISSIONS);
-        final CommandWrapper commandRequest = new CommandWrapperBuilder()
-                .updateSmsEventConfigurations()
-                .withJson(apiRequestBodyAsJson)
+        final CommandWrapper commandRequest = new CommandWrapperBuilder().updateSmsEventConfigurations().withJson(apiRequestBodyAsJson)
                 .build();
         final CommandProcessingResult result = this.commandWritePlatformService.logCommandSource(commandRequest);
         return this.jsonSerializer.serialize(result);
@@ -143,9 +141,7 @@ public class SmsEventConfigurationApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String creditSmsAccount(@Parameter(hidden = true) final String apiRequestBodyAsJson) {
         context.authenticatedUser();
-        final CommandWrapper commandRequest = new CommandWrapperBuilder()
-                .creditSmsNotificationAccount()
-                .withJson(apiRequestBodyAsJson)
+        final CommandWrapper commandRequest = new CommandWrapperBuilder().creditSmsNotificationAccount().withJson(apiRequestBodyAsJson)
                 .build();
         final CommandProcessingResult result = commandWritePlatformService.logCommandSource(commandRequest);
         return jsonSerializer.serialize(result);

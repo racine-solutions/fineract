@@ -182,7 +182,6 @@ import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRepository;
 import org.apache.fineract.portfolio.loanproduct.service.LoanDropdownReadPlatformService;
 import org.apache.fineract.portfolio.loanproduct.service.LoanProductReadPlatformService;
 import org.apache.fineract.portfolio.note.domain.NoteRepository;
-import org.apache.fineract.portfolio.note.service.NoteWritePlatformService;
 import org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
 import org.apache.fineract.portfolio.paymenttype.service.PaymentTypeReadService;
 import org.apache.fineract.portfolio.rate.service.RateAssembler;
@@ -619,6 +618,7 @@ public class LoanAccountConfiguration {
         return new LoanAmortizationAllocationServiceImpl(loanAmortizationAllocationMappingRepository, loanTransactionRepository,
                 capitalizedIncomeBalanceRepository, buyDownFeeBalanceRepository);
     }
+
     @Bean
     @ConditionalOnMissingBean(SMSNotificationWritePlatformServiceImpl.class)
     public SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService(

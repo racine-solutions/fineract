@@ -392,8 +392,4 @@ public final class CodeHelper {
     public GetCodesResponse retrieveCodeByName(final String codeName) {
         return Calls.ok(FineractClientHelper.getFineractClient().codes.retrieveOneCodeByName(codeName));
     }
-
-    public GetCodesResponse retrieveCodeByName(final String codeName) {
-        return Calls.ok(FineractClientHelper.getFineractClient().codes.retrieveCodeByName(codeName));
-    }
 }

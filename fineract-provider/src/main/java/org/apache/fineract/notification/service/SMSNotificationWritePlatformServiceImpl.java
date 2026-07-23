@@ -101,12 +101,10 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         final SmsNotificationAccount account = smsAccount.get();
 
         if (account.getSmsTotalBalance() == null || account.getSmsTotalBalance() <= 0) {
-            log.warn("Insufficient SMS credit balance ({}) for tenant :- {}. Message not sent.",
-                    account.getSmsTotalBalance(), ThreadLocalContextUtil.getTenant().getName());
-            throw new PlatformApiDataValidationException(
-                    "error.msg.sms.insufficient.balance",
-                    "Insufficient SMS credit balance. Please top up your SMS account before sending messages.",
-                    "smsTotalBalance");
+            log.warn("Insufficient SMS credit balance ({}) for tenant :- {}. Message not sent.", account.getSmsTotalBalance(),
+                    ThreadLocalContextUtil.getTenant().getName());
+            throw new PlatformApiDataValidationException("error.msg.sms.insufficient.balance",
+                    "Insufficient SMS credit balance. Please top up your SMS account before sending messages.", "smsTotalBalance");
         }
 
         if (property.isEnabled()) {

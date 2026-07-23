@@ -1907,7 +1907,6 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             businessEventNotifierService.notifyPostBusinessEvent(new LoanReassignOfficerBusinessEvent(loan));
         }
 
-
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .build();

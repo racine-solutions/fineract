@@ -398,8 +398,8 @@ public class SavingsConfiguration {
             StandingInstructionRepository standingInstructionRepository, BusinessEventNotifierService businessEventNotifierService,
             GSIMRepositoy gsimRepository, SavingsAccountInterestPostingService savingsAccountInterestPostingService,
             SavingsAccountPostInterestService savingsAccountPostInterestService,
-            SavingsAccountActivationService savingsAccountActivationService, ExternalIdFactory externalIdFactory,
-            ErrorHandler errorHandler, SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
+            SavingsAccountActivationService savingsAccountActivationService, ExternalIdFactory externalIdFactory, ErrorHandler errorHandler,
+            SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService) {
         return new SavingsAccountWritePlatformServiceJpaRepositoryImpl(context, fromApiJsonDeserializer, savingAccountRepositoryWrapper,
                 staffRepository, savingsAccountTransactionRepository, savingAccountAssembler, savingsAccountTransactionDataValidator,
                 savingsAccountChargeDataValidator, paymentDetailWritePlatformService, journalEntryWritePlatformService,

@@ -33,7 +33,7 @@ import org.springframework.data.repository.query.Param;
 public interface SavingsAccountTransactionRepository
         extends JpaRepository<SavingsAccountTransaction, Long>, JpaSpecificationExecutor<SavingsAccountTransaction> {
 
-    SavingsAccountTransaction findByExternalId(ExternalId externalId);
+    Optional<SavingsAccountTransaction> findByExternalId(ExternalId externalId);
 
     @Query("select sat from SavingsAccountTransaction sat where sat.id = :transactionId and sat.savingsAccount.id = :savingsId")
     SavingsAccountTransaction findOneByIdAndSavingsAccountId(@Param("transactionId") Long transactionId,
@@ -56,7 +56,6 @@ public interface SavingsAccountTransactionRepository
     List<SavingsAccountTransaction> findBySavingsAccount(@Param("savingsAccount") SavingsAccount savingsAccount);
 
     List<SavingsAccountTransaction> findByRefNo(@Param("refNo") String refNo);
-
 
     @Query("select sat from SavingsAccountTransaction sat where sat.savingsAccount.id = :savingsId and sat.dateOf <= :transactionDate and sat.reversed=false")
     List<SavingsAccountTransaction> findBySavingsAccountIdAndLessThanDateOfAndReversedIsFalse(@Param("savingsId") Long savingsId,

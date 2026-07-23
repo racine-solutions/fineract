@@ -58,38 +58,28 @@ public class SmsAccountCreditWritePlatformServiceImpl implements SmsAccountCredi
 
         // ── 1. Load the account ──────────────────────────────────────────────
         final SmsNotificationAccount account = accountRepository.findById(ACCOUNT_ID)
-                .orElseThrow(() -> new PlatformApiDataValidationException(
-                        "error.msg.sms.account.not.found",
-                        "SMS notification account does not exist. Please create one first.",
-                        "accountId"));
+                .orElseThrow(() -> new PlatformApiDataValidationException("error.msg.sms.account.not.found",
+                        "SMS notification account does not exist. Please create one first.", "accountId"));
 
         if (!Boolean.TRUE.equals(account.getIsActive())) {
-            throw new PlatformApiDataValidationException(
-                    "error.msg.sms.account.not.active",
-                    "SMS notification account is not active. Please activate it before crediting.",
-                    "isActive");
+            throw new PlatformApiDataValidationException("error.msg.sms.account.not.active",
+                    "SMS notification account is not active. Please activate it before crediting.", "isActive");
         }
 
         // ── 2. Derive SMS credit units ───────────────────────────────────────
         final int smsCredit = amount.divide(smsCost, 0, RoundingMode.FLOOR).intValue();
 
         if (smsCredit <= 0) {
-            throw new PlatformApiDataValidationException(
-                    "error.msg.sms.credit.zero",
-                    "The supplied amount and smsCost result in zero SMS credits. Please review the values.",
-                    "smsCredit");
+            throw new PlatformApiDataValidationException("error.msg.sms.credit.zero",
+                    "The supplied amount and smsCost result in zero SMS credits. Please review the values.", "smsCredit");
         }
 
         // ── 3. Capture previous balance for audit ────────────────────────────
         final int previousBalance = account.getSmsTotalBalance() != null ? account.getSmsTotalBalance() : 0;
 
         // ── 4. Persist the transaction record ───────────────────────────────
-        final SmsNotificationAccountTransaction transaction = new SmsNotificationAccountTransaction()
-                .setAmount(amount)
-                .setSmsCost(smsCost)
-                .setSmsCredit(smsCredit)
-                .setPreviousBalance(previousBalance)
-                .setNote(note);
+        final SmsNotificationAccountTransaction transaction = new SmsNotificationAccountTransaction().setAmount(amount).setSmsCost(smsCost)
+                .setSmsCredit(smsCredit).setPreviousBalance(previousBalance).setNote(note);
 
         final SmsNotificationAccountTransaction saved = transactionRepository.saveAndFlush(transaction);
 
@@ -111,24 +101,16 @@ public class SmsAccountCreditWritePlatformServiceImpl implements SmsAccountCredi
         changes.put("newBalance", newBalance);
         changes.put("totalPaymentAmount", account.getTotalPaymentAmount());
 
-        return new CommandProcessingResultBuilder()
-                .withCommandId(command.commandId())
-                .withEntityId(saved.getId())
-                .with(changes)
-                .build();
+        return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withEntityId(saved.getId()).with(changes).build();
     }
 
     private void validateInputs(final BigDecimal amount, final BigDecimal smsCost) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PlatformApiDataValidationException(
-                    "error.msg.sms.credit.amount.invalid",
-                    "Amount must be a positive value.",
+            throw new PlatformApiDataValidationException("error.msg.sms.credit.amount.invalid", "Amount must be a positive value.",
                     "amount");
         }
         if (smsCost == null || smsCost.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PlatformApiDataValidationException(
-                    "error.msg.sms.credit.smsCost.invalid",
-                    "smsCost must be a positive value.",
+            throw new PlatformApiDataValidationException("error.msg.sms.credit.smsCost.invalid", "smsCost must be a positive value.",
                     "smsCost");
         }
     }

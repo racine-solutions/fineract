@@ -63,8 +63,7 @@ public class ExecuteStandingInstructionsTasklet implements Tasklet {
 
     public ExecuteStandingInstructionsTasklet(StandingInstructionReadPlatformService standingInstructionReadPlatformService,
             JdbcTemplate jdbcTemplate, DatabaseSpecificSQLGenerator sqlGenerator,
-            AccountTransfersWritePlatformService accountTransfersWritePlatformService,
-            PlatformTransactionManager transactionManager) {
+            AccountTransfersWritePlatformService accountTransfersWritePlatformService, PlatformTransactionManager transactionManager) {
         this.standingInstructionReadPlatformService = standingInstructionReadPlatformService;
         this.jdbcTemplate = jdbcTemplate;
         this.sqlGenerator = sqlGenerator;
