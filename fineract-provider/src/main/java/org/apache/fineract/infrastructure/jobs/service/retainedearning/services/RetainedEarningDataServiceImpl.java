@@ -55,7 +55,6 @@ import org.springframework.stereotype.Component;
  * Retained earning data service implementation. Handles data fetching, processing, and persistence.
  */
 @Component
-@AllArgsConstructor
 @Slf4j
 public class RetainedEarningDataServiceImpl implements RetainedEarningDataService {
 
@@ -68,6 +67,19 @@ public class RetainedEarningDataServiceImpl implements RetainedEarningDataServic
     private final LoanProductRepository loanProductRepository;
 
     private final RetainedEarningConfigurationService retainedEarningConfigurationService;
+
+    public RetainedEarningDataServiceImpl(
+            @org.springframework.beans.factory.annotation.Qualifier("datatableReportingProcessService") ReportingProcessService reportingProcessService,
+            DataParser dataParser,
+            AccountGLJournalEntryAnnualSummaryRepository retainedEarningSummaryRepository,
+            LoanProductRepository loanProductRepository,
+            RetainedEarningConfigurationService retainedEarningConfigurationService) {
+        this.reportingProcessService = reportingProcessService;
+        this.dataParser = dataParser;
+        this.retainedEarningSummaryRepository = retainedEarningSummaryRepository;
+        this.loanProductRepository = loanProductRepository;
+        this.retainedEarningConfigurationService = retainedEarningConfigurationService;
+    }
 
     private record ProductOwnerKey(String productName, ExternalId ownerExternalId) {
     }
