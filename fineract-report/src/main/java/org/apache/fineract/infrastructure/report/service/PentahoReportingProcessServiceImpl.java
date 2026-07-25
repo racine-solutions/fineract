@@ -132,7 +132,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
         Resource res;
 
         try {
-            res = manager.createDirectly(reportPath, MasterReport.class);
+            res = manager.createDirectly(new File(reportPath), MasterReport.class);
             final var masterReport = (MasterReport) res.getResource();
 
             // Override Data Connection Factory with the driver and url
