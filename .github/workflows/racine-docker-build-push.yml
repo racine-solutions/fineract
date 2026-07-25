@@ -3,10 +3,10 @@ name: Racine Build and Push Docker Image
 on:
   push:
     branches:
-      - racine-dev-1.14.0-preview
+      - racine-dev-1.15.0-preview
   pull_request:
     branches:
-      - racine-dev-1.14.0-preview
+      - racine-dev-1.15.0-preview
 
 env:
   REGISTRY: docker.io
