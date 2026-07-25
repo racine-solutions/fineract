@@ -3792,6 +3792,20 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder updateSmsEventConfigurations() {
+        this.actionName = "UPDATE";
+        this.entityName = "SMS_EVENT_CONFIGURATION";
+        this.href = "/smseventconfiguration";
+        return this;
+    }
+
+    public CommandWrapperBuilder creditSmsNotificationAccount() {
+        this.actionName = "CREDIT";
+        this.entityName = "SMS_NOTIFICATION_ACCOUNT";
+        this.href = "/smsevents/configuration/credit";
+        return this;
+    }
+
     public CommandWrapperBuilder chargeOff(final Long loanId) {
         this.actionName = ACTION_CHARGEOFF;
         this.entityName = ENTITY_LOAN;

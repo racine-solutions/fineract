@@ -173,6 +173,13 @@ subprojects { subproject ->
     apply from: rootProject.file('static-weaving.gradle')
 }
 
+def pentahoReportDir = System.properties['user.home'] + System.properties['file.separator'] + '.mifosx' + System.properties['file.separator'] + 'pentahoReports'
+
+copy {
+    from "fineract-report/pentahoReports"
+    into pentahoReportDir
+}
+
 allprojects  {
     group = 'org.apache.fineract'
 
@@ -934,7 +941,6 @@ tasks.withType(org.cyclonedx.gradle.CyclonedxDirectTask).configureEach {
     includeMetadataResolution.set(false)
     skipConfigs.set(['.*eclipse.*', '.*swt.*'])
 }
-
 tasks.register('printSourceSetInformation') {
     doLast {
         sourceSets.each { srcSet ->
@@ -948,4 +954,8 @@ tasks.register('printSourceSetInformation') {
             println ""
         }
     }
+}
+
+tasks.withType(Checkstyle).configureEach {
+    exclude("**/*.avsc")
 }

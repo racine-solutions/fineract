@@ -79,6 +79,8 @@ public final class GlobalConfigurationConstants {
     public static final String ASSET_OWNER_TRANSFER_OUTSTANDING_INTEREST_CALCULATION_STRATEGY = "outstanding-interest-calculation-strategy-for-external-asset-transfer";
     public static final String ALLOWED_LOAN_STATUSES_FOR_EXTERNAL_ASSET_TRANSFER = "allowed-loan-statuses-for-external-asset-transfer";
     public static final String ALLOWED_LOAN_STATUSES_OF_DELAYED_SETTLEMENT_FOR_EXTERNAL_ASSET_TRANSFER = "allowed-loan-statuses-of-delayed-settlement-for-external-asset-transfer";
+    public static final String ENABLE_SMS_NOTIFICATIONS = "enable-sms-notifications";
+    public static final String ENABLE_USSD_MOMO_PAY = "enable-ussd-momo-pay";
     public static final String MAX_LOGIN_RETRY_ATTEMPTS = "max-login-retry-attempts";
     public static final String ENABLE_ORIGINATOR_CREATION_DURING_LOAN_APPLICATION = "enable-originator-creation-during-loan-application";
     public static final String ENABLE_INSTANT_DELINQUENCY_CALCULATION = "enable-instant-delinquency-calculation";

@@ -107,6 +107,8 @@ import org.apache.fineract.infrastructure.event.business.domain.loan.transaction
 import org.apache.fineract.infrastructure.event.business.domain.loan.transaction.LoanWrittenOffPreBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SMSNotificationWritePlatformServiceImpl;
 import org.apache.fineract.organisation.holiday.domain.Holiday;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepositoryWrapper;
 import org.apache.fineract.organisation.holiday.service.HolidayUtil;
@@ -290,6 +292,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private final LoanTransactionProcessingService loanTransactionProcessingService;
     private final LoanBalanceService loanBalanceService;
     private final LoanTransactionService loanTransactionService;
+    private final SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService;
 
     @Transactional
     @Override
@@ -538,6 +541,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
 
         businessEventNotifierService.notifyPostBusinessEvent(new LoanBalanceChangedBusinessEvent(loan));
+
+        // Send SMS
+        smsNotificationWritePlatformService.processLoanSmsNotification(loan, SmsTypeEnum.LOAN_DISBURSEMENT, null);
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
@@ -1136,6 +1142,19 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
         Loan loan = this.loanAssembler.assembleFrom(loanId);
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
+
+        if (paymentDetail != null && paymentDetail.getPaymentType() != null
+                && "Ussd Momo Pay".equalsIgnoreCase(paymentDetail.getPaymentType().getName())) {
+            if (!this.configurationDomainService.isUssdMomoPayEnabled()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.not.enabled",
+                        "Ussd Momo Pay payment type is not enabled. Please enable the 'enable-ussd-momo-pay' configuration to use this payment type for loan repayments.");
+            }
+            if (txnExternalId.isEmpty()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.external.id.required",
+                        "An externalId is required when using Ussd Momo Pay as the payment type for loan repayments.");
+            }
+        }
+
         final Boolean isHolidayValidationDone = false;
         final HolidayDetailDTO holidayDetailDto = null;
         boolean isAccountTransfer = false;
@@ -1145,6 +1164,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 holidayDetailDto, isHolidayValidationDone);
         loan = loanTransaction.getLoan();
         this.loanAccountDomainService.updateAndSaveLoanCollateralTransactionsForIndividualAccounts(loan, loanTransaction);
+
+        // Send SMS
+        smsNotificationWritePlatformService.processLoanSmsNotification(loan, SmsTypeEnum.LOAN_REPAYMENT, loanTransaction);
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //

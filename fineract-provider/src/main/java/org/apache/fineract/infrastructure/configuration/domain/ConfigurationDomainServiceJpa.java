@@ -552,6 +552,11 @@ public class ConfigurationDomainServiceJpa implements ConfigurationDomainService
     }
 
     @Override
+    public boolean isUssdMomoPayEnabled() {
+        return getGlobalConfigurationPropertyData(GlobalConfigurationConstants.ENABLE_USSD_MOMO_PAY).isEnabled();
+    }
+
+    @Override
     public boolean isForceWithdrawalOnSavingsAccountEnabled() {
         return getGlobalConfigurationPropertyData(GlobalConfigurationConstants.FORCE_WITHDRAWAL_ON_SAVINGS_ACCOUNT).isEnabled();
     }

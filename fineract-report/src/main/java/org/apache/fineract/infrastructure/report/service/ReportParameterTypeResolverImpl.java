@@ -31,7 +31,7 @@ public final class ReportParameterTypeResolverImpl implements ReportParameterTyp
     private final JdbcTemplate jdbcTemplate;
     private final DatabaseTypeResolver databaseTypeResolver;
 
-    private static final String PARAM_TYPE_SQL_PREFIX = "SELECT sp.parameter_variable, sp.";
+    private static final String PARAM_TYPE_SQL_PREFIX = "SELECT srp.report_parameter_name AS parameter_variable, sp.";
     private static final String PARAM_TYPE_SQL_SUFFIX = """
              AS format_type
             FROM stretchy_report_parameter srp

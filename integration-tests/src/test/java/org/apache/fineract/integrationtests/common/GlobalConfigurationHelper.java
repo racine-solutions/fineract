@@ -578,7 +578,6 @@ public class GlobalConfigurationHelper {
         blockTransactionsOnClosedOverpaidLoans.put("enabled", false);
         blockTransactionsOnClosedOverpaidLoans.put("trapDoor", false);
         defaults.add(blockTransactionsOnClosedOverpaidLoans);
-
         HashMap<String, Object> assetOwnerTransferInterestOutstandingStrategy = new HashMap<>();
         assetOwnerTransferInterestOutstandingStrategy.put("name",
                 GlobalConfigurationConstants.ASSET_OWNER_TRANSFER_OUTSTANDING_INTEREST_CALCULATION_STRATEGY);
@@ -606,6 +605,13 @@ public class GlobalConfigurationHelper {
         allowedLoanStatusesForDelayedSettlementExternalAssetTransfer.put("string_value",
                 "ACTIVE,TRANSFER_IN_PROGRESS,TRANSFER_ON_HOLD,OVERPAID,CLOSED_OBLIGATIONS_MET");
         defaults.add(allowedLoanStatusesForDelayedSettlementExternalAssetTransfer);
+
+        HashMap<String, Object> enableUssdMomoPay = new HashMap<>();
+        enableUssdMomoPay.put("name", GlobalConfigurationConstants.ENABLE_USSD_MOMO_PAY);
+        enableUssdMomoPay.put("value", 0L);
+        enableUssdMomoPay.put("enabled", false);
+        enableUssdMomoPay.put("trapDoor", false);
+        defaults.add(enableUssdMomoPay);
 
         HashMap<String, Object> maxLoginRetryAttempts = new HashMap<>();
         maxLoginRetryAttempts.put("name", GlobalConfigurationConstants.MAX_LOGIN_RETRY_ATTEMPTS);

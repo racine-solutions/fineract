@@ -124,6 +124,9 @@ dependencies {
             'io.github.resilience4j:resilience4j-spring-boot3',
             'org.reflections:reflections',
             )
+    implementation 'org.apache.tika:tika-core:2.7.0'
+    implementation 'org.apache.tika:tika-parser-microsoft-module:2.7.0'
+    implementation 'org.apache.tika:tika-parser-miscoffice-module:2.7.0'
 
     implementation 'software.amazon.msk:aws-msk-iam-auth'
 
@@ -208,6 +211,7 @@ dependencies {
 
     implementation 'io.github.classgraph:classgraph'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'com.mysql:mysql-connector-j:8.0.33'
 
     // testCompile dependencies are ONLY used in src/test, not src/main.
     // Do NOT repeat dependencies which are ALREADY in implementation or runtimeOnly!

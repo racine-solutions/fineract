@@ -21,14 +21,42 @@
 -->
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
-    <changeSet author="fineract" id="1">
-        <addColumn tableName="m_savings_account_transaction">
-            <column name="external_id" type="VARCHAR(100)"/>
-        </addColumn>
-    </changeSet>
-    <changeSet author="fineract" id="2">
-        <addUniqueConstraint columnNames="external_id" constraintName="uk_m_sat_external_id"
-                             tableName="m_savings_account_transaction"/>
-    </changeSet>
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+        <changeSet author="fineract" id="1">
+            <preConditions onFail="MARK_RAN">
+                <not>
+                    <columnExists
+                            tableName="m_savings_account_transaction"
+                            columnName="external_id"/>
+                </not>
+            </preConditions>
+
+            <addColumn tableName="m_savings_account_transaction">
+                <column name="external_id" type="VARCHAR(100)"/>
+            </addColumn>
+        </changeSet>
+
+        <changeSet author="fineract" id="2">
+            <preConditions onFail="MARK_RAN">
+                <and>
+                    <columnExists
+                            tableName="m_savings_account_transaction"
+                            columnName="external_id"/>
+
+                    <not>
+                        <indexExists
+                                tableName="m_savings_account_transaction"
+                                indexName="uk_m_sat_external_id"/>
+                    </not>
+                </and>
+            </preConditions>
+
+            <addUniqueConstraint
+                    tableName="m_savings_account_transaction"
+                    columnNames="external_id"
+                    constraintName="uk_m_sat_external_id"/>
+        </changeSet>
+
 </databaseChangeLog>

@@ -152,6 +152,8 @@ public interface ConfigurationDomainService {
 
     String getAssetOwnerTransferOustandingInterestStrategy();
 
+    boolean isUssdMomoPayEnabled();
+
     boolean isForceWithdrawalOnSavingsAccountEnabled();
 
     Long retrieveForceWithdrawalOnSavingsAccountLimit();

@@ -73,6 +73,8 @@ import org.apache.fineract.infrastructure.event.business.domain.savings.SavingsC
 import org.apache.fineract.infrastructure.event.business.domain.savings.SavingsPostInterestBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SMSNotificationWritePlatformServiceImpl;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepositoryWrapper;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
@@ -133,6 +135,7 @@ import org.apache.fineract.useradministration.domain.AppUserRepositoryWrapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
@@ -170,6 +173,7 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
     private final SavingsAccountActivationService savingsAccountActivationService;
     private final ExternalIdFactory externalIdFactory;
     private final ErrorHandler errorHandler;
+    private final SMSNotificationWritePlatformServiceImpl smsNotificationWritePlatformService;
 
     @Transactional
     @Override
@@ -307,12 +311,40 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
 
         final Map<String, Object> changes = new LinkedHashMap<>();
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
+
+        final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, SavingsApiConstants.externalIdParamName);
+
+        if (paymentDetail != null && paymentDetail.getPaymentType() != null
+                && "Ussd Momo Pay".equalsIgnoreCase(paymentDetail.getPaymentType().getName())) {
+            if (!this.configurationDomainService.isUssdMomoPayEnabled()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.not.enabled",
+                        "Ussd Momo Pay payment type is not enabled. Please enable the 'enable-ussd-momo-pay' configuration to use this payment type for savings deposits.");
+            }
+            if (txnExternalId.isEmpty()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.external.id.required",
+                        "An externalId is required when using Ussd Momo Pay as the payment type for savings deposits.");
+            }
+        }
+
+        if (!txnExternalId.isEmpty()) {
+            if (this.savingsAccountTransactionRepository.findByExternalId(txnExternalId).isPresent()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.savings.transaction.external.id.already.exists",
+                        "A savings transaction with externalId '" + txnExternalId.getValue() + "' already exists.");
+            }
+            changes.put(SavingsApiConstants.externalIdParamName, txnExternalId);
+        }
+
         boolean isAccountTransfer = false;
         boolean isRegularTransaction = true;
         final SavingsAccountTransaction deposit = this.savingsAccountDomainService.handleDeposit(account, fmt, transactionDate,
                 transactionAmount, paymentDetail, isAccountTransfer, isRegularTransaction, backdatedTxnsAllowedTill);
         deposit.updateExternalId(externalId);
         this.savingsAccountTransactionRepository.save(deposit);
+
+        if (!txnExternalId.isEmpty()) {
+            deposit.setExternalId(txnExternalId);
+            this.savingsAccountTransactionRepository.save(deposit);
+        }
 
         if (isGsim && (deposit.getId() != null)) {
 
@@ -335,6 +367,8 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
             final Note note = Note.savingsTransactionNote(account, deposit, noteText);
             this.noteRepository.save(note);
         }
+        // Send SMS
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.SAVINGS_DEPOSIT, deposit);
 
         return new CommandProcessingResultBuilder() //
                 .withEntityId(deposit.getId()) //
@@ -380,6 +414,28 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
 
         this.savingsAccountTransactionDataValidator.validateTransactionWithPivotDate(transactionDate, account);
 
+        final ExternalId withdrawalExternalId = externalIdFactory.createFromCommand(command, SavingsApiConstants.externalIdParamName);
+
+        if (paymentDetail != null && paymentDetail.getPaymentType() != null
+                && "Ussd Momo Pay".equalsIgnoreCase(paymentDetail.getPaymentType().getName())) {
+            if (!this.configurationDomainService.isUssdMomoPayEnabled()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.not.enabled",
+                        "Ussd Momo Pay payment type is not enabled. Please enable the 'enable-ussd-momo-pay' configuration to use this payment type for savings withdrawals.");
+            }
+            if (withdrawalExternalId.isEmpty()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.ussd.momo.pay.external.id.required",
+                        "An externalId is required when using Ussd Momo Pay as the payment type for savings withdrawals.");
+            }
+        }
+
+        if (!withdrawalExternalId.isEmpty()) {
+            if (this.savingsAccountTransactionRepository.findByExternalId(withdrawalExternalId).isPresent()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.savings.transaction.external.id.already.exists",
+                        "A savings transaction with externalId '" + withdrawalExternalId.getValue() + "' already exists.");
+            }
+            changes.put(SavingsApiConstants.externalIdParamName, withdrawalExternalId);
+        }
+
         final boolean isAccountTransfer = false;
         final boolean isRegularTransaction = true;
         final boolean isApplyWithdrawFee = true;
@@ -391,6 +447,11 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
                 transactionAmount, paymentDetail, transactionBooleanValues, backdatedTxnsAllowedTill);
         withdrawal.updateExternalId(externalId);
         this.savingsAccountTransactionRepository.save(withdrawal);
+
+        if (!withdrawalExternalId.isEmpty()) {
+            withdrawal.setExternalId(withdrawalExternalId);
+            this.savingsAccountTransactionRepository.save(withdrawal);
+        }
 
         if (isGsim && (withdrawal.getId() != null)) {
             GroupSavingsIndividualMonitoring gsim = gsimRepository.findById(account.getGsim().getId()).orElseThrow();
@@ -405,7 +466,8 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
             final Note note = Note.savingsTransactionNote(account, withdrawal, noteText);
             this.noteRepository.save(note);
         }
-
+        // Send SMS
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.SAVINGS_WITHDRAW, withdrawal);
         return new CommandProcessingResultBuilder() //
                 .withEntityId(withdrawal.getId()) //
                 .withOfficeId(account.officeId()) //
@@ -1483,7 +1545,7 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
 
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void applyChargeDue(final Long savingsAccountChargeId, final Long accountId) {
         // always use current date as transaction date for batch job
