@@ -68,9 +68,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
+import org.apache.fineract.infrastructure.security.service.InputValidator;
+
 @Service
 @ReportService(type = "Pentaho")
-public class PentahoReportingProcessServiceImpl implements ReportingProcessService {
+public class PentahoReportingProcessServiceImpl extends AbstractReportingProcessService {
 
     private static final Logger logger = LoggerFactory.getLogger(PentahoReportingProcessServiceImpl.class);
     private final String mifosBaseDir = "./fineract-report/pentahoReports";
@@ -91,7 +93,9 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
     @Autowired
     public PentahoReportingProcessServiceImpl(final PlatformSecurityContext context,
-            final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource, DatabasePasswordEncryptor databasePasswordEncryptor) {
+            final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource, DatabasePasswordEncryptor databasePasswordEncryptor,
+            InputValidator inputValidator, ReportParameterTypeResolver reportParameterTypeResolver) {
+        super(inputValidator, reportParameterTypeResolver);
         ClassicEngineBoot.getInstance().start();
         this.tenantDataSource = tenantDataSource;
         this.context = context;
@@ -182,10 +186,19 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     }
 
     private String getReportPath() {
-        if (StringUtils.isNotBlank(fineractPentahoBaseDir)) {
-            return this.fineractPentahoBaseDir + File.separator;
+        String baseDir = fineractPentahoBaseDir;
+        if (StringUtils.isBlank(baseDir)) {
+            baseDir = this.mifosBaseDir;
         }
-        return this.mifosBaseDir + File.separator + "pentahoReports" + File.separator;
+        File dir = new File(baseDir);
+        if (!dir.exists()) {
+            // Fallback for subprojects running in their own directory (e.g. fineract-provider via devRun)
+            File parentDir = new File(".." + File.separator + baseDir);
+            if (parentDir.exists()) {
+                return parentDir.getAbsolutePath() + File.separator;
+            }
+        }
+        return dir.getAbsolutePath() + File.separator;
     }
 
     private void setConnectionDetail(DataFactory dataFactory) throws SQLException {
@@ -341,6 +354,9 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
     @Override
     public Map<String, String> getReportParams(final String reportName, final MultivaluedMap<String, String> queryParams) {
+        // Validate report parameters using the base class validation logic
+        super.getReportParams(reportName, queryParams);
+
         final Map<String, String> reportParams = new HashMap<>();
         final var keys = queryParams.keySet();
         String pKey;
