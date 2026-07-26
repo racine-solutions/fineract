@@ -97,5 +97,9 @@ public final class GlobalConfigurationConstants {
     public static final String RETAINED_EARNING_USED_BY_REPORT_NAME = "retained-earning-used-by-report-name";
     public static final String OFFICE_ID = "office-id";
 
+    public static final String CLIENT_SCREENING_WATCHMAN_URL = "client-screening-watchman-url";
+    public static final String CLIENT_SCREENING_MATCH_THRESHOLD = "client-screening-match-threshold";
+    public static final String CLIENT_SCREENING_LIMIT = "client-screening-limit";
+
     private GlobalConfigurationConstants() {}
 }

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work Henderson or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet author="fineract" id="1">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">select count(1) from c_configuration where name = 'client-screening-watchman-url'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="client-screening-watchman-url"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value" value="http://209.38.225.231:8084"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Base URL for the Moov Watchman API used for client screening"/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="client-screening-match-threshold"/>
+            <column name="value" value="90"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Match score threshold percentage (0-100) for Moov Watchman screening matches. Scores above or equal to this will be flagged."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="client-screening-limit"/>
+            <column name="value" value="5"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Default limit of search results to retrieve from Moov Watchman screening API"/>
+        </insert>
+    </changeSet>
+    
+    <changeSet author="fineract" id="2">
+        <validCheckSum>9:d017306bd3468c0c57c029db3f14ce0b</validCheckSum>
+        <validCheckSum>9:0a6515a28dce9a1f17f4766ba326059a</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_client_screening"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_client_screening">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_match_found" type="boolean">
+                <constraints nullable="false"/>
+            </column>
+            <column name="match_threshold" type="double precision">
+                <constraints nullable="false"/>
+            </column>
+            <column name="screening_date" type="datetime">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(50)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="results_json" type="text"/>
+        </createTable>
+        <addForeignKeyConstraint baseColumnNames="client_id" baseTableName="m_client_screening" constraintName="fk_client_screening_client" referencedColumnNames="id" referencedTableName="m_client"/>
+    </changeSet>
+
+    <changeSet author="fineract" id="3_v2">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_client_screening" columnName="review_status"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_client_screening">
+            <column name="review_status" type="VARCHAR(50)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet author="fineract" id="4">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <columnExists tableName="m_client_screening" columnName="status"/>
+                <columnExists tableName="m_client_screening" columnName="review_status"/>
+            </and>
+        </preConditions>
+        <sql>
+            UPDATE m_client_screening SET review_status = status;
+        </sql>
+        <dropColumn tableName="m_client_screening" columnName="status"/>
+    </changeSet>
+</databaseChangeLog>
