@@ -300,11 +300,14 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
                 final CalendarInstance calendarInstance = this.calendarInstanceRepository.findByEntityIdAndEntityTypeIdAndCalendarTypeId(
                         savingsId, CalendarEntityType.SAVINGS.getValue(), CalendarType.COLLECTION.getValue());
 
-                final Calendar calendar = calendarInstance.getCalendar();
-                final PeriodFrequencyType frequencyType = CalendarFrequencyType.from(CalendarUtils.getFrequency(calendar.getRecurrence()));
-                Integer frequency = CalendarUtils.getInterval(calendar.getRecurrence());
-                frequency = frequency == -1 ? 1 : frequency;
-                account.generateSchedule(frequencyType, frequency, calendar);
+                if (calendarInstance != null) {
+                    final Calendar calendar = calendarInstance.getCalendar();
+                    final PeriodFrequencyType frequencyType = CalendarFrequencyType
+                            .from(CalendarUtils.getFrequency(calendar.getRecurrence()));
+                    Integer frequency = CalendarUtils.getInterval(calendar.getRecurrence());
+                    frequency = frequency == -1 ? 1 : frequency;
+                    account.generateSchedule(frequencyType, frequency, calendar);
+                }
                 account.updateMaturityDateAndAmount(mc, isPreMatureClosure, isSavingsInterestPostingAtCurrentPeriodEnd,
                         financialYearBeginningMonth);
             }
