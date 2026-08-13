@@ -263,12 +263,16 @@ public class SavingsAccountCharge extends AbstractAuditableWithUTCDateTimeCustom
                 this.amountWrittenOff = null;
             break;
             case FLAT:
-                Money money = Money.of(this.savingsAccount().getCurrency(), chargeAmount);
+                BigDecimal finalAmount = chargeAmount;
+                if (this.savingsAccount != null) {
+                    Money money = Money.of(this.savingsAccount().getCurrency(), chargeAmount);
+                    finalAmount = money.getAmount();
+                }
                 this.percentage = null;
-                this.amount = money.getAmount();
+                this.amount = finalAmount;
                 this.amountPercentageAppliedTo = null;
                 this.amountPaid = null;
-                this.amountOutstanding = money.getAmount();
+                this.amountOutstanding = finalAmount;
                 this.amountWaived = null;
                 this.amountWrittenOff = null;
             break;
@@ -391,6 +395,12 @@ public class SavingsAccountCharge extends AbstractAuditableWithUTCDateTimeCustom
 
     public void update(final SavingsAccount savingsAccount) {
         this.savingsAccount = savingsAccount;
+        if (savingsAccount != null && this.chargeCalculation != null
+                && ChargeCalculationType.fromInt(this.chargeCalculation).isFlat()) {
+            BigDecimal chargeAmount = this.amount;
+            final BigDecimal transactionAmount = new BigDecimal(0);
+            populateDerivedFields(transactionAmount, chargeAmount);
+        }
     }
 
     public void update(final BigDecimal amount, final LocalDate dueDate, final MonthDay feeOnMonthDay, final Integer feeInterval) {

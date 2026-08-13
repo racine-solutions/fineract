@@ -363,8 +363,12 @@ public class JsonParserHelper {
             if (object.has(parameterName) && object.get(parameterName).isJsonPrimitive()) {
 
                 final JsonPrimitive primitive = object.get(parameterName).getAsJsonPrimitive();
-                final String valueAsString = primitive.getAsString();
+                String valueAsString = primitive.getAsString();
                 if (StringUtils.isNotBlank(valueAsString)) {
+                    if (dateFormat != null && !dateFormat.contains("y") && !dateFormat.contains("Y")) {
+                        valueAsString = valueAsString.replaceAll("[ ,/-]+\\d{4}$", "");
+                        valueAsString = valueAsString.replaceAll("^\\d{4}[ ,/-]+", "");
+                    }
                     try {
                         final DateTimeFormatter formatter = new DateTimeFormatterBuilder().parseCaseInsensitive().parseLenient()
                                 .appendPattern(dateFormat).toFormatter(clientApplicationLocale).withResolverStyle(ResolverStyle.STRICT);
