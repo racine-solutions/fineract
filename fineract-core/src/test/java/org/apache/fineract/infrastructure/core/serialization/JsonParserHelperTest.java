@@ -92,4 +92,23 @@ class JsonParserHelperTest {
         Assertions.assertFalse(onTestUnit.parameterHasValue("localDate", jsonValuesMissing));
         Assertions.assertFalse(onTestUnit.parameterHasValue("keyValue", jsonValuesMissing));
     }
+
+    @Test
+    void extractMonthDayNamedWithYear() {
+        JsonElement element = JsonParser.parseString("{\n" +
+                "  \"feeOnMonthDay\": \"02 June 2001\"\n" +
+                "}");
+        java.time.MonthDay md = onTestUnit.extractMonthDayNamed("feeOnMonthDay", element.getAsJsonObject(), "dd MMMM", java.util.Locale.ENGLISH);
+        Assertions.assertNotNull(md);
+        Assertions.assertEquals(6, md.getMonthValue());
+        Assertions.assertEquals(2, md.getDayOfMonth());
+
+        JsonElement element2 = JsonParser.parseString("{\n" +
+                "  \"feeOnMonthDay\": \"2001-06-02\"\n" +
+                "}");
+        java.time.MonthDay md2 = onTestUnit.extractMonthDayNamed("feeOnMonthDay", element2.getAsJsonObject(), "MM-dd", java.util.Locale.ENGLISH);
+        Assertions.assertNotNull(md2);
+        Assertions.assertEquals(6, md2.getMonthValue());
+        Assertions.assertEquals(2, md2.getDayOfMonth());
+    }
 }
