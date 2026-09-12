@@ -79,4 +79,11 @@ ENV FINERACT_DEFAULT_TENANTDB_DESCRIPTION="Showroom "
 ENV FINERACT_SERVER_SSL_ENABLED="true"
 ENV FINERACT_SERVER_PORT="8443"
 
-ENTRYPOINT ["java", "-Dloader.path=/app/libs/", "-jar", "/app/fineract-provider.jar"]
+# Tuned for a small, memory-constrained host running only this JVM (no headroom to spare for the OS/other
+# processes). Override at `docker run`/compose time with -e JAVA_OPTS="..." if the box has more RAM available -
+# e.g. on a 4GB box, "-Xms512m -Xmx2560m -XX:MaxMetaspaceSize=384m ..." leaves more room to grow.
+ENV JAVA_OPTS="-Xms512m -Xmx1280m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
+-XX:InitiatingHeapOccupancyPercent=35 -Xss512k -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError \
+-XX:HeapDumpPath=/tmp/fineract-oom.hprof"
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Dloader.path=/app/libs/ -jar /app/fineract-provider.jar"]

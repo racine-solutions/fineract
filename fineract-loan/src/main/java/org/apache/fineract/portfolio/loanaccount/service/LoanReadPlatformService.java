@@ -89,13 +89,24 @@ public interface LoanReadPlatformService {
     Collection<StaffData> retrieveAllowedLoanOfficers(Long selectedOfficeId, boolean staffInSelectedOfficeOnly);
 
     /*
-     * musoni-specific at present - will find overdue scheduled installments that have a special 'overdue charge'
-     * associated with the loan product.
+     * musoni-specific at present - will find the ids of loans that have overdue scheduled installments with a special
+     * 'overdue charge' associated with the loan product.
      *
-     * The 'overdue-charge' is only ever applied once to an installment and as a result overdue installments with this
-     * charge already applied are not returned.
+     * The 'overdue-charge' is only ever applied once to an installment and as a result loans whose overdue installments
+     * already have the charge applied are not returned.
+     *
+     * Only loan ids are returned (not the full schedule data) so that callers can page through the result set one loan
+     * at a time instead of loading every eligible loan's schedule data into memory at once.
      */
-    Collection<OverdueLoanScheduleData> retrieveAllLoansWithOverdueInstallments(Long penaltyWaitPeriod, Boolean backdatePenalties);
+    Collection<Long> retrieveAllLoanIdsWithOverdueInstallments(Long penaltyWaitPeriod, Boolean backdatePenalties);
+
+    /*
+     * SQL-only equivalent of retrieveAllOverdueInstallmentsForLoan, scoped to a single loan id, using the exact same
+     * date predicate as retrieveAllLoanIdsWithOverdueInstallments. Callers that already have a loan id (rather than a
+     * loaded Loan) should use this instead of loading the full Loan aggregate just to re-derive eligibility in Java.
+     */
+    Collection<OverdueLoanScheduleData> retrieveOverdueInstallmentsForLoanId(Long loanId, Long penaltyWaitPeriod,
+            Boolean backdatePenalties);
 
     Collection<OverdueLoanScheduleData> retrieveAllOverdueInstallmentsForLoan(Loan loan);
 
