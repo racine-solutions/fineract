@@ -79,4 +79,18 @@ ENV FINERACT_DEFAULT_TENANTDB_DESCRIPTION="Showroom "
 ENV FINERACT_SERVER_SSL_ENABLED="true"
 ENV FINERACT_SERVER_PORT="8443"
 
-ENTRYPOINT ["java", "-Dloader.path=/app/libs/", "-jar", "/app/fineract-provider.jar"]
+# Overrides EVERY tenant's per-tenant connection pool (tenant_server_connections.pool_max_active/pool_initial_size
+# default to 40/5 each - with ~5 tenants that's up to ~200 possible pooled connections from this one JVM, too many
+# for a small box). Setting these here means the per-tenant DB rows don't need to be touched at all.
+ENV FINERACT_CONFIG_MAX_POOL_SIZE="10"
+ENV FINERACT_CONFIG_MIN_POOL_SIZE="2"
+ENV FINERACT_CONFIG_LEAK_DETECTION_THRESHOLD="60000"
+
+# Tuned for a small, memory-constrained host running only this JVM (no headroom to spare for the OS/other
+# processes). Override at `docker run`/compose time with -e JAVA_OPTS="..." if the box has more RAM available -
+# e.g. on a 4GB box, "-Xms512m -Xmx2560m -XX:MaxMetaspaceSize=384m ..." leaves more room to grow.
+ENV JAVA_OPTS="-Xms512m -Xmx1280m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
+-XX:InitiatingHeapOccupancyPercent=35 -Xss512k -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError \
+-XX:HeapDumpPath=/tmp/fineract-oom.hprof"
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Dloader.path=/app/libs/ -jar /app/fineract-provider.jar"]

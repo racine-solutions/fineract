@@ -20,10 +20,12 @@ package org.apache.fineract.portfolio.loanaccount.jobs.applychargetooverdueloani
 
 import org.apache.fineract.infrastructure.configuration.domain.ConfigurationDomainService;
 import org.apache.fineract.infrastructure.jobs.service.JobName;
+import org.apache.fineract.infrastructure.springbatch.PropertyService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanChargeWritePlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
@@ -46,11 +48,23 @@ public class ApplyChargeToOverdueLoanInstallmentConfig {
     private LoanReadPlatformService loanReadPlatformService;
     @Autowired
     private LoanChargeWritePlatformService loanChargeWritePlatformService;
+    @Autowired
+    private PropertyService propertyService;
 
     @Bean
     protected Step applyChargeToOverdueLoanInstallmentStep() {
+        final int chunkSize = propertyService.getChunkSize(JobName.APPLY_CHARGE_TO_OVERDUE_LOAN_INSTALLMENT.name());
         return new StepBuilder(JobName.APPLY_CHARGE_TO_OVERDUE_LOAN_INSTALLMENT.name(), jobRepository)
-                .tasklet(applyChargeToOverdueLoanInstallmentTasklet(), transactionManager).build();
+                .<Long, OverdueLoanChargeItem>chunk(chunkSize, transactionManager) //
+                .reader(overdueLoanItemReader()) //
+                .processor(overdueLoanChargeItemProcessor()) //
+                .writer(overdueLoanChargeItemWriter()) //
+                .faultTolerant() //
+                .skip(Exception.class) //
+                .skipLimit(Integer.MAX_VALUE) //
+                .listener(overdueLoanChargeSkipListener()) //
+                .listener(overdueLoanChargeStepExecutionListener()) //
+                .build();
     }
 
     @Bean
@@ -60,8 +74,28 @@ public class ApplyChargeToOverdueLoanInstallmentConfig {
     }
 
     @Bean
-    public ApplyChargeToOverdueLoanInstallmentTasklet applyChargeToOverdueLoanInstallmentTasklet() {
-        return new ApplyChargeToOverdueLoanInstallmentTasklet(configurationDomainService, loanReadPlatformService,
-                loanChargeWritePlatformService);
+    @StepScope
+    public OverdueLoanItemReader overdueLoanItemReader() {
+        return new OverdueLoanItemReader(configurationDomainService, loanReadPlatformService);
+    }
+
+    @Bean
+    public OverdueLoanChargeItemProcessor overdueLoanChargeItemProcessor() {
+        return new OverdueLoanChargeItemProcessor(configurationDomainService, loanReadPlatformService);
+    }
+
+    @Bean
+    public OverdueLoanChargeItemWriter overdueLoanChargeItemWriter() {
+        return new OverdueLoanChargeItemWriter(loanChargeWritePlatformService);
+    }
+
+    @Bean
+    public ApplyChargeToOverdueLoanInstallmentSkipListener overdueLoanChargeSkipListener() {
+        return new ApplyChargeToOverdueLoanInstallmentSkipListener();
+    }
+
+    @Bean
+    public ApplyChargeToOverdueLoanInstallmentStepExecutionListener overdueLoanChargeStepExecutionListener() {
+        return new ApplyChargeToOverdueLoanInstallmentStepExecutionListener();
     }
 }

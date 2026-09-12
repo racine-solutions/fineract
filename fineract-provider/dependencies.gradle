@@ -231,6 +231,7 @@ dependencies {
         exclude group: 'org.skyscreamer'
     }
     testImplementation ('org.mockito:mockito-inline')
+    testImplementation ('com.h2database:h2')
 
     testRuntimeOnly(
             'org.mariadb.jdbc:mariadb-java-client',
