@@ -45,6 +45,7 @@ dependencies {
     implementation(project(path: ':fineract-security'))
     implementation(project(path: ':fineract-working-capital-loan'))
     implementation(project(path: ':fineract-mix'))
+    runtimeOnly(project(path: ':fineract-selfservice'))
 
     providedRuntime("org.springframework.boot:spring-boot-starter-tomcat")
 

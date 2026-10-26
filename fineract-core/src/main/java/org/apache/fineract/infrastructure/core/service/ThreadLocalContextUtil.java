@@ -38,8 +38,35 @@ public final class ThreadLocalContextUtil {
     private static final ThreadLocal<String> authTokenContext = new ThreadLocal<>();
     private static final ThreadLocal<HashMap<BusinessDateType, LocalDate>> businessDateContext = new ThreadLocal<>();
     private static final ThreadLocal<ActionContext> actionContext = new ThreadLocal<>();
+    private static final ThreadLocal<Integer> commandHandlerDepth = new ThreadLocal<>();
 
     private ThreadLocalContextUtil() {}
+
+    /**
+     * True while a command handler's business logic is executing on this thread (i.e. inside
+     * {@code CommandSourceService.processCommand}), including nested/recursive command execution (e.g. batch requests).
+     * Used by the self-service security bridge to decide whether an AppUser it returns needs to be a real, persisted
+     * entity (safe to attach to a JPA relationship) rather than a permission-check-only stub.
+     */
+    public static boolean isExecutingCommandHandler() {
+        final Integer depth = commandHandlerDepth.get();
+        return depth != null && depth > 0;
+    }
+
+    public static void enterCommandHandler() {
+        final Integer depth = commandHandlerDepth.get();
+        commandHandlerDepth.set((depth == null ? 0 : depth) + 1);
+    }
+
+    public static void exitCommandHandler() {
+        final Integer depth = commandHandlerDepth.get();
+        final int newDepth = (depth == null ? 0 : depth) - 1;
+        if (newDepth <= 0) {
+            commandHandlerDepth.remove();
+        } else {
+            commandHandlerDepth.set(newDepth);
+        }
+    }
 
     public static FineractPlatformTenant getTenant() {
         return tenantContext.get();
@@ -124,6 +151,7 @@ public final class ThreadLocalContextUtil {
         authTokenContext.remove();
         businessDateContext.remove();
         actionContext.remove();
+        commandHandlerDepth.remove();
     }
 
 }

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet author="fineract" id="ss-0042-1">
+        <preConditions onFail="MARK_RAN">
+            <foreignKeyConstraintExists foreignKeyName="m_selfservice_appuser_id"
+                                        foreignKeyTableName="m_selfservice_user_client_mapping"/>
+        </preConditions>
+        <dropForeignKeyConstraint baseTableName="m_selfservice_user_client_mapping" constraintName="m_selfservice_appuser_id"/>
+    </changeSet>
+
+    <changeSet author="fineract" id="ss-0042-2">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <foreignKeyConstraintExists foreignKeyName="m_selfservice_appuser_id"
+                                            foreignKeyTableName="m_selfservice_user_client_mapping"/>
+            </not>
+        </preConditions>
+        <addForeignKeyConstraint baseColumnNames="appuser_id" baseTableName="m_selfservice_user_client_mapping"
+                                 constraintName="m_selfservice_appuser_id" deferrable="false" initiallyDeferred="false"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id"
+                                 referencedTableName="m_appselfservice_user" validate="true"/>
+    </changeSet>
+</databaseChangeLog>

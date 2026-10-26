@@ -644,4 +644,9 @@ public class ConfigurationDomainServiceJpa implements ConfigurationDomainService
         final GlobalConfigurationPropertyData property = getGlobalConfigurationPropertyData(GlobalConfigurationConstants.OFFICE_ID);
         return property.getValue();
     }
+
+    @Override
+    public boolean isSelfServiceEnabled() {
+        return getGlobalConfigurationPropertyData(GlobalConfigurationConstants.ENABLE_SUREPAY_SELF_SERVICE).isEnabled();
+    }
 }

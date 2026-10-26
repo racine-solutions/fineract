@@ -1,0 +1,96 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements. See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership. The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.fineract.selfservice.testing.support;
+
+import static io.restassured.RestAssured.given;
+
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+/**
+ * Shared HTTP and authentication helpers for all integration tests.
+ *
+ * <p>
+ * Mirrors the role of Apache Fineract's {@code Utils.java} in the integration-tests module, providing consistent
+ * request specifications and auth header construction.
+ */
+public final class SelfServiceTestUtils {
+
+    private SelfServiceTestUtils() {}
+
+    public static final String CONTEXT_PATH = "/fineract-provider";
+
+    /** API path constants used across integration test classes. */
+    public static final String SELF_AUTH_PATH = CONTEXT_PATH + "/api/v1/self/authentication";
+
+    public static final String SELF_REGISTRATION_PATH = CONTEXT_PATH + "/api/v1/self/registration";
+    public static final String SELF_PASSWORD_REQUEST_PATH = CONTEXT_PATH + "/api/v1/self/password/request";
+    public static final String SELF_PASSWORD_RENEW_PATH = CONTEXT_PATH + "/api/v1/self/password/renew";
+    public static final String SELF_CLIENTS_PATH = CONTEXT_PATH + "/api/v1/self/clients";
+    public static final String SELF_SAVINGS_PATH = CONTEXT_PATH + "/api/v1/self/savingsaccounts";
+    public static final String SELF_LOANS_PATH = CONTEXT_PATH + "/api/v1/self/loans";
+    public static final String SELF_SHARE_ACCOUNTS_PATH = CONTEXT_PATH + "/api/v1/self/shareaccounts";
+    public static final String SELF_LOAN_PRODUCTS_PATH = CONTEXT_PATH + "/api/v1/self/loanproducts";
+    public static final String SELF_SAVINGS_PRODUCTS_PATH = CONTEXT_PATH + "/api/v1/self/savingsproducts";
+    public static final String SELF_OFFICES_PATH = CONTEXT_PATH + "/api/v1/self/offices";
+
+    public static final String SELF_LOAN_SIMULATION_PATH = CONTEXT_PATH + "/api/v1/self/loans/simulate";
+    public static final String SELF_LOAN_SIMULATION_PRODUCTS_PATH = SELF_LOAN_SIMULATION_PATH + "/products";
+    public static final String SELF_LOAN_SIMULATION_TEMPLATE_PATH = SELF_LOAN_SIMULATION_PATH + "/template";
+
+    /** Tenant identifier expected by the self-service security filter. */
+    public static String getTenantId() {
+        return SelfServiceIntegrationTestBase.getTenantId();
+    }
+
+    /** Builds a base-64 Basic Auth header value from username and password. */
+    public static String basicAuthHeader(String username, String password) {
+        String raw = username + ":" + password;
+        return "Basic " + Base64.getEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Returns a pre-configured {@link RequestSpecification} with JSON content type and the default Fineract tenant
+     * header, pointed at the given local server port.
+     */
+    public static RequestSpecification requestSpec(int port) {
+        return given().relaxedHTTPSValidation().baseUri("https://127.0.0.1").port(port).contentType(ContentType.JSON)
+                .accept(ContentType.JSON).header("Fineract-Platform-TenantId", getTenantId());
+    }
+
+    /**
+     * Returns a request specification that includes a Basic Auth header for the given credentials. Use this to test
+     * authenticated endpoints.
+     */
+    public static RequestSpecification requestSpecWithAuth(int port, String username, String password) {
+        return requestSpec(port).header("Authorization", basicAuthHeader(username, password));
+    }
+
+    /**
+     * POSTs credentials to the self-service authentication endpoint and returns the full response. Callers can assert
+     * the status code or extract the {@code base64EncodedAuthenticationKey}.
+     */
+    public static Response authenticate(int port, String username, String password) {
+        String body = String.format("{\"username\":\"%s\",\"password\":\"%s\"}", username, password);
+        return given(requestSpec(port)).body(body).when().post(SELF_AUTH_PATH);
+    }
+}

@@ -49,26 +49,26 @@ public class AccountTransfersDetailDataValidator {
         final JsonElement element = command.parsedJson();
 
         final Long fromOfficeId = this.fromApiJsonHelper.extractLongNamed(fromOfficeIdParamName, element);
-        baseDataValidator.reset().parameter(fromOfficeIdParamName).value(fromOfficeId).notNull().integerGreaterThanZero();
+        baseDataValidator.reset().parameter(fromOfficeIdParamName).value(fromOfficeId).notNull().longGreaterThanZero();
 
         final Long fromClientId = this.fromApiJsonHelper.extractLongNamed(fromClientIdParamName, element);
-        baseDataValidator.reset().parameter(fromClientIdParamName).value(fromClientId).notNull().integerGreaterThanZero();
+        baseDataValidator.reset().parameter(fromClientIdParamName).value(fromClientId).notNull().longGreaterThanZero();
 
         final Long fromAccountId = this.fromApiJsonHelper.extractLongNamed(fromAccountIdParamName, element);
-        baseDataValidator.reset().parameter(fromAccountIdParamName).value(fromAccountId).notNull().integerGreaterThanZero();
+        baseDataValidator.reset().parameter(fromAccountIdParamName).value(fromAccountId).notNull().longGreaterThanZero();
 
         final Integer fromAccountType = this.fromApiJsonHelper.extractIntegerSansLocaleNamed(fromAccountTypeParamName, element);
         baseDataValidator.reset().parameter(fromAccountTypeParamName).value(fromAccountType).notNull()
                 .isOneOfTheseValues(Integer.valueOf(1), Integer.valueOf(2));
 
         final Long toOfficeId = this.fromApiJsonHelper.extractLongNamed(toOfficeIdParamName, element);
-        baseDataValidator.reset().parameter(toOfficeIdParamName).value(toOfficeId).notNull().integerGreaterThanZero();
+        baseDataValidator.reset().parameter(toOfficeIdParamName).value(toOfficeId).notNull().longGreaterThanZero();
 
         final Long toClientId = this.fromApiJsonHelper.extractLongNamed(toClientIdParamName, element);
-        baseDataValidator.reset().parameter(toClientIdParamName).value(toClientId).notNull().integerGreaterThanZero();
+        baseDataValidator.reset().parameter(toClientIdParamName).value(toClientId).notNull().longGreaterThanZero();
 
         final Long toAccountId = this.fromApiJsonHelper.extractLongNamed(toAccountIdParamName, element);
-        baseDataValidator.reset().parameter(toAccountIdParamName).value(toAccountId).notNull().integerGreaterThanZero();
+        baseDataValidator.reset().parameter(toAccountIdParamName).value(toAccountId).notNull().longGreaterThanZero();
 
         final Integer toAccountType = this.fromApiJsonHelper.extractIntegerSansLocaleNamed(toAccountTypeParamName, element);
         baseDataValidator.reset().parameter(toAccountTypeParamName).value(toAccountType).notNull().isOneOfTheseValues(Integer.valueOf(1),
