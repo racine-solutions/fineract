@@ -20,7 +20,9 @@ package org.apache.fineract.selfservice.account.service;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import org.apache.fineract.infrastructure.core.data.EnumOptionData;
 import org.apache.fineract.portfolio.account.PortfolioAccountType;
 import org.apache.fineract.portfolio.account.service.AccountTransferEnumerations;
@@ -48,8 +50,14 @@ public class SelfBeneficiariesTPTReadPlatformServiceImpl implements SelfBenefici
     @Override
     public Collection<SelfBeneficiariesTPTData> retrieveAll() {
         AppSelfServiceUser user = this.context.authenticatedSelfServiceUser();
-        // Parámetro inyectado 3 veces para cubrir los 3 bloques del UNION ALL
-        return this.jdbcTemplate.query(this.mapper.schema(), this.mapper, new Object[] { user.getId(), user.getId(), user.getId() });
+        // Run savings, loan and external beneficiaries as separate queries instead of a UNION ALL: the self-service
+        // tables can have a different collation than the core tables (e.g. created by Liquibase with another schema
+        // default), and MariaDB/MySQL reject a UNION that mixes collations in one column ("Illegal mix of collations")
+        final List<SelfBeneficiariesTPTData> beneficiaries = new ArrayList<>();
+        for (final String sql : this.mapper.schemas()) {
+            beneficiaries.addAll(this.jdbcTemplate.query(sql, this.mapper, user.getId()));
+        }
+        return beneficiaries;
     }
 
     @Override
@@ -60,10 +68,11 @@ public class SelfBeneficiariesTPTReadPlatformServiceImpl implements SelfBenefici
 
     private static final class BeneficiaryMapper implements RowMapper<SelfBeneficiariesTPTData> {
 
-        private final String schemaSql;
+        private final List<String> schemaSqls;
 
         BeneficiaryMapper() {
-            final StringBuilder sqlBuilder = new StringBuilder("(select b.id as id, ");
+            // internal savings account beneficiaries
+            StringBuilder sqlBuilder = new StringBuilder("select b.id as id, ");
             sqlBuilder.append(" b.name as name, ");
             sqlBuilder.append(" o.name as officeName, ");
             sqlBuilder.append(" c.display_name as clientName, ");
@@ -79,9 +88,11 @@ public class SelfBeneficiariesTPTReadPlatformServiceImpl implements SelfBenefici
             sqlBuilder.append(" inner join m_savings_account as s on b.account_id = s.id ");
             sqlBuilder.append(" where b.is_active = true ");
             sqlBuilder.append(" and b.account_type = 2 ");
-            sqlBuilder.append(" and b.app_selfservice_user_id = ?) ");
-            sqlBuilder.append(" union all ");
-            sqlBuilder.append(" (select b.id as id, ");
+            sqlBuilder.append(" and b.app_selfservice_user_id = ? ");
+            final String savingsSql = sqlBuilder.toString();
+
+            // internal loan account beneficiaries
+            sqlBuilder = new StringBuilder("select b.id as id, ");
             sqlBuilder.append(" b.name as name, ");
             sqlBuilder.append(" o.name as officeName, ");
             sqlBuilder.append(" c.display_name as clientName, ");
@@ -97,9 +108,11 @@ public class SelfBeneficiariesTPTReadPlatformServiceImpl implements SelfBenefici
             sqlBuilder.append(" inner join m_loan as l on b.account_id = l.id ");
             sqlBuilder.append(" where b.is_active = true ");
             sqlBuilder.append(" and b.account_type = 1 ");
-            sqlBuilder.append(" and b.app_selfservice_user_id = ?) ");
-            sqlBuilder.append(" union all ");
-            sqlBuilder.append(" (select b.id as id, ");
+            sqlBuilder.append(" and b.app_selfservice_user_id = ? ");
+            final String loanSql = sqlBuilder.toString();
+
+            // external (SINPE / PIN) beneficiaries
+            sqlBuilder = new StringBuilder("select b.id as id, ");
             sqlBuilder.append(" b.name as name, ");
             sqlBuilder.append(" 'External Office' as officeName, ");
             sqlBuilder.append(" 'External Client' as clientName, ");
@@ -113,17 +126,18 @@ public class SelfBeneficiariesTPTReadPlatformServiceImpl implements SelfBenefici
             sqlBuilder.append(" b.currency_code as currencyCode, ");
             sqlBuilder.append(" b.entity_code as entityCode, ");
             sqlBuilder.append(" b.entity_name as entityName, ");
-            sqlBuilder.append(" CAST(null AS signed) as officeId, CAST(null AS signed) as clientId, CAST(null AS signed) as accountId ");
+            sqlBuilder.append(" null as officeId, null as clientId, null as accountId ");
             sqlBuilder.append(" from m_selfservice_beneficiaries_tpt as b ");
             sqlBuilder.append(" where b.is_active = true ");
             sqlBuilder.append(" and b.account_type in (3,4) ");
-            sqlBuilder.append(" and b.app_selfservice_user_id = ?) ");
+            sqlBuilder.append(" and b.app_selfservice_user_id = ? ");
+            final String externalSql = sqlBuilder.toString();
 
-            this.schemaSql = sqlBuilder.toString();
+            this.schemaSqls = List.of(savingsSql, loanSql, externalSql);
         }
 
-        public String schema() {
-            return this.schemaSql;
+        public List<String> schemas() {
+            return this.schemaSqls;
         }
 
         @Override
