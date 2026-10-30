@@ -162,7 +162,7 @@ By default, this mode connects to Fineract at `https://localhost:8443` and the d
 ```
 
 ### 2. Isolated Mode (using Docker Testcontainers)
-To run the tests in an isolated, self-managed environment where Testcontainers spins up a dedicated Postgres database and Fineract backend instance, run:
+To run the tests in an isolated, self-managed environment where Testcontainers spins up a dedicated Postgres database and Fineract backend instance, run: trigger build :
 
 ```bash
 ./gradlew :fineract-selfservice:test
