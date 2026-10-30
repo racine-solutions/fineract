@@ -82,6 +82,11 @@ public class SelfServiceAuthenticatedUserData {
     @SuppressWarnings("unused")
     private SelfServiceAuthenticatedUserKycData kycValidations;
 
+    /**
+     * Name of the tenant the user logged in to, from the {@code tenants} table of the tenant store (fineract_tenants).
+     */
+    private String tenantName;
+
     // Add the new field
     private String refreshToken;
 

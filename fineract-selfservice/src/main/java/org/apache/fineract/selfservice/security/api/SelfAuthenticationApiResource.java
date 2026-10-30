@@ -48,7 +48,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.data.EnumOptionData;
+import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
 import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.security.constants.TwoFactorConstants;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.selfservice.client.service.SelfServiceClientReadPlatformService;
@@ -190,7 +192,8 @@ public class SelfAuthenticationApiResource {
                 authenticatedUserData = new SelfServiceAuthenticatedUserData().setUsername(request.username).setUserId(userId)
                         .setBase64EncodedAuthenticationKey(new String(base64AccessKey, StandardCharsets.UTF_8))
                         .setRefreshToken(new String(base64RefreshKey, StandardCharsets.UTF_8)).setAuthenticated(true)
-                        .setShouldRenewPassword(true).setTwoFactorAuthenticationRequired(isTwoFactorRequired);
+                        .setShouldRenewPassword(true).setTwoFactorAuthenticationRequired(isTwoFactorRequired)
+                        .setTenantName(currentTenantName());
                 throw new SelfServicePasswordResetRequiredException(authenticatedUserData);
             } else {
                 // Publish Success Notification Event
@@ -207,11 +210,17 @@ public class SelfAuthenticationApiResource {
                         .setRefreshToken(new String(base64RefreshKey, StandardCharsets.UTF_8))
                         .setTwoFactorAuthenticationRequired(isTwoFactorRequired)
                         .setClients(returnClientList ? clientReadPlatformService.retrieveSelfServiceUserClients(userId) : null)
-                        .setKycValidations(getKycStatusForUser(clientId)).setCountry(country);
+                        .setKycValidations(getKycStatusForUser(clientId)).setCountry(country).setTenantName(currentTenantName());
             }
         }
 
         return this.apiJsonSerializerService.serialize(authenticatedUserData);
+    }
+
+    /** Name of the tenant resolved for this request (from the tenants table in the tenant store). */
+    private String currentTenantName() {
+        final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
+        return tenant == null ? null : tenant.getName();
     }
 
     /** Helper method to publish the notification event asynchronously. */

@@ -95,5 +95,8 @@ final class SelfAuthenticationApiResourceSwagger {
 
         @Schema(example = "1, 2, 3")
         public List<Integer> clients;
+
+        @Schema(example = "Default Demo Tenant", description = "Name of the tenant from the tenants table (fineract_tenants)")
+        public String tenantName;
     }
 }
