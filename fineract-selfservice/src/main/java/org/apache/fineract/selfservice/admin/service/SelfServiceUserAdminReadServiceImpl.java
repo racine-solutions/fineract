@@ -42,6 +42,7 @@ import org.apache.fineract.selfservice.admin.data.SelfServiceUserClientData;
 import org.apache.fineract.selfservice.admin.data.SelfServiceUserLimitData;
 import org.apache.fineract.selfservice.admin.data.SelfServiceUserSummaryData;
 import org.apache.fineract.selfservice.admin.exception.SelfServiceUserNotFoundException;
+import org.apache.fineract.selfservice.audit.data.SelfServiceEventData;
 import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -157,6 +158,44 @@ public class SelfServiceUserAdminReadServiceImpl implements SelfServiceUserAdmin
             throw new SelfServiceUserNotFoundException(id);
         }
         return result.get(0).toBuilder().limits(retrieveLimits(id)).clients(retrieveClients(id)).build();
+    }
+
+    @Override
+    public Page<SelfServiceEventData> retrieveEvents(final Long userId, final String category, final String result, final Integer offset,
+            final Integer limit) {
+        final List<Object> scopeArgs = new ArrayList<>();
+        final StringBuilder scopeSql = new StringBuilder("select count(*) ").append(FROM_SQL);
+        appendScope(scopeSql, scopeArgs, null);
+        scopeSql.append(" and u.id = ? ");
+        scopeArgs.add(userId);
+        final Integer inScope = jdbcTemplate.queryForObject(scopeSql.toString(), Integer.class, scopeArgs.toArray()); // NOSONAR
+        if (inScope == null || inScope == 0) {
+            throw new SelfServiceUserNotFoundException(userId);
+        }
+
+        final List<Object> args = new ArrayList<>();
+        final StringBuilder sql = new StringBuilder("select ").append(sqlGenerator.calcFoundRows())
+                .append(" e.id, e.appuser_id, e.username, e.client_id, e.event_type, e.category, e.result, e.actor, e.staff_username,")
+                .append(" e.description, e.amount, e.currency_code, e.ip_address, e.details, e.created_on_utc")
+                .append(" from m_selfservice_event e where e.appuser_id = ? ");
+        args.add(userId);
+        if (StringUtils.isNotBlank(category)) {
+            sql.append(" and e.category = ? ");
+            args.add(category.trim().toUpperCase(Locale.ROOT));
+        }
+        if (StringUtils.isNotBlank(result)) {
+            sql.append(" and e.result = ? ");
+            args.add(result.trim().toUpperCase(Locale.ROOT));
+        }
+        sql.append(" order by e.created_on_utc desc, e.id desc ");
+        sql.append(sqlGenerator.limit(limit == null || limit <= 0 ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT),
+                offset == null || offset < 0 ? 0 : offset));
+
+        return paginationHelper.fetchPage(jdbcTemplate, sql.toString(), args.toArray(), (rs, rowNum) -> new SelfServiceEventData( // NOSONAR
+                rs.getLong("id"), rs.getLong("appuser_id"), rs.getString("username"), rs.getObject("client_id", Long.class),
+                rs.getString("event_type"), rs.getString("category"), rs.getString("result"), rs.getString("actor"),
+                rs.getString("staff_username"), rs.getString("description"), rs.getBigDecimal("amount"), rs.getString("currency_code"),
+                rs.getString("ip_address"), rs.getString("details"), toUtcIso(rs.getTimestamp("created_on_utc"))));
     }
 
     private List<SelfServiceUserLimitData> retrieveLimits(final Long userId) {

@@ -36,6 +36,7 @@ public interface AppSelfServiceUserRepository
     Collection<AppSelfServiceUser> findByOfficeId(Long officeId);
 
     @Modifying(flushAutomatically = true)
-    @Query("update AppSelfServiceUser u set u.lastLoginOnUtc = :loginOnUtc where u.id = :userId")
+    @Query("update AppSelfServiceUser u set u.lastLoginOnUtc = :loginOnUtc,"
+            + " u.firstLoginOnUtc = coalesce(u.firstLoginOnUtc, :loginOnUtc) where u.id = :userId")
     int updateLastLogin(@Param("userId") Long userId, @Param("loginOnUtc") LocalDateTime loginOnUtc);
 }

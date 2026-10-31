@@ -18,20 +18,25 @@
  */
 package org.apache.fineract.selfservice.account.service;
 
+import com.google.gson.Gson;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.fineract.infrastructure.core.exception.AbstractPlatformException;
 import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.portfolio.account.PortfolioAccountType;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanNotFoundException;
 import org.apache.fineract.portfolio.savings.exception.SavingsAccountNotFoundException;
+import org.apache.fineract.selfservice.audit.data.SelfServiceEventEntry;
+import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,12 +56,16 @@ import org.springframework.stereotype.Service;
 public class SelfServiceTransferGuard {
 
     /** How the transfer was made in the app. Stored with each recorded transfer. */
+    /** Event type of a transfer the app refused, in the activity timeline. */
+    public static final String REFUSED_EVENT = "TRANSFER_REFUSED";
+
     public enum Channel {
         ACCOUNT_TRANSFER, CONFIRMED_TRANSFER, SINPE
     }
 
     private final JdbcTemplate jdbcTemplate;
     private final SelfAccountTransferReadService selfAccountTransferReadService;
+    private final SelfServiceEventRecorder eventRecorder;
 
     /**
      * Validates a transfer that is about to be made and returns the currency it is made in.
@@ -67,15 +76,34 @@ public class SelfServiceTransferGuard {
      */
     public String check(final AppSelfServiceUser user, final Long fromAccountId, final Integer fromAccountType, final BigDecimal amount,
             final Channel channel, final String currencyCode) {
-        final String currency;
-        if (channel == Channel.SINPE) {
-            currency = StringUtils.defaultIfBlank(currencyCode, "CRC");
-        } else {
-            validateOwnership(user, fromAccountId, fromAccountType);
-            currency = accountCurrency(fromAccountId, fromAccountType);
+        String currency = channel == Channel.SINPE ? StringUtils.defaultIfBlank(currencyCode, "CRC") : null;
+        try {
+            if (channel != Channel.SINPE) {
+                validateOwnership(user, fromAccountId, fromAccountType);
+                currency = accountCurrency(fromAccountId, fromAccountType);
+            }
+            validateLimits(user, currency, amount);
+            return currency;
+        } catch (AbstractPlatformException e) {
+            recordRefused(user, fromAccountId, fromAccountType, amount, channel, currency, e);
+            throw e;
         }
-        validateLimits(user, currency, amount);
-        return currency;
+    }
+
+    /** Puts the refused attempt on the user's activity timeline, so staff can see what the app turned down and why. */
+    private void recordRefused(final AppSelfServiceUser user, final Long fromAccountId, final Integer fromAccountType,
+            final BigDecimal amount, final Channel channel, final String currency, final AbstractPlatformException e) {
+        final Map<String, Object> details = new LinkedHashMap<>();
+        details.put("channel", channel.name());
+        details.put("reasonCode", e.getGlobalisationMessageCode());
+        if (fromAccountId != null) {
+            details.put("fromAccountId", fromAccountId);
+            details.put("fromAccountType", fromAccountType);
+        }
+        eventRecorder.record(SelfServiceEventEntry.builder().appUserId(user.getId()).username(user.getUsername()).eventType(REFUSED_EVENT)
+                .category(SelfServiceEventEntry.CATEGORY_TRANSFER).result(SelfServiceEventEntry.RESULT_REFUSED)
+                .actor(SelfServiceEventEntry.ACTOR_CLIENT).description("Transfer refused: " + e.getDefaultUserMessage()).amount(amount)
+                .currencyCode(currency).details(new Gson().toJson(details)).build());
     }
 
     /** Records a completed transfer; it then counts towards the user's daily limit. */

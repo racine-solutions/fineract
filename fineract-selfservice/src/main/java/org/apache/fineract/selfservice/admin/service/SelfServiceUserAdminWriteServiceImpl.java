@@ -31,6 +31,7 @@ import static org.apache.fineract.selfservice.admin.api.SelfServiceUsersApiConst
 import static org.apache.fineract.selfservice.admin.api.SelfServiceUsersApiConstants.RESOURCE_NAME;
 import static org.apache.fineract.selfservice.admin.api.SelfServiceUsersApiConstants.REVOKE_SESSIONS_PARAM;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -62,6 +63,8 @@ import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.exception.ClientNotFoundException;
 import org.apache.fineract.selfservice.admin.exception.SelfServiceUserNotFoundException;
+import org.apache.fineract.selfservice.audit.data.SelfServiceEventEntry;
+import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
 import org.apache.fineract.selfservice.registration.service.SelfServiceForgotPasswordWritePlatformService;
 import org.apache.fineract.selfservice.security.service.SelfServiceAuthenticationTokenService;
@@ -76,6 +79,8 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
@@ -95,6 +100,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
     private final JdbcTemplate jdbcTemplate;
     private final ClientRepositoryWrapper clientRepository;
     private final CacheManager cacheManager;
+    private final SelfServiceEventRecorder eventRecorder;
 
     @Override
     @Transactional
@@ -105,6 +111,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         if (revoke == null || revoke) {
             tokenService.revokeAllSessions(userId);
         }
+        audit(user, "VIEW_ONLY", "Access set to view only", command);
         notifyClient(user, "your mobile app access is now view only. You can see your accounts but cannot make transfers or other changes.",
                 command);
         return result(user, command);
@@ -116,6 +123,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         final AppSelfServiceUser user = changeStatus(userId, command, SelfServiceUserStatus.SUSPENDED,
                 EnumSet.of(SelfServiceUserStatus.ACTIVE, SelfServiceUserStatus.VIEW_ONLY));
         tokenService.revokeAllSessions(userId);
+        audit(user, "SUSPEND", "Access suspended", command);
         notifyClient(user, "your mobile app access has been suspended. You cannot log in until your branch reactivates it.", command);
         return result(user, command);
     }
@@ -125,6 +133,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
     public CommandProcessingResult reactivate(final Long userId, final JsonCommand command) {
         final AppSelfServiceUser user = changeStatus(userId, command, SelfServiceUserStatus.ACTIVE,
                 EnumSet.of(SelfServiceUserStatus.VIEW_ONLY, SelfServiceUserStatus.SUSPENDED));
+        audit(user, "REACTIVATE", "Access reactivated", command);
         notifyClient(user, "your mobile app access has been restored. You can log in and transact again.", command);
         return result(user, command);
     }
@@ -136,6 +145,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
                 EnumSet.of(SelfServiceUserStatus.PENDING, SelfServiceUserStatus.ACTIVE, SelfServiceUserStatus.VIEW_ONLY,
                         SelfServiceUserStatus.SUSPENDED));
         tokenService.revokeAllSessions(userId);
+        audit(user, "CLOSE", "Access closed", command);
         notifyClient(user, "your mobile app access has been closed.", command);
         return result(user, command);
     }
@@ -151,6 +161,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         }
         user.unlock(reason, currentStaffId());
         appSelfServiceUserRepository.saveAndFlush(user);
+        audit(user, "UNLOCK", "Account unlocked", command);
         notifyClient(user, "your mobile app account has been unlocked. You can log in again.", command);
         return result(user, command);
     }
@@ -161,6 +172,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         validateReason(command, false);
         final AppSelfServiceUser user = findInScope(userId);
         tokenService.revokeAllSessions(userId);
+        audit(user, "REVOKE_SESSIONS", "Signed out of the app on all devices", command);
         notifyClient(user, "you have been signed out of the mobile app on all devices. Please log in again.", command);
         return result(user, command);
     }
@@ -185,6 +197,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
             user.updatePasswordResetRequired(true);
             appSelfServiceUserRepository.saveAndFlush(user);
             tokenService.revokeAllSessions(userId);
+            audit(user, "RESET_PASSWORD", "Password change required at next login", command);
             notifyClient(user, "you must set a new password the next time you log in to the mobile app.", command);
         } else {
             final String body = "{\"username\":\"" + user.getUsername().replace("\\", "\\\\").replace("\"", "\\\"") + "\"}";
@@ -192,6 +205,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
                 throw new GeneralPlatformDomainRuleException("error.msg.selfservice.user.password.reset.no.contact",
                         "The client has no email address or mobile number to send the reset code to", userId);
             }
+            audit(user, "RESET_PASSWORD", "Password reset code sent to the client", command);
             notifyClient(user, "your branch started a password reset. Use the code we sent you to set a new password.", command);
         }
         return result(user, command);
@@ -217,6 +231,11 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         final String summary = limits.isEmpty() ? "your branch removed the transfer limits on your mobile app."
                 : "your mobile app transfer limits are now "
                         + String.join("; ", limits.stream().map(SelfServiceUserAdminWriteServiceImpl::describe).toList()) + ".";
+        audit(user, "UPDATE_LIMITS",
+                limits.isEmpty() ? "Transfer limits removed"
+                        : "Transfer limits changed: "
+                                + String.join("; ", limits.stream().map(SelfServiceUserAdminWriteServiceImpl::describe).toList()),
+                command);
         notifyClient(user, summary, command);
 
         final Map<String, Object> changes = new LinkedHashMap<>();
@@ -262,6 +281,10 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         jdbcTemplate.update("update m_appselfservice_user set office_id = ? where id = ?", office.getId(), userId);
         evictClientMappingCaches();
 
+        audit(user, "UPDATE_CLIENTS",
+                "Linked clients changed to "
+                        + String.join(", ", clients.stream().map(c -> c.getDisplayName() + " (" + c.getAccountNumber() + ")").toList()),
+                command, clients.get(0).getId(), office.getId());
         notifyClient(user, clients.get(0).getMobileNo(), "the client accounts you can use in the mobile app were changed by your branch.",
                 command);
 
@@ -440,6 +463,34 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
 
     private Long currentStaffId() {
         return context.authenticatedUser().getId();
+    }
+
+    /** Adds the staff action to the user's activity timeline once the change is saved. */
+    private void audit(final AppSelfServiceUser user, final String action, final String description, final JsonCommand command) {
+        final Client client = primaryClient(user);
+        final Office office = effectiveOffice(user);
+        audit(user, action, description, command, client != null ? client.getId() : null, office != null ? office.getId() : null);
+    }
+
+    private void audit(final AppSelfServiceUser user, final String action, final String description, final JsonCommand command,
+            final Long clientId, final Long officeId) {
+        final String reason = StringUtils.trimToNull(command.stringValueOfParameterNamed(REASON_PARAM));
+        final SelfServiceEventEntry entry = SelfServiceEventEntry.builder().appUserId(user.getId()).username(user.getUsername())
+                .clientId(clientId).officeId(officeId).eventType(action).category(SelfServiceEventEntry.CATEGORY_ACCESS)
+                .result(SelfServiceEventEntry.RESULT_SUCCESS).actor(SelfServiceEventEntry.ACTOR_STAFF)
+                .staffUsername(context.authenticatedUser().getUsername()).description(description)
+                .details(reason == null ? null : new Gson().toJson(Map.of(REASON_PARAM, reason))).build();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+
+                @Override
+                public void afterCommit() {
+                    eventRecorder.record(entry);
+                }
+            });
+        } else {
+            eventRecorder.record(entry);
+        }
     }
 
     /** Tells the client about the change by email and SMS (both, every time). */

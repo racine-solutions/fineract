@@ -147,6 +147,9 @@ public class AppSelfServiceUser extends AbstractPersistableCustom<Long> implemen
     @Column(name = "last_login_on_utc")
     private LocalDateTime lastLoginOnUtc;
 
+    @Column(name = "first_login_on_utc")
+    private LocalDateTime firstLoginOnUtc;
+
     public boolean isPasswordResetRequired() {
         return this.passwordResetRequired;
     }
@@ -458,6 +461,10 @@ public class AppSelfServiceUser extends AbstractPersistableCustom<Long> implemen
 
     public LocalDateTime getLastLoginOnUtc() {
         return this.lastLoginOnUtc;
+    }
+
+    public LocalDateTime getFirstLoginOnUtc() {
+        return this.firstLoginOnUtc;
     }
 
     private static LocalDateTime nowUtc() {

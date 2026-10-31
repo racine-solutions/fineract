@@ -21,6 +21,7 @@ package org.apache.fineract.selfservice.admin.service;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.selfservice.admin.data.SelfServiceUserAdminData;
 import org.apache.fineract.selfservice.admin.data.SelfServiceUserSummaryData;
+import org.apache.fineract.selfservice.audit.data.SelfServiceEventData;
 
 /** Back-office reads of self-service users, limited to the staff member's office and its child offices. */
 public interface SelfServiceUserAdminReadService {
@@ -30,4 +31,10 @@ public interface SelfServiceUserAdminReadService {
     SelfServiceUserSummaryData retrieveSummary(Long officeId);
 
     SelfServiceUserAdminData retrieveOne(Long id);
+
+    /**
+     * The user's activity timeline, newest first; optionally only one category (e.g. TRANSFER) or result (e.g.
+     * REFUSED).
+     */
+    Page<SelfServiceEventData> retrieveEvents(Long userId, String category, String result, Integer offset, Integer limit);
 }

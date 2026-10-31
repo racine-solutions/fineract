@@ -42,6 +42,7 @@ import org.apache.fineract.selfservice.admin.data.SelfServiceUserAdminData;
 import org.apache.fineract.selfservice.admin.data.SelfServiceUserSummaryData;
 import org.apache.fineract.selfservice.admin.service.SelfServiceUserAdminReadService;
 import org.apache.fineract.selfservice.admin.service.SelfServiceUserSearchParameters;
+import org.apache.fineract.selfservice.audit.data.SelfServiceEventData;
 import org.apache.fineract.selfservice.commands.service.CommandWrapperBuilderSelfService;
 import org.springframework.stereotype.Component;
 
@@ -98,6 +99,22 @@ public class SelfServiceUsersApiResource {
     public SelfServiceUserAdminData retrieveOne(@PathParam("userId") @Parameter(description = "userId") final Long userId) {
         context.authenticatedUser().validateHasReadPermission(SelfServiceUsersApiConstants.RESOURCE_NAME);
         return readService.retrieveOne(userId);
+    }
+
+    @GET
+    @Path("{userId}/events")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Activity timeline of a self-service user", description = "What the user did in the mobile app, what staff "
+            + "changed on their access, and transfers the app refused. Newest first. Filters: category (REGISTRATION, LOGIN, PASSWORD, "
+            + "TRANSFER, BENEFICIARY, LOAN, SAVINGS, SINPE, ACCESS), result (SUCCESS, FAILED, REFUSED).")
+    public Page<SelfServiceEventData> retrieveEvents(@PathParam("userId") @Parameter(description = "userId") final Long userId,
+            @QueryParam("category") @Parameter(description = "category") final String category,
+            @QueryParam("result") @Parameter(description = "result") final String result,
+            @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
+            @QueryParam("limit") @Parameter(description = "limit") final Integer limit) {
+        context.authenticatedUser().validateHasReadPermission(SelfServiceUsersApiConstants.RESOURCE_NAME);
+        return readService.retrieveEvents(userId, category, result, offset, limit);
     }
 
     @POST

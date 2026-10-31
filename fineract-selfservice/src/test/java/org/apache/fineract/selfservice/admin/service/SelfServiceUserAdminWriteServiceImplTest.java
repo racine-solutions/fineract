@@ -54,6 +54,8 @@ import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.exception.ClientNotFoundException;
 import org.apache.fineract.selfservice.admin.exception.SelfServiceUserNotFoundException;
+import org.apache.fineract.selfservice.audit.data.SelfServiceEventEntry;
+import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistration;
 import org.apache.fineract.selfservice.registration.service.SelfServiceForgotPasswordWritePlatformService;
@@ -89,6 +91,7 @@ class SelfServiceUserAdminWriteServiceImplTest {
     private JdbcTemplate jdbcTemplate;
     private ClientRepositoryWrapper clientRepository;
     private CacheManager cacheManager;
+    private SelfServiceEventRecorder eventRecorder;
 
     @BeforeEach
     void setUp() {
@@ -107,11 +110,13 @@ class SelfServiceUserAdminWriteServiceImplTest {
         jdbcTemplate = mock(JdbcTemplate.class);
         clientRepository = mock(ClientRepositoryWrapper.class);
         cacheManager = mock(CacheManager.class);
+        eventRecorder = mock(SelfServiceEventRecorder.class);
         service = new SelfServiceUserAdminWriteServiceImpl(repository, context, tokenService, forgotPasswordService, publisher,
-                jdbcTemplate, clientRepository, cacheManager);
+                jdbcTemplate, clientRepository, cacheManager, eventRecorder);
 
         AppUser staff = mock(AppUser.class);
         lenient().when(staff.getId()).thenReturn(STAFF_ID);
+        lenient().when(staff.getUsername()).thenReturn("branch.manager");
         lenient().when(context.authenticatedUser()).thenReturn(staff);
         lenient().when(context.officeHierarchy()).thenReturn(".1.");
 
@@ -137,6 +142,31 @@ class SelfServiceUserAdminWriteServiceImplTest {
         assertThat(event.getType()).isEqualTo(SelfServiceNotificationEvent.Type.ACCESS_CHANGED);
         assertThat(event.getContextData()).containsEntry("reason", "Disputed transfer");
         assertThat((String) event.getContextData().get("accessChange")).contains("suspended");
+    }
+
+    @Test
+    void suspend_isAddedToTheActivityTimelineWithStaffAndReason() {
+        service.suspend(USER_ID, command("Disputed transfer", null, null));
+
+        ArgumentCaptor<SelfServiceEventEntry> captor = ArgumentCaptor.forClass(SelfServiceEventEntry.class);
+        verify(eventRecorder).record(captor.capture());
+        SelfServiceEventEntry entry = captor.getValue();
+        assertThat(entry.appUserId()).isEqualTo(USER_ID);
+        assertThat(entry.eventType()).isEqualTo("SUSPEND");
+        assertThat(entry.category()).isEqualTo(SelfServiceEventEntry.CATEGORY_ACCESS);
+        assertThat(entry.actor()).isEqualTo(SelfServiceEventEntry.ACTOR_STAFF);
+        assertThat(entry.staffUsername()).isEqualTo("branch.manager");
+        assertThat(entry.description()).isEqualTo("Access suspended");
+        assertThat(entry.details()).contains("Disputed transfer");
+    }
+
+    @Test
+    void refusedStatusChange_isNotAddedToTheActivityTimeline() {
+        user.changeStatus(SelfServiceUserStatus.CLOSED, "Client exited", STAFF_ID);
+
+        assertThatThrownBy(() -> service.reactivate(USER_ID, command("Reopen", null, null)))
+                .isInstanceOf(GeneralPlatformDomainRuleException.class);
+        verify(eventRecorder, never()).record(any());
     }
 
     @Test

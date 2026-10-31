@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -39,10 +40,13 @@ import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRu
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.portfolio.savings.exception.SavingsAccountNotFoundException;
 import org.apache.fineract.selfservice.account.data.SelfAccountTemplateData;
+import org.apache.fineract.selfservice.audit.data.SelfServiceEventEntry;
+import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class SelfServiceTransferGuardTest {
@@ -54,6 +58,7 @@ class SelfServiceTransferGuardTest {
     private JdbcTemplate jdbcTemplate;
     private SelfAccountTransferReadService readService;
     private SelfServiceTransferGuard guard;
+    private SelfServiceEventRecorder eventRecorder;
     private AppSelfServiceUser user;
 
     @BeforeEach
@@ -65,7 +70,8 @@ class SelfServiceTransferGuardTest {
 
         jdbcTemplate = mock(JdbcTemplate.class);
         readService = mock(SelfAccountTransferReadService.class);
-        guard = new SelfServiceTransferGuard(jdbcTemplate, readService);
+        eventRecorder = mock(SelfServiceEventRecorder.class);
+        guard = new SelfServiceTransferGuard(jdbcTemplate, readService, eventRecorder);
         user = mock(AppSelfServiceUser.class);
         when(user.getId()).thenReturn(USER_ID);
 
@@ -117,12 +123,31 @@ class SelfServiceTransferGuardTest {
     }
 
     @Test
+    void refusedTransfer_isAddedToTheActivityTimeline() {
+        givenLimits(new BigDecimal("1000"), null);
+
+        assertThatThrownBy(() -> guard.check(user, OWN_ACCOUNT, SAVINGS, new BigDecimal("1500"),
+                SelfServiceTransferGuard.Channel.ACCOUNT_TRANSFER, null)).isInstanceOf(GeneralPlatformDomainRuleException.class);
+
+        ArgumentCaptor<SelfServiceEventEntry> captor = ArgumentCaptor.forClass(SelfServiceEventEntry.class);
+        verify(eventRecorder).record(captor.capture());
+        SelfServiceEventEntry entry = captor.getValue();
+        assertThat(entry.eventType()).isEqualTo(SelfServiceTransferGuard.REFUSED_EVENT);
+        assertThat(entry.result()).isEqualTo(SelfServiceEventEntry.RESULT_REFUSED);
+        assertThat(entry.amount()).isEqualByComparingTo("1500");
+        assertThat(entry.currencyCode()).isEqualTo("UGX");
+        assertThat(entry.description()).startsWith("Transfer refused: ").contains("per transfer");
+        assertThat(entry.details()).contains("error.msg.selfservice.transfer.limit.per.transfer.exceeded");
+    }
+
+    @Test
     void amountWithinDailyLimit_isAllowed() {
         givenLimits(new BigDecimal("1000"), new BigDecimal("2000"));
         givenUsedToday(new BigDecimal("1000"));
 
         assertThat(guard.check(user, OWN_ACCOUNT, SAVINGS, new BigDecimal("1000"), SelfServiceTransferGuard.Channel.ACCOUNT_TRANSFER, null))
                 .isEqualTo("UGX");
+        verifyNoInteractions(eventRecorder);
     }
 
     @Test
