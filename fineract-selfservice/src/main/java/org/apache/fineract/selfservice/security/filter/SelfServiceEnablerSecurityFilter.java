@@ -37,6 +37,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public class SelfServiceEnablerSecurityFilter extends OncePerRequestFilter {
 
+    /** Response header carrying the session inactivity timeout in minutes. */
+    public static final String SESSION_TIMEOUT_HEADER = "X-Session-Timeout-Minutes";
+
     private final SelfServiceSwitch selfServiceSwitch;
 
     public SelfServiceEnablerSecurityFilter(final SelfServiceSwitch selfServiceSwitch) {
@@ -61,6 +64,12 @@ public class SelfServiceEnablerSecurityFilter extends OncePerRequestFilter {
             return;
         }
         selfServiceSwitch.allowedWhileOn();
+        // Every mobile app response tells the app the current inactivity timeout, so a changed setting reaches it at
+        // once
+        final Integer timeout = selfServiceSwitch.sessionTimeoutMinutes();
+        if (timeout != null) {
+            response.setHeader(SESSION_TIMEOUT_HEADER, String.valueOf(timeout));
+        }
         filterChain.doFilter(request, response);
     }
 

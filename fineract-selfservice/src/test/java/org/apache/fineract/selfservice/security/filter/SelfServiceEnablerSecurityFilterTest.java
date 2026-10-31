@@ -68,6 +68,17 @@ class SelfServiceEnablerSecurityFilterTest {
     }
 
     @Test
+    void switchedOn_tellsTheAppTheCurrentSessionTimeout() throws Exception {
+        when(selfServiceSwitch.isOn()).thenReturn(true);
+        when(selfServiceSwitch.sessionTimeoutMinutes()).thenReturn(20);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(new MockHttpServletRequest("GET", "/fineract-provider/api/v1/self/clients"), response, chain);
+
+        assertThat(response.getHeader(SelfServiceEnablerSecurityFilter.SESSION_TIMEOUT_HEADER)).isEqualTo("20");
+    }
+
+    @Test
     void switchedOn_letsTheRequestThrough() throws Exception {
         when(selfServiceSwitch.isOn()).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/fineract-provider/api/v1/self/clients");

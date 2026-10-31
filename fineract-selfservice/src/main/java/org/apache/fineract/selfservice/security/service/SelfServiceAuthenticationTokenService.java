@@ -141,7 +141,12 @@ public class SelfServiceAuthenticationTokenService {
         }
     }
 
+    /** Minutes of inactivity after which a session ends (setting self-service-session-timeout-minutes). */
+    public int sessionTimeoutMinutes() {
+        return configurationDomainService.retrieveSelfServiceSessionTimeoutMinutes();
+    }
+
     private LocalDateTime sessionExpiryFromNow() {
-        return LocalDateTime.now().plusMinutes(configurationDomainService.retrieveSelfServiceSessionTimeoutMinutes());
+        return LocalDateTime.now().plusMinutes(sessionTimeoutMinutes());
     }
 }

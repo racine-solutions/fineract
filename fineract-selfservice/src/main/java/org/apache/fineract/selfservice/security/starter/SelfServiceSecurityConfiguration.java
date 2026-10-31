@@ -275,6 +275,8 @@ public class SelfServiceSecurityConfiguration {
         config.setAllowedMethods(java.util.List.of("*"));
         config.setAllowCredentials(true);
         config.setAllowedHeaders(java.util.List.of("*"));
+        // Lets browser clients read the session timeout header (native apps can read it anyway)
+        config.setExposedHeaders(java.util.List.of(SelfServiceEnablerSecurityFilter.SESSION_TIMEOUT_HEADER));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

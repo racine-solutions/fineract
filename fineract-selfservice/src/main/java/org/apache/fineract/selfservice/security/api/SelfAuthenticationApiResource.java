@@ -199,7 +199,7 @@ public class SelfAuthenticationApiResource {
                         .setBase64EncodedAuthenticationKey(new String(base64AccessKey, StandardCharsets.UTF_8))
                         .setRefreshToken(new String(base64RefreshKey, StandardCharsets.UTF_8)).setAuthenticated(true)
                         .setShouldRenewPassword(true).setTwoFactorAuthenticationRequired(isTwoFactorRequired)
-                        .setTenantName(currentTenantName());
+                        .setTenantName(currentTenantName()).setSessionTimeoutMinutes(tokenService.sessionTimeoutMinutes());
                 throw new SelfServicePasswordResetRequiredException(authenticatedUserData);
             } else {
                 // Publish Success Notification Event
@@ -220,7 +220,8 @@ public class SelfAuthenticationApiResource {
                         .setKycValidations(getKycStatusForUser(clientId)).setCountry(country).setTenantName(currentTenantName())
                         .setAccessStatus(
                                 principal.isViewOnly() ? SelfServiceUserStatus.VIEW_ONLY.name() : SelfServiceUserStatus.ACTIVE.name())
-                        .setAccessReason(principal.isViewOnly() ? principal.getStatusReason() : null);
+                        .setAccessReason(principal.isViewOnly() ? principal.getStatusReason() : null)
+                        .setSessionTimeoutMinutes(tokenService.sessionTimeoutMinutes());
             }
         }
 
@@ -325,6 +326,7 @@ public class SelfAuthenticationApiResource {
         Map<String, String> response = new HashMap<>();
         response.put("base64EncodedAuthenticationKey", new String(base64AccessKey, StandardCharsets.UTF_8));
         response.put("refreshToken", new String(base64RefreshKey, StandardCharsets.UTF_8));
+        response.put("sessionTimeoutMinutes", String.valueOf(tokenService.sessionTimeoutMinutes()));
 
         return this.apiJsonSerializerService.serialize(response);
     }

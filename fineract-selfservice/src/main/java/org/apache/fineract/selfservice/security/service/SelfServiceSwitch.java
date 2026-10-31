@@ -71,6 +71,16 @@ public class SelfServiceSwitch {
         }
     }
 
+    /** The session inactivity timeout in minutes, or null when it cannot be read. */
+    public Integer sessionTimeoutMinutes() {
+        try {
+            return tokenService.sessionTimeoutMinutes();
+        } catch (RuntimeException e) {
+            log.warn("Could not read the mobile app session timeout", e);
+            return null;
+        }
+    }
+
     /** Called for each mobile app request while the switch is off: ends all sessions once per off period. */
     public void refusedWhileOff() {
         final String tenant = currentTenant();

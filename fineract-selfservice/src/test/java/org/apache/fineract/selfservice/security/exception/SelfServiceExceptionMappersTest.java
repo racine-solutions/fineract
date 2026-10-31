@@ -49,14 +49,16 @@ class SelfServiceExceptionMappersTest {
     @Test
     void forcedPasswordChange_carriesTheFlagAndSession() {
         SelfServiceAuthenticatedUserData data = new SelfServiceAuthenticatedUserData().setUsername("jdoe").setUserId(7L)
-                .setBase64EncodedAuthenticationKey("access").setRefreshToken("refresh").setShouldRenewPassword(true);
+                .setBase64EncodedAuthenticationKey("access").setRefreshToken("refresh").setShouldRenewPassword(true)
+                .setSessionTimeoutMinutes(15);
 
         Response response = new SelfServicePasswordResetRequiredExceptionMapper()
                 .toResponse(new SelfServicePasswordResetRequiredException(data));
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat((String) response.getEntity()).contains("error.msg.selfservice.password.reset.required")
-                .contains("\"shouldRenewPassword\":true").contains("\"base64EncodedAuthenticationKey\":\"access\"");
+                .contains("\"shouldRenewPassword\":true").contains("\"base64EncodedAuthenticationKey\":\"access\"")
+                .contains("\"sessionTimeoutMinutes\":15");
     }
 
     @Test

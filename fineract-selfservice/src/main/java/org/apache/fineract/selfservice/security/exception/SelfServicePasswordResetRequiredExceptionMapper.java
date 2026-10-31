@@ -48,6 +48,7 @@ public class SelfServicePasswordResetRequiredExceptionMapper implements Exceptio
             extra.put("userId", data.getUserId());
             extra.put("base64EncodedAuthenticationKey", data.getBase64EncodedAuthenticationKey());
             extra.put("refreshToken", data.getRefreshToken());
+            extra.put("sessionTimeoutMinutes", data.getSessionTimeoutMinutes());
         }
         return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
                 .entity(SelfServiceErrorBody.json(401, CODE, "Please set a new password to continue.", extra)).build();

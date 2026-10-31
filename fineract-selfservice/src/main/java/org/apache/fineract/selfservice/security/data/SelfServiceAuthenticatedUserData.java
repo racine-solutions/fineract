@@ -96,6 +96,12 @@ public class SelfServiceAuthenticatedUserData {
     /** Why staff made the access view only, when they gave a reason. */
     private String accessReason;
 
+    /**
+     * Minutes of inactivity after which the session ends (setting self-service-session-timeout-minutes). The app logs
+     * the user out locally after this long without activity.
+     */
+    private Integer sessionTimeoutMinutes;
+
     // Add getter and setter (or rely on Lombok if applicable)
     public String getRefreshToken() {
         return refreshToken;
