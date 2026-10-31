@@ -22,23 +22,32 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
  * Login refused because the mobile app user may not use the app: HTTP 401 with a code per account state, so the app can
- * tell the client why. Only reached after a correct password (the state is checked after the password).
+ * tell the client why, and the support phone numbers to call. A pending user also gets the requestId of their open
+ * registration request (null when the code has expired), which the code-confirmation step needs. Only reached after a
+ * correct password (the state is checked after the password).
  */
+@Slf4j
 @Provider
 @Component
 @RequiredArgsConstructor
 public class SelfServiceDisabledExceptionMapper implements ExceptionMapper<SelfServiceDisabledException> {
 
     private final SelfServiceSupportContacts supportContacts;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public Response toResponse(final SelfServiceDisabledException exception) {
@@ -60,7 +69,30 @@ public class SelfServiceDisabledExceptionMapper implements ExceptionMapper<SelfS
             message = "Your app access is not active. For help, " + supportContacts.callInstruction() + ".";
         }
         return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
-                .entity(SelfServiceErrorBody.json(401, code, message, Map.of("supportPhoneNumbers", supportContacts.phoneNumbers())))
-                .build();
+                .entity(SelfServiceErrorBody.json(401, code, message, extra(user, status))).build();
+    }
+
+    /** Support numbers, and for a pending user the request id the code-confirmation step needs. */
+    private Map<String, Object> extra(final AppSelfServiceUser user, final SelfServiceUserStatus status) {
+        final Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("supportPhoneNumbers", supportContacts.phoneNumbers());
+        if (status == SelfServiceUserStatus.PENDING) {
+            extra.put("requestId", openRegistrationRequestId(user.getUsername()));
+        }
+        return extra;
+    }
+
+    /** The latest unused, unexpired enrollment or registration request of the user, or null when there is none. */
+    Long openRegistrationRequestId(final String username) {
+        try {
+            final List<Long> ids = jdbcTemplate.queryForList(
+                    "select id from request_audit_table where username = ? and request_type in ('ENROLLMENT', 'REGISTRATION')"
+                            + " and consumed = false and (expires_at is null or expires_at > ?) order by id desc",
+                    Long.class, username, LocalDateTime.now());
+            return ids.isEmpty() ? null : ids.get(0);
+        } catch (RuntimeException e) {
+            log.warn("Could not look up the open registration request of a pending mobile app user", e);
+            return null;
+        }
     }
 }

@@ -19,6 +19,9 @@
 package org.apache.fineract.selfservice.security.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,8 +33,11 @@ import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class SelfServiceExceptionMappersTest {
+
+    private static final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 
     private static SelfServiceSupportContacts supportContacts() {
         SelfServiceSupportContacts contacts = mock(SelfServiceSupportContacts.class);
@@ -45,7 +51,9 @@ class SelfServiceExceptionMappersTest {
         assertThat(disabledBody(SelfServiceUserStatus.SUSPENDED)).contains("error.msg.selfservice.user.suspended")
                 .contains("For help, call +256 774 067 967.").contains("supportPhoneNumbers");
         assertThat(disabledBody(SelfServiceUserStatus.CLOSED)).contains("error.msg.selfservice.user.closed");
-        assertThat(disabledBody(SelfServiceUserStatus.PENDING)).contains("error.msg.selfservice.user.pending");
+        when(jdbcTemplate.queryForList(anyString(), eq(Long.class), any(), any())).thenReturn(List.of(42L));
+        assertThat(disabledBody(SelfServiceUserStatus.PENDING)).contains("error.msg.selfservice.user.pending").contains("\"requestId\":42");
+        assertThat(disabledBody(SelfServiceUserStatus.SUSPENDED)).doesNotContain("requestId");
     }
 
     @Test
@@ -87,7 +95,7 @@ class SelfServiceExceptionMappersTest {
     private static String disabledBody(final SelfServiceUserStatus status) {
         AppSelfServiceUser user = mock(AppSelfServiceUser.class);
         when(user.getStatus()).thenReturn(status);
-        Response response = new SelfServiceDisabledExceptionMapper(supportContacts())
+        Response response = new SelfServiceDisabledExceptionMapper(supportContacts(), jdbcTemplate)
                 .toResponse(new SelfServiceDisabledException("disabled", user));
         assertThat(response.getStatus()).isEqualTo(401);
         return (String) response.getEntity();
