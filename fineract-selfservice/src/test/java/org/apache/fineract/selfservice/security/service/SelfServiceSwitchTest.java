@@ -69,13 +69,29 @@ class SelfServiceSwitchTest {
 
     @Test
     void switchedOffInSettings_endsEverySessionAtOnceAndIsRecorded() {
-        selfServiceSwitch.onConfigurationChanged(
-                new GlobalConfigurationChangedEvent(this, GlobalConfigurationConstants.ENABLE_RACINE_SELF_SERVICE, false));
+        selfServiceSwitch.onConfigurationChanged(new GlobalConfigurationChangedEvent(this,
+                GlobalConfigurationConstants.ENABLE_RACINE_SELF_SERVICE, false, ThreadLocalContextUtil.getTenant()));
 
         verify(tokenService).revokeAllSessionsOfAllUsers();
         ArgumentCaptor<SelfServiceEventEntry> captor = ArgumentCaptor.forClass(SelfServiceEventEntry.class);
         verify(recorder).record(captor.capture());
         assertThat(captor.getValue().eventType()).isEqualTo(SelfServiceSwitch.SWITCHED_OFF_EVENT);
+    }
+
+    @Test
+    void switchedOffOnAWorkerThreadWithoutTenant_usesTheEventsTenant() {
+        final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
+        ThreadLocalContextUtil.reset();
+        when(tokenService.revokeAllSessionsOfAllUsers()).thenAnswer(invocation -> {
+            assertThat(ThreadLocalContextUtil.getTenant()).isSameAs(tenant);
+            return 2L;
+        });
+
+        selfServiceSwitch.onConfigurationChanged(
+                new GlobalConfigurationChangedEvent(this, GlobalConfigurationConstants.ENABLE_RACINE_SELF_SERVICE, false, tenant));
+
+        verify(tokenService).revokeAllSessionsOfAllUsers();
+        assertThat(ThreadLocalContextUtil.getTenant()).isNull();
     }
 
     @Test
@@ -91,7 +107,7 @@ class SelfServiceSwitchTest {
 
     @Test
     void otherSettings_areIgnored() {
-        selfServiceSwitch.onConfigurationChanged(new GlobalConfigurationChangedEvent(this, "enable-business-date", false));
+        selfServiceSwitch.onConfigurationChanged(new GlobalConfigurationChangedEvent(this, "enable-business-date", false, null));
 
         verify(tokenService, never()).revokeAllSessionsOfAllUsers();
         verify(recorder, never()).record(any());

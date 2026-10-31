@@ -24,4 +24,6 @@ package org.apache.fineract.selfservice.security.domain;
 public interface PlatformSelfServiceUserRepository {
 
     PlatformSelfServiceUser findByUsernameAndDeletedAndEnabled(String username, boolean deleted, boolean enabled);
+
+    PlatformSelfServiceUser findByUsernameAndDeleted(String username, boolean deleted);
 }

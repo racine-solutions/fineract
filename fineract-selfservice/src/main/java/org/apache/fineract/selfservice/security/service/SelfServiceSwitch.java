@@ -97,26 +97,39 @@ public class SelfServiceSwitch {
         }
     }
 
-    /** Ends all sessions the moment staff switch the mobile app off, inside the same transaction as the change. */
+    /**
+     * Ends all sessions as soon as staff switch the mobile app off. Fineract delivers events on a worker thread, so the
+     * event's tenant is set on this thread first.
+     */
     @EventListener
     public void onConfigurationChanged(final GlobalConfigurationChangedEvent event) {
         if (!GlobalConfigurationConstants.ENABLE_RACINE_SELF_SERVICE.equals(event.getName())) {
             return;
         }
-        final String tenant = currentTenant();
-        if (event.isEnabled()) {
-            if (tenant != null) {
-                signedOutTenants.remove(tenant);
+        final boolean tenantSetHere = event.getTenant() != null && currentTenant() == null;
+        if (tenantSetHere) {
+            ThreadLocalContextUtil.setTenant(event.getTenant());
+        }
+        try {
+            final String tenant = currentTenant();
+            if (event.isEnabled()) {
+                if (tenant != null) {
+                    signedOutTenants.remove(tenant);
+                }
+                log.warn("Mobile app switched ON for tenant {} by {}", tenant, staffUsername());
+                record(SWITCHED_ON_EVENT, "Mobile app switched on");
+                return;
             }
-            log.warn("Mobile app switched ON for tenant {} by {}", tenant, staffUsername());
-            record(SWITCHED_ON_EVENT, "Mobile app switched on");
-            return;
+            if (tenant != null) {
+                signedOutTenants.add(tenant);
+            }
+            signOutEveryone(tenant, "switched off by " + staffUsername());
+            record(SWITCHED_OFF_EVENT, "Mobile app switched off; all mobile app users signed out");
+        } finally {
+            if (tenantSetHere) {
+                ThreadLocalContextUtil.reset();
+            }
         }
-        if (tenant != null) {
-            signedOutTenants.add(tenant);
-        }
-        signOutEveryone(tenant, "switched off by " + staffUsername());
-        record(SWITCHED_OFF_EVENT, "Mobile app switched off; all mobile app users signed out");
     }
 
     private void signOutEveryone(final String tenant, final String why) {

@@ -29,6 +29,7 @@ import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,8 +66,8 @@ public class GlobalConfigurationWritePlatformServiceJpaRepositoryImpl implements
             if (!changes.isEmpty()) {
                 this.configurationDomainService.removeGlobalConfigurationPropertyDataFromCache(configItemForUpdate.getName());
                 this.repository.save(configItemForUpdate);
-                this.applicationEventPublisher.publishEvent(
-                        new GlobalConfigurationChangedEvent(this, configItemForUpdate.getName(), configItemForUpdate.isEnabled()));
+                this.applicationEventPublisher.publishEvent(new GlobalConfigurationChangedEvent(this, configItemForUpdate.getName(),
+                        configItemForUpdate.isEnabled(), ThreadLocalContextUtil.getTenant()));
             }
 
             return new CommandProcessingResultBuilder() //
