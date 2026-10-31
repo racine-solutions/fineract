@@ -92,6 +92,22 @@ class SelfServiceEventRecorderTest {
     }
 
     @Test
+    void registrationCode_isNotFiledUnderTheRequestIdAsAnAppUser() {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("requestId", "42");
+        context.put("clientId", 7L);
+        context.put("authCode", "123456");
+
+        SelfServiceEventEntry entry = SelfServiceEventRecorder
+                .fromNotificationEvent(event(SelfServiceNotificationEvent.Type.ENROLLMENT_TOKEN, context));
+
+        assertThat(entry.appUserId()).isNull();
+        assertThat(entry.clientId()).isEqualTo(7L);
+        assertThat(entry.username()).isEqualTo("jdoe");
+        assertThat(entry.details()).doesNotContain("123456");
+    }
+
+    @Test
     void secretsAreNeverStored() {
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("authCode", "123456");

@@ -71,5 +71,6 @@
   <include file="parts/047-add-notification-messages-access-changed.xml" relativeToChangelogFile="true"/>
   <include file="parts/048-add-selfservice-user-limits.xml" relativeToChangelogFile="true"/>
   <include file="parts/049-create-selfservice-event.xml" relativeToChangelogFile="true"/>
+  <include file="parts/050-add-selfservice-report-permission.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

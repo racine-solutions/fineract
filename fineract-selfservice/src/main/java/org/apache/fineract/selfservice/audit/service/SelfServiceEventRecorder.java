@@ -112,8 +112,12 @@ public class SelfServiceEventRecorder {
         if (beneficiary != null && StringUtils.isNotBlank(beneficiary.toString())) {
             description = description + ": " + beneficiary;
         }
-        return SelfServiceEventEntry.builder().appUserId(event.getUserId()).username(event.getUsername()).eventType(type.name())
-                .category(categoryOf(type))
+        // The registration code is sent before the app user exists; that event carries the registration request id
+        // instead
+        final boolean beforeAppUserExists = type == SelfServiceNotificationEvent.Type.ENROLLMENT_TOKEN;
+        final Object clientId = context.get("clientId");
+        return SelfServiceEventEntry.builder().appUserId(beforeAppUserExists ? null : event.getUserId()).username(event.getUsername())
+                .clientId(clientId instanceof Number number ? number.longValue() : null).eventType(type.name()).category(categoryOf(type))
                 .result(type == SelfServiceNotificationEvent.Type.LOGIN_FAILURE ? SelfServiceEventEntry.RESULT_FAILED
                         : SelfServiceEventEntry.RESULT_SUCCESS)
                 .actor(SelfServiceEventEntry.ACTOR_CLIENT).description(description).amount(amountOf(context))
@@ -222,6 +226,9 @@ public class SelfServiceEventRecorder {
                 clientId = clientId != null ? clientId : toLong(rows.get(0).get("client_id"));
                 officeId = officeId != null ? officeId : toLong(rows.get(0).get("office_id"));
             }
+        } else if (clientId != null && officeId == null) {
+            officeId = jdbcTemplate.queryForList("select office_id from m_client where id = ?", Long.class, clientId).stream().findFirst()
+                    .orElse(null);
         }
         final String details = entry.details() == null ? null : StringUtils.abbreviate(entry.details(), DETAILS_MAX);
         jdbcTemplate.update(
