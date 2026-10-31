@@ -188,4 +188,10 @@ public interface ConfigurationDomainService {
      * Minutes of inactivity after which a self-service (mobile app) session ends and the user must log in again.
      */
     int retrieveSelfServiceSessionTimeoutMinutes();
+
+    /**
+     * Phone numbers mobile app (self-service) clients call for help, comma separated, or null when none are set or the
+     * setting is disabled.
+     */
+    String retrieveSelfServiceSupportPhoneNumbers();
 }

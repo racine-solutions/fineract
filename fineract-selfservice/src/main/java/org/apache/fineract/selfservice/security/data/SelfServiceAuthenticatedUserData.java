@@ -102,6 +102,9 @@ public class SelfServiceAuthenticatedUserData {
      */
     private Integer sessionTimeoutMinutes;
 
+    /** Phone numbers the client can call for help (setting self-service-support-phone-numbers); may be empty. */
+    private java.util.List<String> supportPhoneNumbers;
+
     // Add getter and setter (or rely on Lombok if applicable)
     public String getRefreshToken() {
         return refreshToken;

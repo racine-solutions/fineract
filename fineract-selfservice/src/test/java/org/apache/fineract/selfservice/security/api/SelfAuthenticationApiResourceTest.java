@@ -95,9 +95,10 @@ class SelfAuthenticationApiResourceTest {
         // null.
         lenient().when(selfServiceAuthenticationTokenService.generateTokens(any(), any())).thenReturn(mockTokens);
 
-        resource = new SelfAuthenticationApiResource(daoAuthenticationProvider, toApiJsonSerializer, securityContext,
-                clientReadPlatformService, applicationEventPublisher, environment, appUserRepository, kycFeatureStatusReadService,
-                officeAddressReadPlatformService, selfServiceAuthenticationTokenService,
+        resource = new SelfAuthenticationApiResource(daoAuthenticationProvider,
+                org.mockito.Mockito.mock(org.apache.fineract.selfservice.support.SelfServiceSupportContacts.class), toApiJsonSerializer,
+                securityContext, clientReadPlatformService, applicationEventPublisher, environment, appUserRepository,
+                kycFeatureStatusReadService, officeAddressReadPlatformService, selfServiceAuthenticationTokenService,
                 org.mockito.Mockito.mock(org.apache.fineract.selfservice.useradministration.service.SelfServiceUserActivityService.class));
     }
 

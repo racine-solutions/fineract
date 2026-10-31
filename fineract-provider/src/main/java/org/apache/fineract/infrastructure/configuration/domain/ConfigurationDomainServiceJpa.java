@@ -661,4 +661,11 @@ public class ConfigurationDomainServiceJpa implements ConfigurationDomainService
         }
         return DEFAULT_SELF_SERVICE_SESSION_TIMEOUT_MINUTES;
     }
+
+    @Override
+    public String retrieveSelfServiceSupportPhoneNumbers() {
+        final GlobalConfigurationPropertyData property = getGlobalConfigurationPropertyData(
+                GlobalConfigurationConstants.SELF_SERVICE_SUPPORT_PHONE_NUMBERS);
+        return property.isEnabled() && StringUtils.isNotBlank(property.getStringValue()) ? property.getStringValue().trim() : null;
+    }
 }

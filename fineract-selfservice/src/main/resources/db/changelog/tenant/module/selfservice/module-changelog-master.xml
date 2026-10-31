@@ -73,5 +73,6 @@
   <include file="parts/049-create-selfservice-event.xml" relativeToChangelogFile="true"/>
   <include file="parts/050-add-selfservice-report-permission.xml" relativeToChangelogFile="true"/>
   <include file="parts/051-rename-self-service-switch.xml" relativeToChangelogFile="true"/>
+  <include file="parts/052-add-self-service-support-numbers.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

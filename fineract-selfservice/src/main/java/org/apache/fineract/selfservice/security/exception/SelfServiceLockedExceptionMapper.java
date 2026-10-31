@@ -22,16 +22,25 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.springframework.stereotype.Component;
 
 /** Login refused because the account is locked (too many wrong passwords, or by staff): HTTP 401. */
 @Provider
 @Component
+@RequiredArgsConstructor
 public class SelfServiceLockedExceptionMapper implements ExceptionMapper<SelfServiceLockedException> {
+
+    private final SelfServiceSupportContacts supportContacts;
 
     @Override
     public Response toResponse(final SelfServiceLockedException exception) {
-        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON).entity(SelfServiceErrorBody.json(401,
-                "error.msg.selfservice.user.locked", "Your app access is locked. Contact your branch to unlock it.")).build();
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+                .entity(SelfServiceErrorBody.json(401, "error.msg.selfservice.user.locked",
+                        "Your app access is locked. To unlock it, " + supportContacts.callInstruction() + ".",
+                        Map.of("supportPhoneNumbers", supportContacts.phoneNumbers())))
+                .build();
     }
 }

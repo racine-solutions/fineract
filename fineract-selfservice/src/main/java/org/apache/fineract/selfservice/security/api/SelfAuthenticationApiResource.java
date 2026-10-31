@@ -67,6 +67,7 @@ import org.apache.fineract.selfservice.security.service.PlatformSelfServiceSecur
 import org.apache.fineract.selfservice.security.service.SelfServiceAuthenticationTokenService;
 import org.apache.fineract.selfservice.security.service.SelfServiceOfficeAddressReadService;
 import org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker;
+import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.data.AppSelfServiceUserData;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
@@ -106,6 +107,7 @@ public class SelfAuthenticationApiResource {
 
     @Qualifier("selfServiceAuthenticationProvider")
     private final DaoAuthenticationProvider customAuthenticationProvider;
+    private final SelfServiceSupportContacts supportContacts;
 
     private final ToApiJsonSerializer<AppSelfServiceUserData> apiJsonSerializerService;
     private final PlatformSelfServiceSecurityContext springSecurityPlatformSecurityContext;
@@ -221,7 +223,8 @@ public class SelfAuthenticationApiResource {
                         .setAccessStatus(
                                 principal.isViewOnly() ? SelfServiceUserStatus.VIEW_ONLY.name() : SelfServiceUserStatus.ACTIVE.name())
                         .setAccessReason(principal.isViewOnly() ? principal.getStatusReason() : null)
-                        .setSessionTimeoutMinutes(tokenService.sessionTimeoutMinutes());
+                        .setSessionTimeoutMinutes(tokenService.sessionTimeoutMinutes())
+                        .setSupportPhoneNumbers(supportContacts.phoneNumbers());
             }
         }
 

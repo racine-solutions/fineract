@@ -24,26 +24,38 @@ import static org.mockito.Mockito.when;
 
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
+import java.util.List;
 import org.apache.fineract.selfservice.security.data.SelfServiceAuthenticatedUserData;
+import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
 import org.junit.jupiter.api.Test;
 
 class SelfServiceExceptionMappersTest {
 
+    private static SelfServiceSupportContacts supportContacts() {
+        SelfServiceSupportContacts contacts = mock(SelfServiceSupportContacts.class);
+        when(contacts.callInstruction()).thenReturn("call +256 774 067 967");
+        when(contacts.phoneNumbers()).thenReturn(List.of("+256 774 067 967"));
+        return contacts;
+    }
+
     @Test
     void refusedLogin_saysWhyPerAccountState() {
-        assertThat(disabledBody(SelfServiceUserStatus.SUSPENDED)).contains("error.msg.selfservice.user.suspended");
+        assertThat(disabledBody(SelfServiceUserStatus.SUSPENDED)).contains("error.msg.selfservice.user.suspended")
+                .contains("For help, call +256 774 067 967.").contains("supportPhoneNumbers");
         assertThat(disabledBody(SelfServiceUserStatus.CLOSED)).contains("error.msg.selfservice.user.closed");
         assertThat(disabledBody(SelfServiceUserStatus.PENDING)).contains("error.msg.selfservice.user.pending");
     }
 
     @Test
     void lockedLogin_is401WithLockedCode() {
-        Response response = new SelfServiceLockedExceptionMapper().toResponse(new SelfServiceLockedException("locked", null));
+        Response response = new SelfServiceLockedExceptionMapper(supportContacts())
+                .toResponse(new SelfServiceLockedException("locked", null));
 
         assertThat(response.getStatus()).isEqualTo(401);
-        assertThat((String) response.getEntity()).contains("error.msg.selfservice.user.locked");
+        assertThat((String) response.getEntity()).contains("error.msg.selfservice.user.locked")
+                .contains("To unlock it, call +256 774 067 967.").contains("\"supportPhoneNumbers\":[\"+256 774 067 967\"]");
     }
 
     @Test
@@ -75,7 +87,8 @@ class SelfServiceExceptionMappersTest {
     private static String disabledBody(final SelfServiceUserStatus status) {
         AppSelfServiceUser user = mock(AppSelfServiceUser.class);
         when(user.getStatus()).thenReturn(status);
-        Response response = new SelfServiceDisabledExceptionMapper().toResponse(new SelfServiceDisabledException("disabled", user));
+        Response response = new SelfServiceDisabledExceptionMapper(supportContacts())
+                .toResponse(new SelfServiceDisabledException("disabled", user));
         assertThat(response.getStatus()).isEqualTo(401);
         return (String) response.getEntity();
     }

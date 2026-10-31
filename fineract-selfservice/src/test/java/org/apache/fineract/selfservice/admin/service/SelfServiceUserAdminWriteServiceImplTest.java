@@ -60,6 +60,7 @@ import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistration;
 import org.apache.fineract.selfservice.registration.service.SelfServiceForgotPasswordWritePlatformService;
 import org.apache.fineract.selfservice.security.service.SelfServiceAuthenticationTokenService;
+import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserRepository;
 import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
@@ -92,6 +93,7 @@ class SelfServiceUserAdminWriteServiceImplTest {
     private ClientRepositoryWrapper clientRepository;
     private CacheManager cacheManager;
     private SelfServiceEventRecorder eventRecorder;
+    private SelfServiceSupportContacts supportContacts;
 
     @BeforeEach
     void setUp() {
@@ -111,8 +113,10 @@ class SelfServiceUserAdminWriteServiceImplTest {
         clientRepository = mock(ClientRepositoryWrapper.class);
         cacheManager = mock(CacheManager.class);
         eventRecorder = mock(SelfServiceEventRecorder.class);
+        supportContacts = mock(SelfServiceSupportContacts.class);
+        lenient().when(supportContacts.callInstruction()).thenReturn("call +256 774 067 967");
         service = new SelfServiceUserAdminWriteServiceImpl(repository, context, tokenService, forgotPasswordService, publisher,
-                jdbcTemplate, clientRepository, cacheManager, eventRecorder);
+                jdbcTemplate, clientRepository, cacheManager, eventRecorder, supportContacts);
 
         AppUser staff = mock(AppUser.class);
         lenient().when(staff.getId()).thenReturn(STAFF_ID);
@@ -142,6 +146,7 @@ class SelfServiceUserAdminWriteServiceImplTest {
         assertThat(event.getType()).isEqualTo(SelfServiceNotificationEvent.Type.ACCESS_CHANGED);
         assertThat(event.getContextData()).containsEntry("reason", "Disputed transfer");
         assertThat((String) event.getContextData().get("accessChange")).contains("suspended");
+        assertThat(event.getContextData()).containsEntry("supportContact", "call +256 774 067 967");
     }
 
     @Test

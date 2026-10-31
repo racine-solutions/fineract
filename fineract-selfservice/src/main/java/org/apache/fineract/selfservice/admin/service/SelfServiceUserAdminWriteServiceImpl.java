@@ -68,6 +68,7 @@ import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
 import org.apache.fineract.selfservice.registration.service.SelfServiceForgotPasswordWritePlatformService;
 import org.apache.fineract.selfservice.security.service.SelfServiceAuthenticationTokenService;
+import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserRepository;
@@ -101,6 +102,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
     private final ClientRepositoryWrapper clientRepository;
     private final CacheManager cacheManager;
     private final SelfServiceEventRecorder eventRecorder;
+    private final SelfServiceSupportContacts supportContacts;
 
     @Override
     @Transactional
@@ -504,6 +506,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         final Map<String, Object> contextData = new HashMap<>();
         contextData.put("accessChange", accessChange);
         contextData.put("reason", StringUtils.defaultIfBlank(command.stringValueOfParameterNamed(REASON_PARAM), NO_REASON));
+        contextData.put("supportContact", supportContacts.callInstruction());
         try {
             applicationEventPublisher.publishEvent(SelfServiceNotificationEvent.withTenantContext(this,
                     SelfServiceNotificationEvent.Type.ACCESS_CHANGED, user.getId(), user.getFirstname(), user.getLastname(),

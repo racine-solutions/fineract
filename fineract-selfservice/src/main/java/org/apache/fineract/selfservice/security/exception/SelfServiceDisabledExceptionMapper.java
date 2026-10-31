@@ -22,6 +22,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
 import org.springframework.stereotype.Component;
@@ -32,7 +35,10 @@ import org.springframework.stereotype.Component;
  */
 @Provider
 @Component
+@RequiredArgsConstructor
 public class SelfServiceDisabledExceptionMapper implements ExceptionMapper<SelfServiceDisabledException> {
+
+    private final SelfServiceSupportContacts supportContacts;
 
     @Override
     public Response toResponse(final SelfServiceDisabledException exception) {
@@ -45,15 +51,16 @@ public class SelfServiceDisabledExceptionMapper implements ExceptionMapper<SelfS
             message = "Finish registration by entering the code we sent you.";
         } else if (status == SelfServiceUserStatus.SUSPENDED) {
             code = "error.msg.selfservice.user.suspended";
-            message = "Your app access is suspended. Contact your branch.";
+            message = "Your app access is suspended. For help, " + supportContacts.callInstruction() + ".";
         } else if (status == SelfServiceUserStatus.CLOSED) {
             code = "error.msg.selfservice.user.closed";
-            message = "Your app access has been closed. Contact your branch if you want to use the app again.";
+            message = "Your app access has been closed. To use the app again, " + supportContacts.callInstruction() + ".";
         } else {
             code = "error.msg.selfservice.user.disabled";
-            message = "Your app access is not active. Contact your branch.";
+            message = "Your app access is not active. For help, " + supportContacts.callInstruction() + ".";
         }
         return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
-                .entity(SelfServiceErrorBody.json(401, code, message)).build();
+                .entity(SelfServiceErrorBody.json(401, code, message, Map.of("supportPhoneNumbers", supportContacts.phoneNumbers())))
+                .build();
     }
 }
