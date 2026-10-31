@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <!--
+        Back-office management of self-service users.
+        status_enum: 100 = Pending (registered, code not confirmed), 300 = Active, 400 = View only,
+                     500 = Suspended, 600 = Closed. "Locked" stays on the existing nonlocked flag.
+    -->
+    <changeSet author="racine" id="ss-0045-add-selfservice-user-status-columns">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_appselfservice_user" columnName="status_enum"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_appselfservice_user">
+            <column name="status_enum" type="INT" defaultValueNumeric="300">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status_reason" type="VARCHAR(500)"/>
+            <column name="status_changed_on_utc" type="TIMESTAMP"/>
+            <column name="status_changed_by_id" type="BIGINT"/>
+            <column name="created_on_utc" type="TIMESTAMP"/>
+            <column name="last_login_on_utc" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+    <changeSet author="racine" id="ss-0045-backfill-selfservice-user-status">
+        <update tableName="m_appselfservice_user">
+            <column name="status_enum" valueNumeric="600"/>
+            <where>is_deleted = true</where>
+        </update>
+        <update tableName="m_appselfservice_user">
+            <column name="status_enum" valueNumeric="100"/>
+            <where>is_deleted = false AND enabled = false</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

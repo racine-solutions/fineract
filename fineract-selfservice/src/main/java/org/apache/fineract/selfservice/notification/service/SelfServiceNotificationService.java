@@ -91,7 +91,7 @@ public class SelfServiceNotificationService {
             if (!eventEnabled) return;
 
             String cacheKey = event.getType().name() + ":" + event.getUserId();
-            if (!notificationCooldownCache.tryAcquire(cacheKey)) {
+            if (!event.getType().isAllChannels() && !notificationCooldownCache.tryAcquire(cacheKey)) {
                 log.debug("Skipping notification for event type {} and user ID {} due to cooldown.", event.getType(), event.getUserId());
                 return;
             }
@@ -122,10 +122,18 @@ public class SelfServiceNotificationService {
             }
 
             if (!emailSentExternally) {
-                if (event.isEmailMode() || StringUtils.isBlank(event.getMobileNumber())) {
+                if (event.getType().isAllChannels() || event.isEmailMode() || StringUtils.isBlank(event.getMobileNumber())) {
                     if (StringUtils.isBlank(event.getEmail())) {
                         log.warn("Email notification skipped for event {} because no email address is available", event.getType());
                         releaseCooldown(event);
+                    } else if (event.getType().isAllChannels()) {
+                        // A failed email must not stop the SMS for messages that go on every channel
+                        try {
+                            sendLegacyEmail(event, params);
+                        } catch (Exception e) {
+                            log.error("Email notification failed for event {} and user ID {}; continuing with SMS", event.getType(),
+                                    event.getUserId(), e);
+                        }
                     } else {
                         sendLegacyEmail(event, params);
                     }
@@ -139,7 +147,7 @@ public class SelfServiceNotificationService {
             }
 
             if (!smsSentExternally) {
-                if (!event.isEmailMode() || StringUtils.isBlank(event.getEmail())) {
+                if (event.getType().isAllChannels() || !event.isEmailMode() || StringUtils.isBlank(event.getEmail())) {
                     if (StringUtils.isBlank(event.getMobileNumber())) {
                         log.warn("SMS notification skipped for event {} because no mobile number is available", event.getType());
                         releaseCooldown(event);

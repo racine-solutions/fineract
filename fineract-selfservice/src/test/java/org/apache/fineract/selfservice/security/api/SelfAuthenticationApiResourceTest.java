@@ -97,7 +97,8 @@ class SelfAuthenticationApiResourceTest {
 
         resource = new SelfAuthenticationApiResource(daoAuthenticationProvider, toApiJsonSerializer, securityContext,
                 clientReadPlatformService, applicationEventPublisher, environment, appUserRepository, kycFeatureStatusReadService,
-                officeAddressReadPlatformService, selfServiceAuthenticationTokenService);
+                officeAddressReadPlatformService, selfServiceAuthenticationTokenService,
+                org.mockito.Mockito.mock(org.apache.fineract.selfservice.useradministration.service.SelfServiceUserActivityService.class));
     }
 
     @Test

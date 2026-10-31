@@ -18,10 +18,12 @@
  */
 package org.apache.fineract.selfservice.useradministration.domain;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import org.apache.fineract.selfservice.security.domain.PlatformSelfServiceUserRepository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -32,4 +34,8 @@ public interface AppSelfServiceUserRepository
     AppSelfServiceUser findAppSelfServiceUserByName(@Param("username") String username);
 
     Collection<AppSelfServiceUser> findByOfficeId(Long officeId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("update AppSelfServiceUser u set u.lastLoginOnUtc = :loginOnUtc where u.id = :userId")
+    int updateLastLogin(@Param("userId") Long userId, @Param("loginOnUtc") LocalDateTime loginOnUtc);
 }

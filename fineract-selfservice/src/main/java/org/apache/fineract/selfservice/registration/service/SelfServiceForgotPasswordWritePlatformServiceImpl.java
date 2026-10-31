@@ -41,6 +41,7 @@ import org.apache.fineract.selfservice.registration.domain.SelfServiceRequestTyp
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserRepository;
+import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicy;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicyRepository;
 import org.springframework.context.ApplicationEventPublisher;
@@ -79,6 +80,12 @@ public class SelfServiceForgotPasswordWritePlatformServiceImpl implements SelfSe
         AppSelfServiceUser user = appSelfServiceUserRepository.findAppSelfServiceUserByName(username);
         if (user == null) {
             log.warn("Password reset request rejected: user '{}' not found", username);
+            return null;
+        }
+        if (user.getStatus() != SelfServiceUserStatus.ACTIVE) {
+            // View only, suspended, closed and pending users may not change their password; answer as for an unknown
+            // user
+            log.warn("Password reset request rejected: user '{}' has status {}", username, user.getStatus());
             return null;
         }
 
@@ -165,6 +172,9 @@ public class SelfServiceForgotPasswordWritePlatformServiceImpl implements SelfSe
         AppSelfServiceUser user = appSelfServiceUserRepository.findAppSelfServiceUserByName(request.getUsername());
         if (user == null) {
             throw new IllegalArgumentException("User not found for this reset token.");
+        }
+        if (user.getStatus() != SelfServiceUserStatus.ACTIVE) {
+            throw new IllegalArgumentException("The password of this mobile app user cannot be changed. Contact your branch.");
         }
 
         // CORRECCIÓN 4: encode() solo acepta PlatformUser, no (user, password)

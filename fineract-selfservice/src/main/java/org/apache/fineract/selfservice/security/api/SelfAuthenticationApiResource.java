@@ -70,6 +70,7 @@ import org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsCh
 import org.apache.fineract.selfservice.useradministration.data.AppSelfServiceUserData;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
+import org.apache.fineract.selfservice.useradministration.service.SelfServiceUserActivityService;
 import org.apache.fineract.useradministration.data.RoleData;
 import org.apache.fineract.useradministration.domain.Role;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -114,6 +115,7 @@ public class SelfAuthenticationApiResource {
     private final KycFeatureStatusReadService kycFeatureStatusReadService;
     private final SelfServiceOfficeAddressReadService officeAddressReadPlatformService;
     private final SelfServiceAuthenticationTokenService tokenService;
+    private final SelfServiceUserActivityService selfServiceUserActivityService;
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -201,6 +203,7 @@ public class SelfAuthenticationApiResource {
             } else {
                 // Publish Success Notification Event
                 publishNotificationEvent(SelfServiceNotificationEvent.Type.LOGIN_SUCCESS, principal, request.username, httpRequest);
+                selfServiceUserActivityService.recordSuccessfulLogin(principal.getId());
 
                 Collection<Long> clientList = returnClientList ? clientReadPlatformService.retrieveSelfServiceUserClients(userId) : null;
                 Long clientId = getClientId(clientList);

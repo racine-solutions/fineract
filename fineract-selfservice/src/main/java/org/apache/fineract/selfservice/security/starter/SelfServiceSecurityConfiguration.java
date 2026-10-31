@@ -122,6 +122,9 @@ public class SelfServiceSecurityConfiguration {
                         requestResponseFilter(), ExceptionTranslationFilter.class)
                 .addFilterAfter(correlationHeaderFilter(), RequestResponseFilter.class).addFilterAfter(fineractInstanceModeApiFilter(),
                         CorrelationHeaderFilter.class)
+                // View-only users: refuse every data-changing request once the user is authenticated and authorized
+                .addFilterAfter(new org.apache.fineract.selfservice.security.filter.SelfServiceViewOnlyFilter(),
+                        org.springframework.security.web.access.intercept.AuthorizationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // === PUBLIC ENDPOINTS ===
                         .requestMatchers(antMatcher(HttpMethod.POST, "/api/v1/self/registration")).permitAll()

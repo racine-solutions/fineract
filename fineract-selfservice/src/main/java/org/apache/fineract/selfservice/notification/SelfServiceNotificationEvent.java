@@ -51,12 +51,26 @@ public class SelfServiceNotificationEvent extends ApplicationEvent {
                                                                                                 "sinpe-enrollment-success"), SINPE_SUBSCRIPTION_CREATED(
                                                                                                         "sinpe-subscription-created"), SINPE_SUBSCRIPTION_UPDATED(
                                                                                                                 "sinpe-subscription-updated"), SINPE_SUBSCRIPTION_DELETED(
-                                                                                                                        "sinpe-subscription-deleted");
+                                                                                                                        "sinpe-subscription-deleted"),
+        // Back-office change to the user's app access (status, unlock, sign-out, password reset). Always sent by
+        // both email and SMS, and never suppressed by the notification cooldown.
+        ACCESS_CHANGED("access-changed", true);
 
         private final String templatePrefix;
+        private final boolean allChannels;
 
         Type(String templatePrefix) {
+            this(templatePrefix, false);
+        }
+
+        Type(String templatePrefix, boolean allChannels) {
             this.templatePrefix = templatePrefix;
+            this.allChannels = allChannels;
+        }
+
+        /** True when the client must be told on every channel available (email and SMS), every time. */
+        public boolean isAllChannels() {
+            return allChannels;
         }
 
         public String getTemplatePrefix() {

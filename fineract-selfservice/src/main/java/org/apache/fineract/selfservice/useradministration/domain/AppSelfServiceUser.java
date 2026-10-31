@@ -30,6 +30,8 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -127,6 +129,24 @@ public class AppSelfServiceUser extends AbstractPersistableCustom<Long> implemen
     @Column(name = "password_reset_required", nullable = false)
     private boolean passwordResetRequired;
 
+    @Column(name = "status_enum", nullable = false)
+    private Integer statusEnum;
+
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+
+    @Column(name = "status_changed_on_utc")
+    private LocalDateTime statusChangedOnUtc;
+
+    @Column(name = "status_changed_by_id")
+    private Long statusChangedById;
+
+    @Column(name = "created_on_utc")
+    private LocalDateTime createdOnUtc;
+
+    @Column(name = "last_login_on_utc")
+    private LocalDateTime lastLoginOnUtc;
+
     public boolean isPasswordResetRequired() {
         return this.passwordResetRequired;
     }
@@ -201,6 +221,8 @@ public class AppSelfServiceUser extends AbstractPersistableCustom<Long> implemen
         this.isSelfServiceUser = isSelfServiceUser;
         this.appUserClientMappings = createAppUserClientMappings(clients);
         this.cannotChangePassword = cannotChangePassword;
+        this.statusEnum = (this.enabled ? SelfServiceUserStatus.ACTIVE : SelfServiceUserStatus.PENDING).getValue();
+        this.createdOnUtc = nowUtc();
     }
 
     public EnumOptionData organisationalRoleData() {
@@ -366,6 +388,7 @@ public class AppSelfServiceUser extends AbstractPersistableCustom<Long> implemen
         }
         this.deleted = true;
         this.enabled = false;
+        this.statusEnum = SelfServiceUserStatus.CLOSED.getValue();
         this.accountNonExpired = false;
         this.firstTimeLoginRemaining = true;
         this.username = getId() + "_DELETED_" + this.username;
@@ -383,6 +406,62 @@ public class AppSelfServiceUser extends AbstractPersistableCustom<Long> implemen
         this.accountNonLocked = true;
         this.credentialsNonExpired = true;
         this.deleted = false;
+        if (getStatus() == SelfServiceUserStatus.PENDING) {
+            this.statusEnum = SelfServiceUserStatus.ACTIVE.getValue();
+        }
+    }
+
+    public SelfServiceUserStatus getStatus() {
+        return SelfServiceUserStatus.fromInt(this.statusEnum);
+    }
+
+    /**
+     * Changes the back-office status and keeps the login flag in step: only Active and View only users may log in.
+     */
+    public void changeStatus(final SelfServiceUserStatus newStatus, final String reason, final Long changedByStaffUserId) {
+        this.statusEnum = newStatus.getValue();
+        this.enabled = newStatus.canLogin();
+        recordStatusChange(reason, changedByStaffUserId);
+    }
+
+    /** Clears the lock set after failed logins. The status (Active, View only, ...) is unchanged. */
+    public void unlock(final String reason, final Long changedByStaffUserId) {
+        this.accountNonLocked = true;
+        recordStatusChange(reason, changedByStaffUserId);
+    }
+
+    private void recordStatusChange(final String reason, final Long changedByStaffUserId) {
+        this.statusReason = reason;
+        this.statusChangedOnUtc = nowUtc();
+        this.statusChangedById = changedByStaffUserId;
+    }
+
+    public boolean isViewOnly() {
+        return getStatus() == SelfServiceUserStatus.VIEW_ONLY;
+    }
+
+    public String getStatusReason() {
+        return this.statusReason;
+    }
+
+    public LocalDateTime getStatusChangedOnUtc() {
+        return this.statusChangedOnUtc;
+    }
+
+    public Long getStatusChangedById() {
+        return this.statusChangedById;
+    }
+
+    public LocalDateTime getCreatedOnUtc() {
+        return this.createdOnUtc;
+    }
+
+    public LocalDateTime getLastLoginOnUtc() {
+        return this.lastLoginOnUtc;
+    }
+
+    private static LocalDateTime nowUtc() {
+        return LocalDateTime.now(ZoneOffset.UTC);
     }
 
     public boolean isSystemUser() {

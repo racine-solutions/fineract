@@ -46,6 +46,7 @@ import org.apache.fineract.selfservice.registration.domain.SelfServiceRequestTyp
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserRepository;
+import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicy;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicyRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -100,6 +101,7 @@ class SelfServiceForgotPasswordWritePlatformServiceImplTest {
     when(selfServiceAuthorizationTokenService.calculateExpiry(any())).thenReturn(expectedExpiry);
 
     AppSelfServiceUser appUser = mock(AppSelfServiceUser.class);
+    org.mockito.Mockito.lenient().when(appUser.getStatus()).thenReturn(SelfServiceUserStatus.ACTIVE);
     when(appUser.getEmail()).thenReturn("test@test.com");
     when(appUser.getFirstname()).thenReturn("John");
     when(appUser.getLastname()).thenReturn("Doe");
@@ -168,6 +170,7 @@ class SelfServiceForgotPasswordWritePlatformServiceImplTest {
         .thenReturn("jdoe");
 
     AppSelfServiceUser appUser = mock(AppSelfServiceUser.class);
+    org.mockito.Mockito.lenient().when(appUser.getStatus()).thenReturn(SelfServiceUserStatus.ACTIVE);
     when(appUser.getEmail()).thenReturn(null);
     Set<AppSelfServiceUserClientMapping> emptyMappings = new HashSet<>();
     when(appUser.getAppUserClientMappings()).thenReturn(emptyMappings);
@@ -226,6 +229,7 @@ class SelfServiceForgotPasswordWritePlatformServiceImplTest {
         .thenReturn(request);
 
     AppSelfServiceUser appUser = mock(AppSelfServiceUser.class);
+    org.mockito.Mockito.lenient().when(appUser.getStatus()).thenReturn(SelfServiceUserStatus.ACTIVE);
     when(appUser.getId()).thenReturn(7L);
     when(appUser.getUsername()).thenReturn("jdoe");
     when(appSelfServiceUserRepository.findAppSelfServiceUserByName("jdoe")).thenReturn(appUser);
