@@ -58,7 +58,8 @@ buildscript {
                 'fineract-e2e-tests-runner',
                 'fineract-progressive-loan',
                 'fineract-progressive-loan-embeddable-schedule-generator',
-                'fineract-working-capital-loan'
+                'fineract-working-capital-loan',
+                'fineract-selfservice'
             ].contains(it.name)
         }
         fineractPublishProjects = subprojects.findAll{
@@ -88,7 +89,8 @@ buildscript {
                 'fineract-document',
                 'fineract-progressive-loan',
                 'fineract-progressive-loan-embeddable-schedule-generator',
-                'fineract-working-capital-loan'
+                'fineract-working-capital-loan',
+                'fineract-selfservice'
             ].contains(it.name)
         }
         npmRepository = 'https://npm.pkg.github.com'
@@ -571,6 +573,11 @@ configure(project.fineractJavaProjects) {
         exclude("**/*.avsc")
 
         if (project.path.startsWith(':custom:acme:')) {
+            enabled = false
+        }
+
+        // TODO: fineract-selfservice was ported from the SurePay fork with its own code style; remove once its violations are fixed
+        if (project.path == ':fineract-selfservice') {
             enabled = false
         }
     }

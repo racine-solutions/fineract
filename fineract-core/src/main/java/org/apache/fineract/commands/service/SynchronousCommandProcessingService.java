@@ -155,6 +155,7 @@ public class SynchronousCommandProcessingService implements CommandProcessingSer
             AppUser user, boolean isEnclosingTransaction) {
 
         final CommandSourceService.CommandExecutionResult commandExecutionResult;
+        ThreadLocalContextUtil.enterCommandHandler();
         try {
             commandExecutionResult = commandSourceService.processCommandAndSaveResult(findCommandHandler(executionContext.wrapper()),
                     executionContext.command(), commandSource, user, executionContext.approvedByChecker(), this::updateSuccessfulResult);
@@ -167,6 +168,8 @@ public class SynchronousCommandProcessingService implements CommandProcessingSer
             }
             publishHookErrorEvent(executionContext.wrapper(), executionContext.command(), errorInfo);
             throw e;
+        } finally {
+            ThreadLocalContextUtil.exitCommandHandler();
         }
 
         CommandProcessingResult result = commandExecutionResult.result();

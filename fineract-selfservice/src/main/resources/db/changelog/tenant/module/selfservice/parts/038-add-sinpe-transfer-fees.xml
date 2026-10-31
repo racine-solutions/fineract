@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- 1. Create the Transfer Fees Configuration Table -->
+    <changeSet author="fineract" id="ss-0038-1">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_selfservice_transfer_fees"/>
+            </not>
+        </preConditions>
+        <comment>Create table for configurable transfer fees</comment>
+        <createTable tableName="m_selfservice_transfer_fees">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="transfer_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency_code" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transfer_mode" type="VARCHAR(50)"/>
+            <column name="fee_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fee_value" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fee_currency" type="VARCHAR(3)"/>
+            <column name="exchange_rate" type="DECIMAL(19,6)"/>
+            <column name="threshold_amount" type="DECIMAL(19,2)"/>
+            <column name="threshold_fee_value" type="DECIMAL(19,2)"/>
+            <column name="description" type="VARCHAR(255)"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- 2. Insert Default Fee Configurations based on Business Rules -->
+    <changeSet author="fineract" id="ss-0038-2">
+        <comment>Insert default transfer fee rules</comment>
+
+        <!-- PIN, CRC, INMEDIATA: $3.00 USD converted to CRC -->
+        <insert tableName="m_selfservice_transfer_fees">
+            <column name="transfer_type" value="PIN"/>
+            <column name="currency_code" value="CRC"/>
+            <column name="transfer_mode" value="INMEDIATA"/>
+            <column name="fee_type" value="FIXED"/>
+            <column name="fee_value" valueNumeric="3.00"/>
+            <column name="fee_currency" value="USD"/>
+            <column name="exchange_rate" valueNumeric="515.00"/>
+            <column name="description" value="Comisión acreditación inmediata (convertida a CRC)"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+
+        <!-- PIN, CRC, T+1: 0.5729% -->
+        <insert tableName="m_selfservice_transfer_fees">
+            <column name="transfer_type" value="PIN"/>
+            <column name="currency_code" value="CRC"/>
+            <column name="transfer_mode" value="T_PLUS_1"/>
+            <column name="fee_type" value="PERCENTAGE"/>
+            <column name="fee_value" valueNumeric="0.005729"/>
+            <column name="description" value="Comisión T+1 (0.5729%)"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+
+        <!-- PIN, USD, INMEDIATA: $3.00 -->
+        <insert tableName="m_selfservice_transfer_fees">
+            <column name="transfer_type" value="PIN"/>
+            <column name="currency_code" value="USD"/>
+            <column name="transfer_mode" value="INMEDIATA"/>
+            <column name="fee_type" value="FIXED"/>
+            <column name="fee_value" valueNumeric="3.00"/>
+            <column name="fee_currency" value="USD"/>
+            <column name="description" value="Comisión acreditación inmediata (USD)"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+
+        <!-- PIN, USD, T+1: 0.5729% -->
+        <insert tableName="m_selfservice_transfer_fees">
+            <column name="transfer_type" value="PIN"/>
+            <column name="currency_code" value="USD"/>
+            <column name="transfer_mode" value="T_PLUS_1"/>
+            <column name="fee_type" value="PERCENTAGE"/>
+            <column name="fee_value" valueNumeric="0.005729"/>
+            <column name="description" value="Comisión T+1 (0.5729%)"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+
+        <!-- SINPE Móvil, CRC: <= 100,000 is 0, > 100,000 is 700.00 -->
+        <insert tableName="m_selfservice_transfer_fees">
+            <column name="transfer_type" value="SINPE_MOVIL"/>
+            <column name="currency_code" value="CRC"/>
+            <column name="fee_type" value="FIXED"/>
+            <column name="fee_value" valueNumeric="0.00"/>
+            <column name="threshold_amount" valueNumeric="100000.00"/>
+            <column name="threshold_fee_value" valueNumeric="700.00"/>
+            <column name="description" value="Exento &lt;= ₡100,000; ₡700 si excede el umbral diario"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+  <include file="parts/001-create-selfservice-initial-schema.xml" relativeToChangelogFile="true"/>
+  <include file="parts/002-migrate-selfservice-users.xml" relativeToChangelogFile="true"/>
+  <include file="parts/003-grant-selfservice-client-read-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/004-grant-selfservice-product-read-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/005-grant-selfservice-report-read-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/006-grant-selfservice-savings-account-read-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/007-grant-selfservice-beneficiary-tpt-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/008-grant-selfservice-savings-account-create-transfer-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/009-grant-selfservice-savings-account-read-charges-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/010-grant-selfservice-savings-account-create-account-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/011-grant-selfservice-savings-account-update-account-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/012-grant-selfservice-loan-account-read-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/013-grant-selfservice-loan-account-create-account-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/014-grant-selfservice-loan-account-update-account-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/015-grant-selfservice-loan-account-withdrawn-account-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/016-add-external-authorization-token.xml" relativeToChangelogFile="true"/>
+  <include file="parts/017-add-external-national-id-system.xml" relativeToChangelogFile="true"/>
+  <include file="parts/018-add-external-notifications-system.xml" relativeToChangelogFile="true"/>
+  <include file="parts/019-create-selfservice-office-service-table.xml" relativeToChangelogFile="true"/>
+  <include file="parts/020-create-selfservice-office-geolocation-table.xml" relativeToChangelogFile="true"/>
+  <include file="parts/021-grant-selfservice-office-read-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/022-create-self-service-auth-token.xml" relativeToChangelogFile="true"/>
+  <include file="parts/023-add-notification-messages-login.xml" relativeToChangelogFile="true"/>
+  <include file="parts/024-add-notification-messages-self-enrollment.xml" relativeToChangelogFile="true"/>
+  <include file="parts/025-add-notification-messages-activate.xml" relativeToChangelogFile="true"/>
+  <include file="parts/026-add-notification-messages-transfer.xml" relativeToChangelogFile="true"/>
+  <include file="parts/027-add-notification-messages-user-created.xml" relativeToChangelogFile="true"/>
+  <include file="parts/028-add-notification-messages-beneficiaries.xml" relativeToChangelogFile="true"/>
+  <include file="parts/029-add-notification-messages-loan.xml" relativeToChangelogFile="true"/>
+  <include file="parts/030-add-notification-messages-savings.xml" relativeToChangelogFile="true"/>
+  <include file="parts/031-add-notification-messages-password-management.xml" relativeToChangelogFile="true"/>
+  <include file="parts/032-alter-beneficiary.xml" relativeToChangelogFile="true"/>
+  <include file="parts/033-sinpe-initial-schema.xml" relativeToChangelogFile="true"/>
+  <include file="parts/034-add-notification-message-sinpe.xml" relativeToChangelogFile="true"/>
+  <include file="parts/035-add-notification-message-sinpe-management.xml" relativeToChangelogFile="true"/>
+  <include file="parts/036-add-external-sinpe-system.xml" relativeToChangelogFile="true"/>
+  <include file="parts/037-add-notification-message-sinpe-transfer.xml" relativeToChangelogFile="true"/>
+  <include file="parts/038-add-sinpe-transfer-fees.xml" relativeToChangelogFile="true"/>
+  <include file="parts/039-add-notification-password-renew.xml" relativeToChangelogFile="true"/>
+  <include file="parts/040-add-notification-password-reset.xml" relativeToChangelogFile="true"/>
+  <include file="parts/041-add-self-service-enabled-config.xml" relativeToChangelogFile="true"/>
+  <include file="parts/042-fix-selfservice-mapping-foreign-key.xml" relativeToChangelogFile="true"/>
+  <include file="parts/043-grant-selfservice-account-transfer-read-permissions.xml" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet author="fineract" id="ss-0036-1">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <sqlCheck expectedResult="0">
+                    SELECT COUNT(*) FROM c_external_service WHERE name = 'SinpeService'
+                </sqlCheck>
+                <sqlCheck expectedResult="0">
+                    SELECT COUNT(*) FROM c_external_service_properties
+                    WHERE external_service_id = (SELECT id FROM c_external_service WHERE name = 'SinpeService')
+                </sqlCheck>
+            </and>
+        </preConditions>
+
+        <comment>Adding SinpeService to external services and its properties</comment>
+
+        <insert tableName="c_external_service">
+            <column name="name" value="SinpeService"/>
+        </insert>
+
+        <insert tableName="c_external_service_properties">
+            <column name="name" value="host"/>
+            <column name="value" value="https://apis.mifos.community/1.0/sinpe"/>
+            <column name="external_service_id" valueComputed="(SELECT id FROM c_external_service WHERE name = 'SinpeService')"/>
+        </insert>
+
+        <insert tableName="c_external_service_properties">
+            <column name="name" value="header"/>
+            <column name="value" value="X-Gravitee-Api-Key"/>
+            <column name="external_service_id" valueComputed="(SELECT id FROM c_external_service WHERE name = 'SinpeService')"/>
+        </insert>
+
+        <insert tableName="c_external_service_properties">
+            <column name="name" value="headerValue"/>
+            <column name="value" value="0000-0000-0000-0000"/>
+            <column name="external_service_id" valueComputed="(SELECT id FROM c_external_service WHERE name = 'SinpeService')"/>
+        </insert>
+
+        <insert tableName="c_external_service_properties">
+            <column name="name" value="httpMethod"/>
+            <column name="value" value="POST"/>
+            <column name="external_service_id" valueComputed="(SELECT id FROM c_external_service WHERE name = 'SinpeService')"/>
+        </insert>
+
+        <insert tableName="c_external_service_properties">
+            <column name="name" value="parameterName"/>
+            <column name="value" value="externalId"/>
+            <column name="external_service_id" valueComputed="(SELECT id FROM c_external_service WHERE name = 'SinpeService')"/>
+        </insert>
+
+        <insert tableName="c_external_service_properties">
+            <column name="name" value="isEnabled"/>
+            <column name="value" value="false"/>
+            <column name="external_service_id" valueComputed="(SELECT id FROM c_external_service WHERE name = 'SinpeService')"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="c_external_service_properties">
+                <where>external_service_id = (SELECT id FROM c_external_service WHERE name = 'SinpeService')</where>
+            </delete>
+            <delete tableName="c_external_service">
+                <where>name = 'SinpeService'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
