@@ -19,27 +19,21 @@
 package org.apache.fineract.selfservice.notification.service;
 
 import jakarta.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
-import org.apache.fineract.infrastructure.campaigns.sms.data.SmsProviderData;
-import org.apache.fineract.infrastructure.campaigns.sms.service.SmsCampaignDropdownReadPlatformService;
 import org.apache.fineract.infrastructure.configuration.data.NotificationCredentialsData;
 import org.apache.fineract.infrastructure.core.domain.EmailDetail;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
 import org.apache.fineract.infrastructure.core.service.SelfServicePluginEmailService;
 import org.apache.fineract.infrastructure.core.service.SmtpConfigurationUnavailableException;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
-import org.apache.fineract.infrastructure.sms.domain.SmsMessage;
-import org.apache.fineract.infrastructure.sms.domain.SmsMessageRepository;
-import org.apache.fineract.infrastructure.sms.domain.SmsMessageStatusType;
-import org.apache.fineract.infrastructure.sms.scheduler.SmsMessageScheduledJobService;
+import org.apache.fineract.notification.data.SmsMessageData;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
 import org.apache.fineract.selfservice.external.client.ExternalNotificationSystemClient;
 import org.apache.fineract.selfservice.notification.NotificationCooldownCache;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
@@ -55,9 +49,7 @@ public class SelfServiceNotificationService {
 
     private final SelfServiceTemplateService selfServiceTemplateService;
     private final SelfServicePluginEmailService emailService;
-    private final SmsMessageRepository smsMessageRepository;
-    private final SmsMessageScheduledJobService smsScheduledJobService;
-    private final SmsCampaignDropdownReadPlatformService smsProviderService;
+    private final SmsNotificationWritePlatformService smsNotificationService;
     private final NotificationCooldownCache notificationCooldownCache;
     private final Environment env;
     private final ExternalNotificationSystemClient externalNotificationSystemClient;
@@ -65,14 +57,11 @@ public class SelfServiceNotificationService {
     private final AtomicBoolean smtpConfigWarningLogged = new AtomicBoolean(false);
 
     public SelfServiceNotificationService(SelfServiceTemplateService selfServiceTemplateService, SelfServicePluginEmailService emailService,
-            SmsMessageRepository smsMessageRepository, SmsMessageScheduledJobService smsScheduledJobService,
-            SmsCampaignDropdownReadPlatformService smsProviderService, NotificationCooldownCache notificationCooldownCache, Environment env,
-            @Nullable ExternalNotificationSystemClient externalNotificationSystemClient) {
+            SmsNotificationWritePlatformService smsNotificationService, NotificationCooldownCache notificationCooldownCache,
+            Environment env, @Nullable ExternalNotificationSystemClient externalNotificationSystemClient) {
         this.selfServiceTemplateService = selfServiceTemplateService;
         this.emailService = emailService;
-        this.smsMessageRepository = smsMessageRepository;
-        this.smsScheduledJobService = smsScheduledJobService;
-        this.smsProviderService = smsProviderService;
+        this.smsNotificationService = smsNotificationService;
         this.notificationCooldownCache = notificationCooldownCache;
         this.env = env;
         this.externalNotificationSystemClient = externalNotificationSystemClient;
@@ -281,33 +270,15 @@ public class SelfServiceNotificationService {
         emailService.sendFormattedEmail(emailDetail);
     }
 
+    /**
+     * Sends the SMS through Racine's SMS service (egosms). It applies the tenant's SMS setting and credit balance,
+     * debits one credit per message and records it with type SELF_SERVICE.
+     */
     private void sendLegacySms(SelfServiceNotificationEvent event, Map<String, Object> params) {
-        Collection<SmsProviderData> providers = smsProviderService.retrieveSmsProviders();
-        if (providers == null || providers.isEmpty()) {
-            log.warn("No SMS provider configured, legacy SMS notification skipped for event {}", event.getType());
-            releaseCooldown(event);
-            return;
-        }
-
-        Long providerId = resolveSmsProviderId(providers);
-        if (providerId == null) {
-            log.warn("No valid SMS provider found, legacy SMS notification skipped for event {}", event.getType());
-            releaseCooldown(event);
-            return;
-        }
-
         String textBody = selfServiceTemplateService.mergeTemplate(event.getType(), "SMS", params);
-        SmsMessage smsMessage = SmsMessage.instance(null, null, null, null, SmsMessageStatusType.PENDING, textBody, event.getMobileNumber(),
-                null, true);
-        smsMessage = smsMessageRepository.save(smsMessage);
-
         try {
-            smsScheduledJobService.sendTriggeredMessage(new ArrayList<>(List.of(smsMessage)), providerId);
-            smsMessage.setStatusType(SmsMessageStatusType.SENT.getValue());
-            smsMessageRepository.save(smsMessage);
-        } catch (Exception e) {
-            smsMessage.setStatusType(SmsMessageStatusType.FAILED.getValue());
-            smsMessageRepository.save(smsMessage);
+            smsNotificationService.sendSms(new SmsMessageData(event.getMobileNumber(), textBody, null), SmsTypeEnum.SELF_SERVICE);
+        } catch (RuntimeException e) {
             releaseCooldown(event);
             throw e; // Rethrow so handleNotification catches it
         }
@@ -338,21 +309,6 @@ public class SelfServiceNotificationService {
         params.put("eventTimestamp", java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC));
 
         return params;
-    }
-
-    private Long resolveSmsProviderId(Collection<SmsProviderData> providers) {
-        if (providers.size() == 1) {
-            return providers.iterator().next().getId();
-        }
-        Long configuredProviderId = env.getProperty("fineract.selfservice.notification.sms.providerId", Long.class);
-        if (configuredProviderId != null) {
-            for (SmsProviderData provider : providers) {
-                if (configuredProviderId.equals(provider.getId())) {
-                    return provider.getId();
-                }
-            }
-        }
-        return null;
     }
 
     private void handleSmtpConfigError(SelfServiceNotificationEvent event, SmtpConfigurationUnavailableException configEx) {

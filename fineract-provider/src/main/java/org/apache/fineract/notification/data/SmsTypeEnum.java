@@ -30,6 +30,7 @@ public enum SmsTypeEnum {
     LOAN_REJECTED(5, "SmsTypeEnum.loanRejected", "Loan Application Rejected"), //
     SAVINGS_DEPOSIT(6, "SmsTypeEnum.savingsDeposit", "Savings Account Deposit"), //
     SAVINGS_WITHDRAW(7, "SmsTypeEnum.savingsWithdraw", "Savings Account Withdraw"), //
+    SELF_SERVICE(8, "SmsTypeEnum.selfService", "Mobile App (Self Service)"), //
     ;
 
     private final Integer value;
