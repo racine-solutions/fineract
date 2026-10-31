@@ -19,6 +19,7 @@
 package org.apache.fineract.selfservice.account.api;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,6 +52,7 @@ import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
+import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.portfolio.account.PortfolioAccountType;
 import org.apache.fineract.portfolio.account.api.AccountTransfersApiConstants;
@@ -67,6 +69,7 @@ import org.apache.fineract.selfservice.account.data.SinpeTransferRequest;
 import org.apache.fineract.selfservice.account.service.AccountTransferQuoteService;
 import org.apache.fineract.selfservice.account.service.SelfAccountTransferReadService;
 import org.apache.fineract.selfservice.account.service.SelfAccountTransferWritePlatformService;
+import org.apache.fineract.selfservice.account.service.SelfServiceTransferGuard;
 import org.apache.fineract.selfservice.account.service.SinpeExternalApiClient;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistration;
@@ -98,6 +101,8 @@ public class SelfAccountTransferApiResource {
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
     private final SelfAccountTransferReadService selfAccountTransferReadService;
     private final SelfAccountTransferDataValidator selfAccountTransferDataValidator;
+    private final SelfServiceTransferGuard transferGuard;
+    private final FromJsonHelper fromApiJsonHelper;
 
     @GET
     @Path("template")
@@ -135,8 +140,23 @@ public class SelfAccountTransferApiResource {
             + " self-service user's own accounts (e.g. paying a loan from a linked savings" + " account).")
     public CommandProcessingResult create(@DefaultValue("self") @QueryParam("type") final String type, final String apiRequestBodyAsJson) {
         selfAccountTransferDataValidator.validateCreate(type, apiRequestBodyAsJson);
+
+        // Ownership and per-user limits are checked before the transfer runs; the transfer is recorded afterwards
+        final AppSelfServiceUser user = context.authenticatedSelfServiceUser();
+        final JsonElement element = fromApiJsonHelper.parse(apiRequestBodyAsJson);
+        final Long fromAccountId = fromApiJsonHelper.extractLongNamed("fromAccountId", element);
+        final Integer fromAccountType = fromApiJsonHelper.extractIntegerSansLocaleNamed("fromAccountType", element);
+        final Long toAccountId = fromApiJsonHelper.extractLongNamed("toAccountId", element);
+        final Integer toAccountType = fromApiJsonHelper.extractIntegerSansLocaleNamed("toAccountType", element);
+        final BigDecimal amount = fromApiJsonHelper.extractBigDecimalWithLocaleNamed("transferAmount", element);
+        final String currency = transferGuard.check(user, fromAccountId, fromAccountType, amount,
+                SelfServiceTransferGuard.Channel.ACCOUNT_TRANSFER, null);
+
         final CommandWrapper commandRequest = new CommandWrapperBuilder().createAccountTransfer().withJson(apiRequestBodyAsJson).build();
-        return commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        final CommandProcessingResult result = commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        transferGuard.record(user, SelfServiceTransferGuard.Channel.ACCOUNT_TRANSFER, currency, amount, String.valueOf(fromAccountId),
+                fromAccountType, toAccountId == null ? null : String.valueOf(toAccountId), toAccountType, result.getResourceId());
+        return result;
     }
 
     private void validateAccountOwnership(final AppSelfServiceUser user, final Long accountId, final Integer accountType) {
@@ -195,6 +215,14 @@ public class SelfAccountTransferApiResource {
 
         AccountTransferConfirmRequest request = new Gson().fromJson(apiRequestBodyAsJson, AccountTransferConfirmRequest.class);
 
+        // Ownership and per-user limits: checked before an OTP is sent and again before the transfer runs
+        final SelfServiceTransferGuard.Channel channel = "SINPE_MOVIL".equals(request.getTransferType())
+                ? SelfServiceTransferGuard.Channel.SINPE
+                : SelfServiceTransferGuard.Channel.CONFIRMED_TRANSFER;
+        final Long fromAccountId = channel == SelfServiceTransferGuard.Channel.SINPE ? null : parseAccountId(request.getFromAccountId());
+        final String currency = transferGuard.check(user, fromAccountId, request.getFromAccountType(), request.getTransferAmount(), channel,
+                request.getCurrencyCode());
+
         // STEP 1: If OTP is missing, generate and send it
         if (StringUtils.isBlank(request.getOtp())) {
             return generateAndSendOtp(request, user, httpRequest);
@@ -212,10 +240,22 @@ public class SelfAccountTransferApiResource {
             result = transferWritePlatformService.executeInternalTransfer(request);
         }
 
+        transferGuard.record(user, channel, currency, request.getTransferAmount(), request.getFromAccountId(), request.getFromAccountType(),
+                request.getToAccountId() != null ? request.getToAccountId() : request.getToPhoneNumber(), request.getToAccountType(),
+                result.getResourceId());
+
         // STEP 4: Publish Success Notification
         publishTransferEvent(result, request, httpRequest);
 
         return new Gson().toJson(result);
+    }
+
+    private static Long parseAccountId(final String accountId) {
+        try {
+            return accountId == null ? null : Long.valueOf(accountId.trim());
+        } catch (NumberFormatException e) {
+            throw new SavingsAccountNotFoundException(accountId);
+        }
     }
 
     private String generateAndSendOtp(AccountTransferConfirmRequest request, AppSelfServiceUser user, HttpServletRequest httpRequest) {

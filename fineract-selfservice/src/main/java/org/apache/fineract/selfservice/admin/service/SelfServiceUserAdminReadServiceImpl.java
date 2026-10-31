@@ -21,6 +21,7 @@ package org.apache.fineract.selfservice.admin.service;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -30,12 +31,15 @@ import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.selfservice.admin.api.SelfServiceUsersApiConstants;
 import org.apache.fineract.selfservice.admin.data.SelfServiceUserAdminData;
+import org.apache.fineract.selfservice.admin.data.SelfServiceUserClientData;
+import org.apache.fineract.selfservice.admin.data.SelfServiceUserLimitData;
 import org.apache.fineract.selfservice.admin.data.SelfServiceUserSummaryData;
 import org.apache.fineract.selfservice.admin.exception.SelfServiceUserNotFoundException;
 import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
@@ -152,7 +156,32 @@ public class SelfServiceUserAdminReadServiceImpl implements SelfServiceUserAdmin
         if (result.isEmpty()) {
             throw new SelfServiceUserNotFoundException(id);
         }
-        return result.get(0);
+        return result.get(0).toBuilder().limits(retrieveLimits(id)).clients(retrieveClients(id)).build();
+    }
+
+    private List<SelfServiceUserLimitData> retrieveLimits(final Long userId) {
+        final LocalDate today = DateUtils.getBusinessLocalDate();
+        return jdbcTemplate.query(
+                "select l.currency_code, l.per_transfer_limit, l.daily_limit, l.updated_on_utc, ub.username as updatedBy,"
+                        + " (select coalesce(sum(t.amount), 0) from m_selfservice_transfer_log t where t.appuser_id = l.appuser_id"
+                        + "   and t.currency_code = l.currency_code and t.transfer_date = ?) as usedToday"
+                        + " from m_selfservice_user_limit l left join m_appuser ub on ub.id = l.updated_by_id"
+                        + " where l.appuser_id = ? order by l.currency_code",
+                (rs, rowNum) -> SelfServiceUserLimitData.builder() // NOSONAR
+                        .currencyCode(rs.getString("currency_code")).perTransferLimit(rs.getBigDecimal("per_transfer_limit"))
+                        .dailyLimit(rs.getBigDecimal("daily_limit")).usedToday(rs.getBigDecimal("usedToday"))
+                        .updatedOn(toUtcIso(rs.getTimestamp("updated_on_utc"))).updatedBy(rs.getString("updatedBy")).build(),
+                today, userId);
+    }
+
+    private List<SelfServiceUserClientData> retrieveClients(final Long userId) {
+        return jdbcTemplate.query("select c.id, c.account_no, c.display_name, o.id as officeId, o.name as officeName"
+                + " from m_selfservice_user_client_mapping m join m_client c on c.id = m.client_id join m_office o on o.id = c.office_id"
+                + " where m.appuser_id = ? order by c.id",
+                (rs, rowNum) -> SelfServiceUserClientData.builder().id(rs.getLong("id")) // NOSONAR
+                        .accountNo(rs.getString("account_no")).displayName(rs.getString("display_name")).officeId(rs.getLong("officeId"))
+                        .officeName(rs.getString("officeName")).build(),
+                userId);
     }
 
     /** Limits rows to the staff member's office and its child offices, optionally to one office in that range. */

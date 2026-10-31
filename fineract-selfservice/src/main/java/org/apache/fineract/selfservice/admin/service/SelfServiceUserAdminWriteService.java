@@ -39,4 +39,10 @@ public interface SelfServiceUserAdminWriteService {
     CommandProcessingResult revokeSessions(Long userId, JsonCommand command);
 
     CommandProcessingResult resetPassword(Long userId, JsonCommand command);
+
+    /** Replaces the user's per-currency transfer limits. */
+    CommandProcessingResult updateLimits(Long userId, JsonCommand command);
+
+    /** Replaces the clients the user acts for; all must be in one office and not used by another app user. */
+    CommandProcessingResult updateClients(Long userId, JsonCommand command);
 }

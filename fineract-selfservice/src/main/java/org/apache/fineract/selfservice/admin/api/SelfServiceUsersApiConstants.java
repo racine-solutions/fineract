@@ -37,6 +37,8 @@ public final class SelfServiceUsersApiConstants {
     public static final String ACTION_UNLOCK = "UNLOCK";
     public static final String ACTION_REVOKESESSIONS = "REVOKESESSIONS";
     public static final String ACTION_RESETPASSWORD = "RESETPASSWORD";
+    public static final String ACTION_UPDATELIMITS = "UPDATELIMITS";
+    public static final String ACTION_UPDATECLIENTS = "UPDATECLIENTS";
 
     /** ?command= value on POST /selfserviceusers/{id} mapped to the command action. */
     public static final Map<String, String> COMMANDS = Map.of("viewOnly", ACTION_VIEWONLY, "suspend", ACTION_SUSPEND, "reactivate",
@@ -50,4 +52,9 @@ public final class SelfServiceUsersApiConstants {
     public static final String METHOD_SEND_LINK = "sendLink";
     public static final String METHOD_FORCE_CHANGE = "forceChange";
     public static final int REASON_MAX_LENGTH = 500;
+    public static final String LIMITS_PARAM = "limits";
+    public static final String CURRENCY_CODE_PARAM = "currencyCode";
+    public static final String PER_TRANSFER_LIMIT_PARAM = "perTransferLimit";
+    public static final String DAILY_LIMIT_PARAM = "dailyLimit";
+    public static final String CLIENT_IDS_PARAM = "clientIds";
 }

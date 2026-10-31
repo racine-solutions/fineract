@@ -69,5 +69,6 @@
   <include file="parts/045-add-selfservice-user-status-columns.xml" relativeToChangelogFile="true"/>
   <include file="parts/046-add-selfservice-user-admin-permissions.xml" relativeToChangelogFile="true"/>
   <include file="parts/047-add-notification-messages-access-changed.xml" relativeToChangelogFile="true"/>
+  <include file="parts/048-add-selfservice-user-limits.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

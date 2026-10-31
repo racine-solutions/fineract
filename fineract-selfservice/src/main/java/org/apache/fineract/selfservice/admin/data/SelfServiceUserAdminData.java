@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.selfservice.admin.data;
 
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 import org.apache.fineract.infrastructure.core.data.EnumOptionData;
@@ -26,7 +27,7 @@ import org.apache.fineract.infrastructure.core.data.EnumOptionData;
  * A self-service (mobile app) user as seen by back-office staff. Timestamps are ISO-8601 UTC strings.
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class SelfServiceUserAdminData {
 
     private final Long id;
@@ -52,4 +53,7 @@ public class SelfServiceUserAdminData {
     /** Detail view only: number of open app sessions and when the newest one started. */
     private final Integer openSessions;
     private final String lastSessionStartedOn;
+    /** Detail view only: transfer limits per currency and linked clients. */
+    private final List<SelfServiceUserLimitData> limits;
+    private final List<SelfServiceUserClientData> clients;
 }

@@ -24,6 +24,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -113,6 +114,36 @@ public class SelfServiceUsersApiResource {
         if (action == null) {
             throw new UnrecognizedQueryParamException("command", commandParam);
         }
+        final String json = StringUtils.isBlank(apiRequestBodyAsJson) ? "{}" : apiRequestBodyAsJson;
+        final CommandWrapper commandRequest = new CommandWrapperBuilderSelfService().selfServiceUserCommand(action, userId).withJson(json)
+                .build();
+        return commandsSourceWritePlatformService.logCommandSource(commandRequest);
+    }
+
+    @PUT
+    @Path("{userId}/limits")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Set a self-service user's transfer limits", description = "Replaces all limits. Body: {\"limits\": "
+            + "[{\"currencyCode\": \"UGX\", \"perTransferLimit\": 1000000, \"dailyLimit\": 2000000}], \"reason\": \"...\"}. "
+            + "An empty list removes all limits. Applies to every transfer made in the mobile app.")
+    public CommandProcessingResult updateLimits(@PathParam("userId") @Parameter(description = "userId") final Long userId,
+            final String apiRequestBodyAsJson) {
+        return submit(SelfServiceUsersApiConstants.ACTION_UPDATELIMITS, userId, apiRequestBodyAsJson);
+    }
+
+    @PUT
+    @Path("{userId}/clients")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Set the clients a self-service user acts for", description = "Replaces all links. Body: {\"clientIds\": [12], "
+            + "\"reason\": \"...\"}. Clients must be in one office and not linked to another app user.")
+    public CommandProcessingResult updateClients(@PathParam("userId") @Parameter(description = "userId") final Long userId,
+            final String apiRequestBodyAsJson) {
+        return submit(SelfServiceUsersApiConstants.ACTION_UPDATECLIENTS, userId, apiRequestBodyAsJson);
+    }
+
+    private CommandProcessingResult submit(final String action, final Long userId, final String apiRequestBodyAsJson) {
         final String json = StringUtils.isBlank(apiRequestBodyAsJson) ? "{}" : apiRequestBodyAsJson;
         final CommandWrapper commandRequest = new CommandWrapperBuilderSelfService().selfServiceUserCommand(action, userId).withJson(json)
                 .build();
