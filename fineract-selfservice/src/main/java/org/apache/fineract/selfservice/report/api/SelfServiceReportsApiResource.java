@@ -104,7 +104,7 @@ public class SelfServiceReportsApiResource {
             return LocalDate.parse(value.trim());
         } catch (DateTimeParseException e) {
             throw new PlatformApiDataValidationException("validation.msg.validation.errors.exist", "Validation errors exist.",
-                    List.of(ApiParameterError.parameterError("validation.msg.selfservicereport." + name + ".invalid",
+                    List.of(ApiParameterError.parameterErrorWithValue("validation.msg.selfservicereport." + name + ".invalid",
                             "The parameter `" + name + "` must be a date in the format yyyy-MM-dd.", name, value)));
         }
     }
