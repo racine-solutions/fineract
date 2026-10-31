@@ -227,7 +227,8 @@ public class SelfServiceSecurityConfiguration {
     // Add new Bean for Token Provider:
     @Bean(name = "selfServiceTokenAuthenticationProvider")
     public SelfServiceTokenAuthenticationProvider selfServiceTokenAuthProvider() {
-        return new SelfServiceTokenAuthenticationProvider(tokenService, userDetailsService);
+        return new SelfServiceTokenAuthenticationProvider(tokenService, userDetailsService,
+                org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker.accountStatusChecker());
     }
 
     @Bean(name = "selfServiceBasicAuthenticationEntryPoint")
@@ -242,8 +243,8 @@ public class SelfServiceSecurityConfiguration {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(selfServicePasswordEncoder());
-        authProvider.setPreAuthenticationChecks(new org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker(
-                new org.springframework.security.authentication.AccountStatusUserDetailsChecker()));
+        authProvider.setPreAuthenticationChecks(
+                org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker.accountStatusChecker());
         authProvider.setPostAuthenticationChecks(new org.springframework.security.authentication.AccountStatusUserDetailsChecker());
         return authProvider;
     }

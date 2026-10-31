@@ -183,4 +183,9 @@ public interface ConfigurationDomainService {
     boolean isBlockTransactionsOnClosedOverpaidLoansEnabled();
 
     boolean isSelfServiceEnabled();
+
+    /**
+     * Minutes of inactivity after which a self-service (mobile app) session ends and the user must log in again.
+     */
+    int retrieveSelfServiceSessionTimeoutMinutes();
 }

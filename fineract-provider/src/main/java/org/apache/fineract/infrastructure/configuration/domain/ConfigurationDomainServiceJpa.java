@@ -40,6 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ConfigurationDomainServiceJpa implements ConfigurationDomainService {
 
+    private static final int DEFAULT_SELF_SERVICE_SESSION_TIMEOUT_MINUTES = 15;
+
     private final PermissionRepository permissionRepository;
     private final GlobalConfigurationRepositoryWrapper globalConfigurationRepository;
     private final PlatformCacheRepository cacheTypeRepository;
@@ -648,5 +650,15 @@ public class ConfigurationDomainServiceJpa implements ConfigurationDomainService
     @Override
     public boolean isSelfServiceEnabled() {
         return getGlobalConfigurationPropertyData(GlobalConfigurationConstants.ENABLE_SUREPAY_SELF_SERVICE).isEnabled();
+    }
+
+    @Override
+    public int retrieveSelfServiceSessionTimeoutMinutes() {
+        final GlobalConfigurationPropertyData property = getGlobalConfigurationPropertyData(
+                GlobalConfigurationConstants.SELF_SERVICE_SESSION_TIMEOUT_MINUTES);
+        if (property.isEnabled() && property.getValue() != null && property.getValue() > 0) {
+            return property.getValue().intValue();
+        }
+        return DEFAULT_SELF_SERVICE_SESSION_TIMEOUT_MINUTES;
     }
 }

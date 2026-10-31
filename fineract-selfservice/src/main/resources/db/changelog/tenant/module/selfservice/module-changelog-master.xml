@@ -65,5 +65,6 @@
   <include file="parts/041-add-self-service-enabled-config.xml" relativeToChangelogFile="true"/>
   <include file="parts/042-fix-selfservice-mapping-foreign-key.xml" relativeToChangelogFile="true"/>
   <include file="parts/043-grant-selfservice-account-transfer-read-permissions.xml" relativeToChangelogFile="true"/>
+  <include file="parts/044-add-self-service-session-timeout-config.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

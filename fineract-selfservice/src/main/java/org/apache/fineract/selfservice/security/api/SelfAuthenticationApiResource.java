@@ -59,12 +59,14 @@ import org.apache.fineract.selfservice.notification.NotificationContext;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
 import org.apache.fineract.selfservice.security.data.SelfServiceAuthenticatedUserData;
 import org.apache.fineract.selfservice.security.data.SelfServiceAuthenticatedUserKycData;
+import org.apache.fineract.selfservice.security.domain.SelfServiceAuthenticationToken;
 import org.apache.fineract.selfservice.security.exception.SelfServiceDisabledException;
 import org.apache.fineract.selfservice.security.exception.SelfServiceLockedException;
 import org.apache.fineract.selfservice.security.exception.SelfServicePasswordResetRequiredException;
 import org.apache.fineract.selfservice.security.service.PlatformSelfServiceSecurityContext;
 import org.apache.fineract.selfservice.security.service.SelfServiceAuthenticationTokenService;
 import org.apache.fineract.selfservice.security.service.SelfServiceOfficeAddressReadService;
+import org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker;
 import org.apache.fineract.selfservice.useradministration.data.AppSelfServiceUserData;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
@@ -75,6 +77,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -291,6 +294,21 @@ public class SelfAuthenticationApiResource {
         RefreshTokenRequest request = new Gson().fromJson(apiRequestBodyAsJson, RefreshTokenRequest.class);
         if (request == null || StringUtils.isBlank(request.refreshToken)) {
             throw new IllegalArgumentException("Refresh token is missing in the request body.");
+        }
+
+        // A user who may no longer use the app (disabled, locked, expired) cannot refresh; all their sessions end
+        final SelfServiceAuthenticationToken refreshSession = tokenService.findActiveRefreshToken(request.refreshToken)
+                .orElseThrow(() -> new BadCredentialsException("Invalid or expired refresh token"));
+        final AppSelfServiceUser sessionUser = this.appUserRepository.findAppSelfServiceUserByName(refreshSession.getUsername());
+        if (sessionUser == null) {
+            tokenService.revokeAllSessions(refreshSession.getUserId());
+            throw new BadCredentialsException("Invalid or expired refresh token");
+        }
+        try {
+            SelfServiceUserDetailsChecker.accountStatusChecker().check(sessionUser);
+        } catch (AccountStatusException e) {
+            tokenService.revokeAllSessions(refreshSession.getUserId());
+            throw e;
         }
 
         SelfServiceAuthenticationTokenService.TokenPair newTokens = tokenService.refreshTokens(request.refreshToken);

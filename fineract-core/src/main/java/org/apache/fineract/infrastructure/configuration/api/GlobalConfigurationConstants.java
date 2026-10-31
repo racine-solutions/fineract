@@ -97,6 +97,7 @@ public final class GlobalConfigurationConstants {
     public static final String RETAINED_EARNING_USED_BY_REPORT_NAME = "retained-earning-used-by-report-name";
     public static final String OFFICE_ID = "office-id";
     public static final String ENABLE_SUREPAY_SELF_SERVICE = "enable-surepay-self-service";
+    public static final String SELF_SERVICE_SESSION_TIMEOUT_MINUTES = "self-service-session-timeout-minutes";
 
     private GlobalConfigurationConstants() {}
 }
