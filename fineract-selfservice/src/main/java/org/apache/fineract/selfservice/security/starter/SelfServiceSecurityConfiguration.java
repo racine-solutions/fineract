@@ -104,6 +104,9 @@ public class SelfServiceSecurityConfiguration {
     @Autowired
     private SelfServiceAuthenticationTokenService tokenService;
 
+    @Autowired
+    private org.apache.fineract.selfservice.security.service.SelfServiceSwitch selfServiceSwitch;
+
     @Bean
     @Order(1)
     public SecurityFilterChain selfServiceSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -117,8 +120,9 @@ public class SelfServiceSecurityConfiguration {
 
                 // Stateless session
                 .sessionManagement(smc -> smc.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).addFilterBefore(
-                        selfServiceEnablerSecurityFilter(), SecurityContextHolderFilter.class)
-                .addFilterBefore(tenantAwareBasicAuthenticationFilter(), SecurityContextHolderFilter.class).addFilterAfter(
+                        tenantAwareBasicAuthenticationFilter(), SecurityContextHolderFilter.class)
+                // Mobile app on/off switch: after the tenant is known, before anything else runs
+                .addFilterAfter(selfServiceEnablerSecurityFilter(), SecurityContextHolderFilter.class).addFilterAfter(
                         requestResponseFilter(), ExceptionTranslationFilter.class)
                 .addFilterAfter(correlationHeaderFilter(), RequestResponseFilter.class).addFilterAfter(fineractInstanceModeApiFilter(),
                         CorrelationHeaderFilter.class)
@@ -182,7 +186,7 @@ public class SelfServiceSecurityConfiguration {
     }
 
     public SelfServiceEnablerSecurityFilter selfServiceEnablerSecurityFilter() {
-        return new SelfServiceEnablerSecurityFilter(configurationDomainService);
+        return new SelfServiceEnablerSecurityFilter(selfServiceSwitch);
     }
 
     public RequestResponseFilter requestResponseFilter() {
@@ -246,9 +250,11 @@ public class SelfServiceSecurityConfiguration {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(selfServicePasswordEncoder());
-        authProvider.setPreAuthenticationChecks(
+        // Account state (locked, suspended, closed, pending) is checked only after the password, so its reason is never
+        // shown to someone who does not know the password
+        authProvider.setPreAuthenticationChecks(user -> {});
+        authProvider.setPostAuthenticationChecks(
                 org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker.accountStatusChecker());
-        authProvider.setPostAuthenticationChecks(new org.springframework.security.authentication.AccountStatusUserDetailsChecker());
         return authProvider;
     }
 

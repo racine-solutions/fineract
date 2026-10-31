@@ -90,6 +90,12 @@ public class SelfServiceAuthenticatedUserData {
     // Add the new field
     private String refreshToken;
 
+    /** ACTIVE or VIEW_ONLY: a view-only user can see everything but change nothing. */
+    private String accessStatus;
+
+    /** Why staff made the access view only, when they gave a reason. */
+    private String accessReason;
+
     // Add getter and setter (or rely on Lombok if applicable)
     public String getRefreshToken() {
         return refreshToken;

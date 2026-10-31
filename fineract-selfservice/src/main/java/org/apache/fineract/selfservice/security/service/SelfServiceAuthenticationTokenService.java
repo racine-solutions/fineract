@@ -126,6 +126,14 @@ public class SelfServiceAuthenticationTokenService {
         repository.deleteByUserId(userId);
     }
 
+    /** Ends every mobile app session of the current tenant. Returns how many tokens were removed. */
+    @Transactional
+    public long revokeAllSessionsOfAllUsers() {
+        final long count = repository.count();
+        repository.deleteAllInBatch();
+        return count;
+    }
+
     @Transactional
     public void invalidateToken(String token) {
         if (StringUtils.isNotBlank(token)) {

@@ -72,5 +72,6 @@
   <include file="parts/048-add-selfservice-user-limits.xml" relativeToChangelogFile="true"/>
   <include file="parts/049-create-selfservice-event.xml" relativeToChangelogFile="true"/>
   <include file="parts/050-add-selfservice-report-permission.xml" relativeToChangelogFile="true"/>
+  <include file="parts/051-rename-self-service-switch.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

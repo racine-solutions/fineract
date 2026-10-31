@@ -70,6 +70,7 @@ import org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsCh
 import org.apache.fineract.selfservice.useradministration.data.AppSelfServiceUserData;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
+import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
 import org.apache.fineract.selfservice.useradministration.service.SelfServiceUserActivityService;
 import org.apache.fineract.useradministration.data.RoleData;
 import org.apache.fineract.useradministration.domain.Role;
@@ -216,7 +217,10 @@ public class SelfAuthenticationApiResource {
                         .setRefreshToken(new String(base64RefreshKey, StandardCharsets.UTF_8))
                         .setTwoFactorAuthenticationRequired(isTwoFactorRequired)
                         .setClients(returnClientList ? clientReadPlatformService.retrieveSelfServiceUserClients(userId) : null)
-                        .setKycValidations(getKycStatusForUser(clientId)).setCountry(country).setTenantName(currentTenantName());
+                        .setKycValidations(getKycStatusForUser(clientId)).setCountry(country).setTenantName(currentTenantName())
+                        .setAccessStatus(
+                                principal.isViewOnly() ? SelfServiceUserStatus.VIEW_ONLY.name() : SelfServiceUserStatus.ACTIVE.name())
+                        .setAccessReason(principal.isViewOnly() ? principal.getStatusReason() : null);
             }
         }
 

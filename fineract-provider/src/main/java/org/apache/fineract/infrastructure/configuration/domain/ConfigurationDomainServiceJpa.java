@@ -649,7 +649,7 @@ public class ConfigurationDomainServiceJpa implements ConfigurationDomainService
 
     @Override
     public boolean isSelfServiceEnabled() {
-        return getGlobalConfigurationPropertyData(GlobalConfigurationConstants.ENABLE_SUREPAY_SELF_SERVICE).isEnabled();
+        return getGlobalConfigurationPropertyData(GlobalConfigurationConstants.ENABLE_RACINE_SELF_SERVICE).isEnabled();
     }
 
     @Override
