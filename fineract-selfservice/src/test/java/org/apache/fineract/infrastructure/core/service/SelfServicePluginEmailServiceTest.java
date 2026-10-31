@@ -19,7 +19,9 @@
 package org.apache.fineract.infrastructure.core.service;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import org.apache.fineract.infrastructure.configuration.data.SMTPCredentialsData;
@@ -41,7 +43,20 @@ class SelfServicePluginEmailServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new SelfServicePluginEmailService(externalServicesReadPlatformService);
+        // No Brevo key: the SMTP settings are used
+        service = new SelfServicePluginEmailService(externalServicesReadPlatformService, new BrevoEmailClient("", "", "", ""));
+    }
+
+    @Test
+    void withBrevoKey_emailGoesThroughBrevoAndSmtpIsNotUsed() {
+        BrevoEmailClient brevo = mock(BrevoEmailClient.class);
+        when(brevo.isEnabled()).thenReturn(true);
+        SelfServicePluginEmailService brevoService = new SelfServicePluginEmailService(externalServicesReadPlatformService, brevo);
+
+        brevoService.sendFormattedEmail(new EmailDetail("Subject", "<p>Body</p>", "to@example.com", "Recipient"));
+
+        verify(brevo).send("to@example.com", "Recipient", "Subject", "<p>Body</p>", true, null, null);
+        verifyNoInteractions(externalServicesReadPlatformService);
     }
 
     @Test
