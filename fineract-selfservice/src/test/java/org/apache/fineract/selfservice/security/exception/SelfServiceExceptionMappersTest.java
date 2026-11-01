@@ -54,6 +54,8 @@ class SelfServiceExceptionMappersTest {
         when(jdbcTemplate.queryForList(anyString(), eq(Long.class), any(), any())).thenReturn(List.of(42L));
         assertThat(disabledBody(SelfServiceUserStatus.PENDING)).contains("error.msg.selfservice.user.pending").contains("\"requestId\":42");
         assertThat(disabledBody(SelfServiceUserStatus.SUSPENDED)).doesNotContain("requestId");
+        when(jdbcTemplate.queryForList(anyString(), eq(Long.class), any(), any())).thenReturn(List.of());
+        assertThat(disabledBody(SelfServiceUserStatus.PENDING)).contains("\"requestId\":null");
     }
 
     @Test

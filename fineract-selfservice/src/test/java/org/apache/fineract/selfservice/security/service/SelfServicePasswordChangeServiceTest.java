@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Optional;
 import org.apache.fineract.infrastructure.businessdate.domain.BusinessDateType;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
-import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.security.service.PlatformPasswordEncoder;
@@ -105,7 +104,7 @@ class SelfServicePasswordChangeServiceTest {
     @Test
     void samePasswordAgain_isRefused() {
         assertThatThrownBy(() -> service.changeOwnPassword("{\"password\":\"" + CURRENT + "\",\"repeatPassword\":\"" + CURRENT + "\"}"))
-                .isInstanceOf(GeneralPlatformDomainRuleException.class);
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("different from the current");
         verify(repository, never()).saveAndFlush(any());
     }
 

@@ -22,7 +22,6 @@ import com.google.gson.JsonElement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.security.service.PlatformPasswordEncoder;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
@@ -80,8 +79,7 @@ public class SelfServicePasswordChangeService {
             throw new IllegalArgumentException("The password does not meet the password rules: " + policy.getDescription());
         }
         if (passwordMatcher.matches(password, user.getPassword())) {
-            throw new GeneralPlatformDomainRuleException("error.msg.selfservice.password.unchanged",
-                    "The new password must be different from the current one.");
+            throw new IllegalArgumentException("The new password must be different from the current one.");
         }
 
         // The encoder reads the raw password from the user, then the encoded value is stored
