@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <!-- 6-digit sign-up and password-reset codes: expiry, wrong tries, resend limits and the channel used -->
+    <changeSet author="racine" id="ss-0053-request-code-columns">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="request_audit_table" columnName="code_expires_at"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="request_audit_table">
+            <column name="code_expires_at" type="DATETIME"/>
+            <column name="failed_attempts" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="send_count" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="send_window_start" type="DATETIME"/>
+            <column name="last_sent_on" type="DATETIME"/>
+            <column name="delivery_channel" type="VARCHAR(10)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet author="racine" id="ss-0053-request-client-type-index">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists tableName="request_audit_table" indexName="idx_request_audit_client_type"/>
+            </not>
+        </preConditions>
+        <createIndex tableName="request_audit_table" indexName="idx_request_audit_client_type">
+            <column name="client_id"/>
+            <column name="request_type"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="racine" id="ss-0053-add-sms-app-hash-config">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'self-service-sms-app-hash'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="self-service-sms-app-hash"/>
+            <column name="string_value" value=""/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="The 11-character hash of the Android mobile app. When set and enabled it is added to the end of sign-up and password-reset code SMS so the app fills in the code by itself. Leave disabled if you do not know it; members can still type the code."/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

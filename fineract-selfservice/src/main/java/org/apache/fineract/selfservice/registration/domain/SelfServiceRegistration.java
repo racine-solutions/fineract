@@ -26,6 +26,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
@@ -83,6 +84,24 @@ public class SelfServiceRegistration extends AbstractPersistableCustom<Long> {
     @Enumerated(EnumType.STRING)
     @Column(name = "request_type", length = 30, nullable = false)
     private SelfServiceRequestType requestType;
+
+    @Column(name = "code_expires_at", nullable = true)
+    private LocalDateTime codeExpiresAt;
+
+    @Column(name = "failed_attempts", nullable = false)
+    private int failedAttempts;
+
+    @Column(name = "send_count", nullable = false)
+    private int sendCount;
+
+    @Column(name = "send_window_start", nullable = true)
+    private LocalDateTime sendWindowStart;
+
+    @Column(name = "last_sent_on", nullable = true)
+    private LocalDateTime lastSentOn;
+
+    @Column(name = "delivery_channel", length = 10, nullable = true)
+    private String deliveryChannel;
 
     @Version
     @Column(name = "version")
@@ -210,5 +229,84 @@ public class SelfServiceRegistration extends AbstractPersistableCustom<Long> {
 
     public void markConsumed() {
         this.consumed = true;
+    }
+
+    public LocalDateTime getCodeExpiresAt() {
+        return this.codeExpiresAt;
+    }
+
+    public int getFailedAttempts() {
+        return this.failedAttempts;
+    }
+
+    public int getSendCount() {
+        return this.sendCount;
+    }
+
+    public LocalDateTime getSendWindowStart() {
+        return this.sendWindowStart;
+    }
+
+    public LocalDateTime getLastSentOn() {
+        return this.lastSentOn;
+    }
+
+    public String getDeliveryChannel() {
+        return this.deliveryChannel;
+    }
+
+    /**
+     * Stores a new one-time code (its hash, never the code) and starts its validity. Any earlier code stops working and
+     * the wrong-try count starts again. Sends are counted per window so the hourly limit can be enforced.
+     */
+    public void issueCode(final String codeHash, final LocalDateTime now, final Duration codeValidity, final Duration sendWindow) {
+        this.authenticationToken = codeHash;
+        this.codeExpiresAt = now.plus(codeValidity);
+        this.failedAttempts = 0;
+        this.lastSentOn = now;
+        if (this.sendWindowStart == null || !now.isBefore(this.sendWindowStart.plus(sendWindow))) {
+            this.sendWindowStart = now;
+            this.sendCount = 0;
+        }
+        this.sendCount++;
+    }
+
+    public void recordDelivery(final String channel) {
+        this.deliveryChannel = channel;
+    }
+
+    /** True while a code is stored, has not run out and has tries left. */
+    public boolean hasUsableCode(final LocalDateTime now, final int maxAttempts) {
+        return this.authenticationToken != null && this.codeExpiresAt != null && now.isBefore(this.codeExpiresAt)
+                && this.failedAttempts < maxAttempts;
+    }
+
+    /** Counts a wrong code; at the limit the code is thrown away. Returns the tries left. */
+    public int recordFailedAttempt(final int maxAttempts) {
+        this.failedAttempts++;
+        if (this.failedAttempts >= maxAttempts) {
+            this.authenticationToken = null;
+        }
+        return Math.max(0, maxAttempts - this.failedAttempts);
+    }
+
+    /** Sends made in the current window, or 0 when the window has passed. */
+    public int sendsInWindow(final LocalDateTime now, final Duration sendWindow) {
+        if (this.sendWindowStart == null || !now.isBefore(this.sendWindowStart.plus(sendWindow))) {
+            return 0;
+        }
+        return this.sendCount;
+    }
+
+    /** Ends the request: used once, or replaced by a newer one. The code is thrown away. */
+    public void close() {
+        this.consumed = true;
+        this.authenticationToken = null;
+    }
+
+    public void updateSignupDetails(final String email, final String username, final String encodedPassword) {
+        this.email = email;
+        this.username = username;
+        this.password = encodedPassword;
     }
 }

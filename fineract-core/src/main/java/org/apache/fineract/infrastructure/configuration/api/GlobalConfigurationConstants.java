@@ -99,6 +99,7 @@ public final class GlobalConfigurationConstants {
     public static final String ENABLE_RACINE_SELF_SERVICE = "enable-racine-self-service";
     public static final String SELF_SERVICE_SESSION_TIMEOUT_MINUTES = "self-service-session-timeout-minutes";
     public static final String SELF_SERVICE_SUPPORT_PHONE_NUMBERS = "self-service-support-phone-numbers";
+    public static final String SELF_SERVICE_SMS_APP_HASH = "self-service-sms-app-hash";
 
     private GlobalConfigurationConstants() {}
 }

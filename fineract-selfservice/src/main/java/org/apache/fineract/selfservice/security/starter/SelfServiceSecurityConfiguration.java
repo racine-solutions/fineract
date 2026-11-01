@@ -146,6 +146,14 @@ public class SelfServiceSecurityConfiguration {
                                 antMatcher(HttpMethod.POST, "/v1/self/registration/client-user/confirm"))
                         .permitAll()
 
+                        // Sign-up and forgot password with a 6-digit code
+                        .requestMatchers(antMatcher(HttpMethod.POST, "/api/v1/self/signup/*"),
+                                antMatcher(HttpMethod.POST, "/v1/self/signup/*"))
+                        .permitAll()
+                        .requestMatchers(antMatcher(HttpMethod.POST, "/api/v1/self/password-reset/*"),
+                                antMatcher(HttpMethod.POST, "/v1/self/password-reset/*"))
+                        .permitAll()
+
                         // Client Identity documents available in the platform
                         .requestMatchers(antMatcher(HttpMethod.GET, "/api/v1/self/registration/identifiers")).permitAll()
                         .requestMatchers(antMatcher(HttpMethod.GET, "/v1/self/registration/identifiers")).permitAll()

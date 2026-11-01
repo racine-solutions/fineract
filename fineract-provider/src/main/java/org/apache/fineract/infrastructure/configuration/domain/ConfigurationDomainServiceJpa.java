@@ -668,4 +668,11 @@ public class ConfigurationDomainServiceJpa implements ConfigurationDomainService
                 GlobalConfigurationConstants.SELF_SERVICE_SUPPORT_PHONE_NUMBERS);
         return property.isEnabled() && StringUtils.isNotBlank(property.getStringValue()) ? property.getStringValue().trim() : null;
     }
+
+    @Override
+    public String retrieveSelfServiceSmsAppHash() {
+        final GlobalConfigurationPropertyData property = getGlobalConfigurationPropertyData(
+                GlobalConfigurationConstants.SELF_SERVICE_SMS_APP_HASH);
+        return property.isEnabled() && StringUtils.isNotBlank(property.getStringValue()) ? property.getStringValue().trim() : null;
+    }
 }

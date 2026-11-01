@@ -19,6 +19,7 @@
 package org.apache.fineract.selfservice.registration.domain;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -115,4 +116,14 @@ public interface SelfServiceRegistrationRepository
     Optional<SelfServiceRegistration> findTopByClient_IdAndRequestTypeAndAuthenticationTokenOrderByCreatedAtDesc(
             @Param("clientId") Long clientId, @Param("requestType") SelfServiceRequestType requestType,
             @Param("authenticationToken") String authenticationToken);
+
+    /** Requests of a type for a client that are still open (not used and not replaced). */
+    @Query("SELECT r FROM SelfServiceRegistration r WHERE r.client.id = :clientId AND r.requestType = :requestType AND r.consumed = false")
+    List<SelfServiceRegistration> findOpenByClientAndType(@Param("clientId") Long clientId,
+            @Param("requestType") SelfServiceRequestType requestType);
+
+    /** Requests of a type for a client with a code sent since the given time (used for the hourly send limit). */
+    @Query("SELECT r FROM SelfServiceRegistration r WHERE r.client.id = :clientId AND r.requestType = :requestType AND r.lastSentOn >= :since")
+    List<SelfServiceRegistration> findSentSince(@Param("clientId") Long clientId, @Param("requestType") SelfServiceRequestType requestType,
+            @Param("since") LocalDateTime since);
 }
