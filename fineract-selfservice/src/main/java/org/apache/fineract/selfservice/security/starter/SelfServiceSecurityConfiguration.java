@@ -104,6 +104,9 @@ public class SelfServiceSecurityConfiguration {
     @Autowired
     private SelfServiceAuthenticationTokenService tokenService;
 
+    @Autowired
+    private org.apache.fineract.selfservice.security.service.SelfServiceSwitch selfServiceSwitch;
+
     @Bean
     @Order(1)
     public SecurityFilterChain selfServiceSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -117,11 +120,15 @@ public class SelfServiceSecurityConfiguration {
 
                 // Stateless session
                 .sessionManagement(smc -> smc.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).addFilterBefore(
-                        selfServiceEnablerSecurityFilter(), SecurityContextHolderFilter.class)
-                .addFilterBefore(tenantAwareBasicAuthenticationFilter(), SecurityContextHolderFilter.class).addFilterAfter(
+                        tenantAwareBasicAuthenticationFilter(), SecurityContextHolderFilter.class)
+                // Mobile app on/off switch: after the tenant is known, before anything else runs
+                .addFilterAfter(selfServiceEnablerSecurityFilter(), SecurityContextHolderFilter.class).addFilterAfter(
                         requestResponseFilter(), ExceptionTranslationFilter.class)
                 .addFilterAfter(correlationHeaderFilter(), RequestResponseFilter.class).addFilterAfter(fineractInstanceModeApiFilter(),
                         CorrelationHeaderFilter.class)
+                // View-only users: refuse every data-changing request once the user is authenticated and authorized
+                .addFilterAfter(new org.apache.fineract.selfservice.security.filter.SelfServiceViewOnlyFilter(),
+                        org.springframework.security.web.access.intercept.AuthorizationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // === PUBLIC ENDPOINTS ===
                         .requestMatchers(antMatcher(HttpMethod.POST, "/api/v1/self/registration")).permitAll()
@@ -179,7 +186,7 @@ public class SelfServiceSecurityConfiguration {
     }
 
     public SelfServiceEnablerSecurityFilter selfServiceEnablerSecurityFilter() {
-        return new SelfServiceEnablerSecurityFilter(configurationDomainService);
+        return new SelfServiceEnablerSecurityFilter(selfServiceSwitch);
     }
 
     public RequestResponseFilter requestResponseFilter() {
@@ -227,7 +234,8 @@ public class SelfServiceSecurityConfiguration {
     // Add new Bean for Token Provider:
     @Bean(name = "selfServiceTokenAuthenticationProvider")
     public SelfServiceTokenAuthenticationProvider selfServiceTokenAuthProvider() {
-        return new SelfServiceTokenAuthenticationProvider(tokenService, userDetailsService);
+        return new SelfServiceTokenAuthenticationProvider(tokenService, userDetailsService,
+                org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker.accountStatusChecker());
     }
 
     @Bean(name = "selfServiceBasicAuthenticationEntryPoint")
@@ -242,9 +250,11 @@ public class SelfServiceSecurityConfiguration {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(selfServicePasswordEncoder());
-        authProvider.setPreAuthenticationChecks(new org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker(
-                new org.springframework.security.authentication.AccountStatusUserDetailsChecker()));
-        authProvider.setPostAuthenticationChecks(new org.springframework.security.authentication.AccountStatusUserDetailsChecker());
+        // Account state (locked, suspended, closed, pending) is checked only after the password, so its reason is never
+        // shown to someone who does not know the password
+        authProvider.setPreAuthenticationChecks(user -> {});
+        authProvider.setPostAuthenticationChecks(
+                org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker.accountStatusChecker());
         return authProvider;
     }
 
@@ -265,6 +275,8 @@ public class SelfServiceSecurityConfiguration {
         config.setAllowedMethods(java.util.List.of("*"));
         config.setAllowCredentials(true);
         config.setAllowedHeaders(java.util.List.of("*"));
+        // Lets browser clients read the session timeout header (native apps can read it anyway)
+        config.setExposedHeaders(java.util.List.of(SelfServiceEnablerSecurityFilter.SESSION_TIMEOUT_HEADER));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

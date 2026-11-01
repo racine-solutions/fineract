@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <!-- Per-user transfer limits set by staff, one row per currency. NULL limit = no per-user limit. -->
+    <changeSet author="racine" id="ss-0048-create-selfservice-user-limit">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_selfservice_user_limit"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_selfservice_user_limit">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="appuser_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency_code" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="per_transfer_limit" type="DECIMAL(19,6)"/>
+            <column name="daily_limit" type="DECIMAL(19,6)"/>
+            <column name="updated_on_utc" type="TIMESTAMP"/>
+            <column name="updated_by_id" type="BIGINT"/>
+        </createTable>
+        <addUniqueConstraint tableName="m_selfservice_user_limit" columnNames="appuser_id, currency_code"
+                             constraintName="uq_selfservice_user_limit"/>
+        <addForeignKeyConstraint baseTableName="m_selfservice_user_limit" baseColumnNames="appuser_id"
+                                 constraintName="fk_selfservice_user_limit_user" referencedTableName="m_appselfservice_user"
+                                 referencedColumnNames="id" onDelete="CASCADE"/>
+    </changeSet>
+
+    <!-- Every transfer made in the mobile app: used for daily limits and app transaction reports. -->
+    <changeSet author="racine" id="ss-0048-create-selfservice-transfer-log">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_selfservice_transfer_log"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_selfservice_transfer_log">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="appuser_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="BIGINT"/>
+            <column name="channel" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency_code" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transfer_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="from_account_id" type="VARCHAR(50)"/>
+            <column name="from_account_type" type="INT"/>
+            <column name="to_account_id" type="VARCHAR(50)"/>
+            <column name="to_account_type" type="INT"/>
+            <column name="reference_id" type="BIGINT"/>
+            <column name="created_on_utc" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="m_selfservice_transfer_log" indexName="idx_selfservice_transfer_log_user_date">
+            <column name="appuser_id"/>
+            <column name="transfer_date"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet author="racine" id="ss-0048-add-selfservice-user-limit-client-permissions">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="m_permission"/>
+        </preConditions>
+        <sql>
+            INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker)
+            SELECT 'SELFSERVICEUSER', 'UPDATELIMITS_SELFSERVICEUSER', 'SELFSERVICEUSER', 'UPDATELIMITS', true
+            WHERE NOT EXISTS (SELECT 1 FROM m_permission WHERE code = 'UPDATELIMITS_SELFSERVICEUSER');
+            INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker)
+            SELECT 'SELFSERVICEUSER', 'UPDATECLIENTS_SELFSERVICEUSER', 'SELFSERVICEUSER', 'UPDATECLIENTS', true
+            WHERE NOT EXISTS (SELECT 1 FROM m_permission WHERE code = 'UPDATECLIENTS_SELFSERVICEUSER');
+        </sql>
+    </changeSet>
+</databaseChangeLog>

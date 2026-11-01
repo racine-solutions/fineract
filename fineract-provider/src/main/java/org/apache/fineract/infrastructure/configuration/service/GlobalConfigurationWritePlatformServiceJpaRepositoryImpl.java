@@ -22,15 +22,18 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.configuration.data.GlobalConfigurationDataValidator;
 import org.apache.fineract.infrastructure.configuration.domain.ConfigurationDomainService;
+import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationChangedEvent;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationProperty;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationRepositoryWrapper;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.NonTransientDataAccessException;
 import org.springframework.orm.jpa.JpaSystemException;
@@ -48,6 +51,7 @@ public class GlobalConfigurationWritePlatformServiceJpaRepositoryImpl implements
     private final GlobalConfigurationDataValidator globalConfigurationDataValidator;
     private final ConfigurationDomainService configurationDomainService;
     private final GlobalConfigurationPropertyUpdateService globalConfigurationPropertyUpdateService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     @Override
@@ -62,6 +66,8 @@ public class GlobalConfigurationWritePlatformServiceJpaRepositoryImpl implements
             if (!changes.isEmpty()) {
                 this.configurationDomainService.removeGlobalConfigurationPropertyDataFromCache(configItemForUpdate.getName());
                 this.repository.save(configItemForUpdate);
+                this.applicationEventPublisher.publishEvent(new GlobalConfigurationChangedEvent(this, configItemForUpdate.getName(),
+                        configItemForUpdate.isEnabled(), ThreadLocalContextUtil.getTenant()));
             }
 
             return new CommandProcessingResultBuilder() //

@@ -59,15 +59,20 @@ import org.apache.fineract.selfservice.notification.NotificationContext;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
 import org.apache.fineract.selfservice.security.data.SelfServiceAuthenticatedUserData;
 import org.apache.fineract.selfservice.security.data.SelfServiceAuthenticatedUserKycData;
+import org.apache.fineract.selfservice.security.domain.SelfServiceAuthenticationToken;
 import org.apache.fineract.selfservice.security.exception.SelfServiceDisabledException;
 import org.apache.fineract.selfservice.security.exception.SelfServiceLockedException;
 import org.apache.fineract.selfservice.security.exception.SelfServicePasswordResetRequiredException;
 import org.apache.fineract.selfservice.security.service.PlatformSelfServiceSecurityContext;
 import org.apache.fineract.selfservice.security.service.SelfServiceAuthenticationTokenService;
 import org.apache.fineract.selfservice.security.service.SelfServiceOfficeAddressReadService;
+import org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker;
+import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.data.AppSelfServiceUserData;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUserClientMapping;
+import org.apache.fineract.selfservice.useradministration.domain.SelfServiceUserStatus;
+import org.apache.fineract.selfservice.useradministration.service.SelfServiceUserActivityService;
 import org.apache.fineract.useradministration.data.RoleData;
 import org.apache.fineract.useradministration.domain.Role;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -75,6 +80,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -101,6 +107,7 @@ public class SelfAuthenticationApiResource {
 
     @Qualifier("selfServiceAuthenticationProvider")
     private final DaoAuthenticationProvider customAuthenticationProvider;
+    private final SelfServiceSupportContacts supportContacts;
 
     private final ToApiJsonSerializer<AppSelfServiceUserData> apiJsonSerializerService;
     private final PlatformSelfServiceSecurityContext springSecurityPlatformSecurityContext;
@@ -111,6 +118,7 @@ public class SelfAuthenticationApiResource {
     private final KycFeatureStatusReadService kycFeatureStatusReadService;
     private final SelfServiceOfficeAddressReadService officeAddressReadPlatformService;
     private final SelfServiceAuthenticationTokenService tokenService;
+    private final SelfServiceUserActivityService selfServiceUserActivityService;
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -193,11 +201,12 @@ public class SelfAuthenticationApiResource {
                         .setBase64EncodedAuthenticationKey(new String(base64AccessKey, StandardCharsets.UTF_8))
                         .setRefreshToken(new String(base64RefreshKey, StandardCharsets.UTF_8)).setAuthenticated(true)
                         .setShouldRenewPassword(true).setTwoFactorAuthenticationRequired(isTwoFactorRequired)
-                        .setTenantName(currentTenantName());
+                        .setTenantName(currentTenantName()).setSessionTimeoutMinutes(tokenService.sessionTimeoutMinutes());
                 throw new SelfServicePasswordResetRequiredException(authenticatedUserData);
             } else {
                 // Publish Success Notification Event
                 publishNotificationEvent(SelfServiceNotificationEvent.Type.LOGIN_SUCCESS, principal, request.username, httpRequest);
+                selfServiceUserActivityService.recordSuccessfulLogin(principal.getId());
 
                 Collection<Long> clientList = returnClientList ? clientReadPlatformService.retrieveSelfServiceUserClients(userId) : null;
                 Long clientId = getClientId(clientList);
@@ -210,7 +219,12 @@ public class SelfAuthenticationApiResource {
                         .setRefreshToken(new String(base64RefreshKey, StandardCharsets.UTF_8))
                         .setTwoFactorAuthenticationRequired(isTwoFactorRequired)
                         .setClients(returnClientList ? clientReadPlatformService.retrieveSelfServiceUserClients(userId) : null)
-                        .setKycValidations(getKycStatusForUser(clientId)).setCountry(country).setTenantName(currentTenantName());
+                        .setKycValidations(getKycStatusForUser(clientId)).setCountry(country).setTenantName(currentTenantName())
+                        .setAccessStatus(
+                                principal.isViewOnly() ? SelfServiceUserStatus.VIEW_ONLY.name() : SelfServiceUserStatus.ACTIVE.name())
+                        .setAccessReason(principal.isViewOnly() ? principal.getStatusReason() : null)
+                        .setSessionTimeoutMinutes(tokenService.sessionTimeoutMinutes())
+                        .setSupportPhoneNumbers(supportContacts.phoneNumbers());
             }
         }
 
@@ -293,6 +307,21 @@ public class SelfAuthenticationApiResource {
             throw new IllegalArgumentException("Refresh token is missing in the request body.");
         }
 
+        // A user who may no longer use the app (disabled, locked, expired) cannot refresh; all their sessions end
+        final SelfServiceAuthenticationToken refreshSession = tokenService.findActiveRefreshToken(request.refreshToken)
+                .orElseThrow(() -> new BadCredentialsException("Invalid or expired refresh token"));
+        final AppSelfServiceUser sessionUser = this.appUserRepository.findAppSelfServiceUserByName(refreshSession.getUsername());
+        if (sessionUser == null) {
+            tokenService.revokeAllSessions(refreshSession.getUserId());
+            throw new BadCredentialsException("Invalid or expired refresh token");
+        }
+        try {
+            SelfServiceUserDetailsChecker.accountStatusChecker().check(sessionUser);
+        } catch (AccountStatusException e) {
+            tokenService.revokeAllSessions(refreshSession.getUserId());
+            throw e;
+        }
+
         SelfServiceAuthenticationTokenService.TokenPair newTokens = tokenService.refreshTokens(request.refreshToken);
         byte[] base64AccessKey = Base64.getEncoder().encode(newTokens.accessToken().getBytes(StandardCharsets.UTF_8));
         byte[] base64RefreshKey = Base64.getEncoder().encode(newTokens.refreshToken().getBytes(StandardCharsets.UTF_8));
@@ -300,6 +329,7 @@ public class SelfAuthenticationApiResource {
         Map<String, String> response = new HashMap<>();
         response.put("base64EncodedAuthenticationKey", new String(base64AccessKey, StandardCharsets.UTF_8));
         response.put("refreshToken", new String(base64RefreshKey, StandardCharsets.UTF_8));
+        response.put("sessionTimeoutMinutes", String.valueOf(tokenService.sessionTimeoutMinutes()));
 
         return this.apiJsonSerializerService.serialize(response);
     }

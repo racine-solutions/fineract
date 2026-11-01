@@ -535,6 +535,9 @@ public class SelfServiceRegistrationWritePlatformServiceImpl implements SelfServ
         Map<String, Object> contextData = new HashMap<>();
         contextData.put("requestId", String.valueOf(registration.getId()));
         contextData.put("authCode", registration.getAuthenticationToken());
+        if (registration.getClient() != null) {
+            contextData.put("clientId", registration.getClient().getId());
+        }
 
         // Encapsulate the publishing logic in a Runnable so we can execute it either
         // after the transaction commits or immediately if no transaction is active.

@@ -31,10 +31,13 @@ import org.springframework.stereotype.Service;
 public class GmailBackedPlatformEmailService implements PlatformEmailService {
 
     private final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService;
+    private final BrevoEmailClient brevoEmailClient;
 
     @Autowired
-    public GmailBackedPlatformEmailService(final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService) {
+    public GmailBackedPlatformEmailService(final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService,
+            final BrevoEmailClient brevoEmailClient) {
         this.externalServicesReadPlatformService = externalServicesReadPlatformService;
+        this.brevoEmailClient = brevoEmailClient;
     }
 
     @Override
@@ -54,6 +57,11 @@ public class GmailBackedPlatformEmailService implements PlatformEmailService {
 
     @Override
     public void sendDefinedEmail(EmailDetail emailDetails) {
+        if (brevoEmailClient.isEnabled()) {
+            brevoEmailClient.send(emailDetails.getAddress(), emailDetails.getContactName(), emailDetails.getSubject(),
+                    emailDetails.getBody(), false, null, null);
+            return;
+        }
         final SMTPCredentialsData smtpCredentialsData = this.externalServicesReadPlatformService.getSMTPCredentials();
 
         final String authuser = smtpCredentialsData.getUsername();

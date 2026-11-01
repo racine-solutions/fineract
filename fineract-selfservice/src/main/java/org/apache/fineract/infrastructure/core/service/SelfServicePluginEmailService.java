@@ -47,10 +47,13 @@ import org.springframework.stereotype.Service;
 public class SelfServicePluginEmailService implements PlatformEmailService {
 
     private final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService;
+    private final BrevoEmailClient brevoEmailClient;
 
     @Autowired
-    public SelfServicePluginEmailService(final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService) {
+    public SelfServicePluginEmailService(final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService,
+            final BrevoEmailClient brevoEmailClient) {
         this.externalServicesReadPlatformService = externalServicesReadPlatformService;
+        this.brevoEmailClient = brevoEmailClient;
     }
 
     /**
@@ -104,6 +107,11 @@ public class SelfServicePluginEmailService implements PlatformEmailService {
      *             if the email fails to send
      */
     public void sendFormattedEmail(EmailDetail emailDetails) {
+        if (brevoEmailClient.isEnabled()) {
+            brevoEmailClient.send(emailDetails.getAddress(), emailDetails.getContactName(), emailDetails.getSubject(),
+                    emailDetails.getBody(), true, null, null);
+            return;
+        }
         final SMTPCredentialsData smtpCredentialsData = this.externalServicesReadPlatformService.getSMTPCredentials();
         final JavaMailSenderImpl mailSender = configureMailSender(smtpCredentialsData);
 
@@ -114,7 +122,6 @@ public class SelfServicePluginEmailService implements PlatformEmailService {
             message.setTo(emailDetails.getAddress());
             message.setSubject(emailDetails.getSubject());
             message.setText(emailDetails.getBody(), true);
-            log.info("Self Service Email :- {}", emailDetails.getBody());
             mailSender.send(mimeMessage);
 
         } catch (Exception e) {
@@ -132,6 +139,11 @@ public class SelfServicePluginEmailService implements PlatformEmailService {
      */
     @Override
     public void sendDefinedEmail(EmailDetail emailDetails) {
+        if (brevoEmailClient.isEnabled()) {
+            brevoEmailClient.send(emailDetails.getAddress(), emailDetails.getContactName(), emailDetails.getSubject(),
+                    emailDetails.getBody(), false, null, null);
+            return;
+        }
         final SMTPCredentialsData smtpCredentialsData = this.externalServicesReadPlatformService.getSMTPCredentials();
         final JavaMailSenderImpl mailSender = configureMailSender(smtpCredentialsData);
 
@@ -141,7 +153,6 @@ public class SelfServicePluginEmailService implements PlatformEmailService {
             message.setTo(emailDetails.getAddress());
             message.setSubject(emailDetails.getSubject());
             message.setText(emailDetails.getBody());
-            log.info("Email details :- {} ", message.toString());
             mailSender.send(message);
 
         } catch (Exception e) {
@@ -176,7 +187,6 @@ public class SelfServicePluginEmailService implements PlatformEmailService {
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
-        props.put("mail.debug", "true");
 
         props.put("mail.smtp.starttls.enable", "true");
 

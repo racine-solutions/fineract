@@ -90,6 +90,21 @@ public class SelfServiceAuthenticatedUserData {
     // Add the new field
     private String refreshToken;
 
+    /** ACTIVE or VIEW_ONLY: a view-only user can see everything but change nothing. */
+    private String accessStatus;
+
+    /** Why staff made the access view only, when they gave a reason. */
+    private String accessReason;
+
+    /**
+     * Minutes of inactivity after which the session ends (setting self-service-session-timeout-minutes). The app logs
+     * the user out locally after this long without activity.
+     */
+    private Integer sessionTimeoutMinutes;
+
+    /** Phone numbers the client can call for help (setting self-service-support-phone-numbers); may be empty. */
+    private java.util.List<String> supportPhoneNumbers;
+
     // Add getter and setter (or rely on Lombok if applicable)
     public String getRefreshToken() {
         return refreshToken;

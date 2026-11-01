@@ -21,12 +21,20 @@ package org.apache.fineract.selfservice.security.domain;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface SelfServiceAuthenticationTokenRepository extends JpaRepository<SelfServiceAuthenticationToken, Long> {
 
     Optional<SelfServiceAuthenticationToken> findByTokenAndExpiresAtAfter(String token, LocalDateTime now);
 
     void deleteByUserId(Long userId);
+
+    // Sliding inactivity timeout: push out the expiry of every token in the user's session
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update SelfServiceAuthenticationToken t set t.expiresAt = :expiresAt where t.userId = :userId and t.expiresAt > :now")
+    int extendActiveTokens(@Param("userId") Long userId, @Param("expiresAt") LocalDateTime expiresAt, @Param("now") LocalDateTime now);
 
     void deleteByExpiresAtBefore(LocalDateTime now);
 

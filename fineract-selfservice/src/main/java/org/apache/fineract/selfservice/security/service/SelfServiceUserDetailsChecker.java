@@ -21,6 +21,7 @@ package org.apache.fineract.selfservice.security.service;
 import org.apache.fineract.selfservice.security.exception.SelfServiceDisabledException;
 import org.apache.fineract.selfservice.security.exception.SelfServiceLockedException;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
+import org.springframework.security.authentication.AccountStatusUserDetailsChecker;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -32,6 +33,14 @@ public class SelfServiceUserDetailsChecker implements UserDetailsChecker {
 
     public SelfServiceUserDetailsChecker(UserDetailsChecker delegate) {
         this.delegate = delegate;
+    }
+
+    /**
+     * The account-status checks applied at login and on every later request: disabled, locked, account expired and
+     * credentials expired.
+     */
+    public static SelfServiceUserDetailsChecker accountStatusChecker() {
+        return new SelfServiceUserDetailsChecker(new AccountStatusUserDetailsChecker());
     }
 
     @Override

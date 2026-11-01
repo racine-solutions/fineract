@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.selfservice.security.api;
 
+import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,9 +39,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.exception.InvalidJsonException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
-import org.apache.fineract.selfservice.security.service.PlatformSelfServiceSecurityContext;
-import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
-import org.apache.fineract.useradministration.api.UsersApiResource;
+import org.apache.fineract.selfservice.security.service.SelfServicePasswordChangeService;
 import org.springframework.stereotype.Component;
 
 @Path("/v1/self/user")
@@ -49,8 +48,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SelfUserApiResource {
 
-    private final UsersApiResource usersApiResource;
-    private final PlatformSelfServiceSecurityContext context;
+    private final SelfServicePasswordChangeService passwordChangeService;
     private final FromJsonHelper fromApiJsonHelper;
     private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList("password", "repeatPassword"));
 
@@ -67,7 +65,10 @@ public class SelfUserApiResource {
         final Type typeOfMap = TypeToken.getParameterized(Map.class, String.class, Object.class).getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, apiRequestBodyAsJson, SUPPORTED_PARAMETERS);
 
-        final AppSelfServiceUser appUser = this.context.authenticatedSelfServiceUser();
-        return this.usersApiResource.update(appUser.getId(), apiRequestBodyAsJson);
+        // Only the logged-in app user's own password is changed. (This used to go through the back-office user command
+        // with
+        // the app user's id, which updated the staff user with the same id.)
+        final Long userId = this.passwordChangeService.changeOwnPassword(apiRequestBodyAsJson);
+        return new Gson().toJson(Map.of("resourceId", userId, "changes", Map.of("password", true), "signedOut", true));
     }
 }

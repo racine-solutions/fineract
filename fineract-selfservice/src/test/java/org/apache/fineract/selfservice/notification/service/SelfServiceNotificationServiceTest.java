@@ -21,11 +21,11 @@ package org.apache.fineract.selfservice.notification.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,23 +34,19 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import org.apache.fineract.infrastructure.businessdate.domain.BusinessDateType;
-import org.apache.fineract.infrastructure.campaigns.sms.data.SmsProviderData;
-import org.apache.fineract.infrastructure.campaigns.sms.service.SmsCampaignDropdownReadPlatformService;
 import org.apache.fineract.infrastructure.configuration.data.NotificationCredentialsData;
 import org.apache.fineract.infrastructure.core.domain.EmailDetail;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
 import org.apache.fineract.infrastructure.core.service.SelfServicePluginEmailService;
 import org.apache.fineract.infrastructure.core.service.SmtpConfigurationUnavailableException;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
-import org.apache.fineract.infrastructure.sms.domain.SmsMessage;
-import org.apache.fineract.infrastructure.sms.domain.SmsMessageRepository;
-import org.apache.fineract.infrastructure.sms.scheduler.SmsMessageScheduledJobService;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
 import org.apache.fineract.selfservice.external.client.ExternalNotificationSystemClient;
 import org.apache.fineract.selfservice.notification.NotificationCooldownCache;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
@@ -73,11 +69,7 @@ class SelfServiceNotificationServiceTest {
     @Mock
     private SelfServicePluginEmailService emailService;
     @Mock
-    private SmsMessageRepository smsMessageRepository;
-    @Mock
-    private SmsMessageScheduledJobService smsScheduledJobService;
-    @Mock
-    private SmsCampaignDropdownReadPlatformService smsProviderService;
+    private SmsNotificationWritePlatformService smsNotificationService;
     @Mock
     private NotificationCooldownCache cooldownCache;
     @Mock
@@ -97,8 +89,8 @@ class SelfServiceNotificationServiceTest {
         dates.put(BusinessDateType.BUSINESS_DATE, LocalDate.now());
         ThreadLocalContextUtil.setBusinessDates(dates);
 
-        service = new SelfServiceNotificationService(selfServiceTemplateService, emailService, smsMessageRepository, smsScheduledJobService,
-                smsProviderService, cooldownCache, env, externalNotificationSystemClient);
+        service = new SelfServiceNotificationService(selfServiceTemplateService, emailService, smsNotificationService, cooldownCache, env,
+                externalNotificationSystemClient);
 
         logger = (Logger) LoggerFactory.getLogger(SelfServiceNotificationService.class);
         originalLevel = logger.getLevel();
@@ -160,39 +152,53 @@ class SelfServiceNotificationServiceTest {
         service.handleNotification(emailEvent());
 
         verify(emailService).sendFormattedEmail(any(EmailDetail.class));
-        verify(smsMessageRepository, never()).save(any());
+        verify(smsNotificationService, never()).sendSms(any(), any());
     }
 
     // ---- SMS happy path ----
 
     @Test
-    void handleNotification_SmsMode_SendsSms() {
+    void handleNotification_SmsMode_SendsSmsThroughRacineSmsService() {
         stubNotificationEnabled();
         when(cooldownCache.tryAcquire(any())).thenReturn(true);
-
-        SmsProviderData provider = mock(SmsProviderData.class);
-        when(provider.getId()).thenReturn(5L);
-        when(smsProviderService.retrieveSmsProviders()).thenReturn(Collections.singletonList(provider));
         when(selfServiceTemplateService.mergeTemplate(eq(SelfServiceNotificationEvent.Type.LOGIN_SUCCESS), eq("SMS"), any()))
                 .thenReturn("Hello text body");
-        when(smsMessageRepository.save(any(SmsMessage.class))).thenAnswer(i -> i.getArgument(0));
 
         service.handleNotification(smsEvent());
 
-        verify(smsMessageRepository, times(2)).save(any(SmsMessage.class));
-        verify(smsScheduledJobService).sendTriggeredMessage(any(), eq(5L));
+        verify(smsNotificationService).sendSms(argThat(m -> "1234567890".equals(m.getNumber()) && "Hello text body".equals(m.getMessage())),
+                eq(SmsTypeEnum.SELF_SERVICE));
+        verify(emailService, never()).sendFormattedEmail(any());
     }
 
     @Test
-    void handleNotification_SmsMode_SkipsIfNoProvider() {
+    void handleNotification_SmsFailure_ReleasesCooldown() {
         stubNotificationEnabled();
         when(cooldownCache.tryAcquire(any())).thenReturn(true);
-        when(smsProviderService.retrieveSmsProviders()).thenReturn(Collections.emptyList());
+        when(selfServiceTemplateService.mergeTemplate(eq(SelfServiceNotificationEvent.Type.LOGIN_SUCCESS), eq("SMS"), any()))
+                .thenReturn("Hello text body");
+        doThrow(new IllegalStateException("Insufficient SMS credit")).when(smsNotificationService).sendSms(any(), any());
 
         service.handleNotification(smsEvent());
 
-        verify(smsProviderService).retrieveSmsProviders();
-        verify(smsMessageRepository, never()).save(any());
+        verify(cooldownCache, atLeastOnce()).release("LOGIN_SUCCESS:1");
+    }
+
+    @Test
+    void handleNotification_AccessChanged_SendsEmailAndSmsAndIgnoresCooldown() {
+        when(env.getProperty(eq("fineract.selfservice.notification.enabled"), eq(Boolean.class), any(Boolean.class))).thenReturn(true);
+        stubExternalNotificationDisabled();
+        when(env.getProperty(eq("fineract.selfservice.notification.access-changed.enabled"), eq(Boolean.class), any(Boolean.class)))
+                .thenReturn(true);
+        when(selfServiceTemplateService.mergeTemplate(eq(SelfServiceNotificationEvent.Type.ACCESS_CHANGED), any(), any()))
+                .thenReturn("text");
+
+        service.handleNotification(new SelfServiceNotificationEvent(this, SelfServiceNotificationEvent.Type.ACCESS_CHANGED, 1L, "Test",
+                "User", "testuser", "test@example.com", "1234567890", true, null, Locale.US));
+
+        verify(cooldownCache, never()).tryAcquire(any());
+        verify(emailService).sendFormattedEmail(any(EmailDetail.class));
+        verify(smsNotificationService).sendSms(any(), eq(SmsTypeEnum.SELF_SERVICE));
     }
 
     // ---- Feature flag tests ----

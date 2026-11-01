@@ -47,11 +47,10 @@ public class TenantAwareJpaPlatformSelfServiceUserDetailsService implements Plat
     @Override
     public UserDetails loadUserByUsername(final String username) throws UsernameNotFoundException, DataAccessException {
 
-        // Retrieve active users only
-        final boolean deleted = false;
-        final boolean enabled = true;
-
-        final PlatformSelfServiceUser appUser = this.platformUserRepository.findByUsernameAndDeletedAndEnabled(username, deleted, enabled);
+        // Load every user that is not deleted, also suspended, closed and pending ones: the account-state check runs
+        // after
+        // the password check and refuses them with the reason, which only someone with the right password gets to see
+        final PlatformSelfServiceUser appUser = this.platformUserRepository.findByUsernameAndDeleted(username, false);
 
         if (appUser == null) {
             throw new UsernameNotFoundException(username + ": not found");

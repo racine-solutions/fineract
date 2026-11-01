@@ -18,13 +18,17 @@
  */
 package org.apache.fineract.selfservice.security.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+import org.apache.fineract.selfservice.registration.SelfServiceApiConstants;
 import org.apache.fineract.selfservice.security.domain.PlatformSelfServiceUserRepository;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
 import org.apache.fineract.selfservice.useradministration.service.SelfServiceRoleReadPlatformService;
+import org.apache.fineract.useradministration.data.RoleData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,8 +57,7 @@ class TenantAwareJpaPlatformSelfServiceUserDetailsServiceTest {
 
   @Test
   void loadUserByUsername_throwsWhenSelfServiceRoleMissingOrDisabled() {
-    when(platformUserRepository.findByUsernameAndDeletedAndEnabled(
-            "roberto@gmail.com", false, true))
+    when(platformUserRepository.findByUsernameAndDeleted("roberto@gmail.com", false))
         .thenReturn(activeUser);
     // Present but not flagged as self-service or without an enabled self-service role
     when(activeUser.isSelfServiceUser()).thenReturn(false);
@@ -65,7 +68,7 @@ class TenantAwareJpaPlatformSelfServiceUserDetailsServiceTest {
 
   @Test
   void loadUserByUsername_throwsUsernameNotFoundException_whenUserNotFound() {
-    when(platformUserRepository.findByUsernameAndDeletedAndEnabled("unknown@test.com", false, true))
+    when(platformUserRepository.findByUsernameAndDeleted("unknown@test.com", false))
         .thenReturn(null);
 
     assertThatThrownBy(() -> service.loadUserByUsername("unknown@test.com"))
@@ -75,9 +78,8 @@ class TenantAwareJpaPlatformSelfServiceUserDetailsServiceTest {
 
   @Test
   void loadUserByUsername_throwsUsernameNotFoundException_whenUserIsDeleted() {
-    // deleted=false, enabled=true means we only look for active users.
-    // A deleted user won't match these criteria, so the repository returns null.
-    when(platformUserRepository.findByUsernameAndDeletedAndEnabled("deleted@test.com", false, true))
+    // Only users that are not deleted are looked up; a deleted user is not returned
+    when(platformUserRepository.findByUsernameAndDeleted("deleted@test.com", false))
         .thenReturn(null);
 
     assertThatThrownBy(() -> service.loadUserByUsername("deleted@test.com"))
@@ -85,12 +87,17 @@ class TenantAwareJpaPlatformSelfServiceUserDetailsServiceTest {
   }
 
   @Test
-  void loadUserByUsername_throwsUsernameNotFoundException_whenUserIsDisabled() {
-    when(platformUserRepository.findByUsernameAndDeletedAndEnabled(
-            "disabled@test.com", false, true))
-        .thenReturn(null);
+  void loadUserByUsername_returnsDisabledUser_soLoginCanSayWhyAfterThePasswordCheck() {
+    when(platformUserRepository.findByUsernameAndDeleted("disabled@test.com", false))
+        .thenReturn(activeUser);
+    when(activeUser.isSelfServiceUser()).thenReturn(true);
+    when(activeUser.getId()).thenReturn(5L);
+    when(roleReadPlatformService.retrieveAppUserRoles(5L)).thenReturn(selfServiceRole());
 
-    assertThatThrownBy(() -> service.loadUserByUsername("disabled@test.com"))
-        .isInstanceOf(UsernameNotFoundException.class);
+    assertThat(service.loadUserByUsername("disabled@test.com")).isSameAs(activeUser);
   }
+
+    private static List<RoleData> selfServiceRole() {
+        return List.of(new RoleData(2L, SelfServiceApiConstants.SELF_SERVICE_USER_ROLE, "Self service", false));
+    }
 }

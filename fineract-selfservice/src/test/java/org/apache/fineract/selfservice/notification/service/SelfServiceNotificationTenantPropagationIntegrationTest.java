@@ -59,10 +59,8 @@ class SelfServiceNotificationTenantPropagationIntegrationTest {
 
     private final SelfServiceNotificationService service = new SelfServiceNotificationService(mock(SelfServiceTemplateService.class),
             mock(org.apache.fineract.infrastructure.core.service.SelfServicePluginEmailService.class),
-            mock(org.apache.fineract.infrastructure.sms.domain.SmsMessageRepository.class),
-            mock(org.apache.fineract.infrastructure.sms.scheduler.SmsMessageScheduledJobService.class),
-            mock(org.apache.fineract.infrastructure.campaigns.sms.service.SmsCampaignDropdownReadPlatformService.class),
-            mock(NotificationCooldownCache.class), mock(Environment.class), mock(ExternalNotificationSystemClient.class));
+            mock(org.apache.fineract.notification.service.SmsNotificationWritePlatformService.class), mock(NotificationCooldownCache.class),
+            mock(Environment.class), mock(ExternalNotificationSystemClient.class));
 
     @AfterEach
     void tearDown() {

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <!--
+        Audit trail of mobile app activity and staff actions on app users. Stand-alone on purpose: no foreign keys and
+        nothing else reads it for business logic, so an administrator can clear it (TRUNCATE) at any time.
+        Names and amounts are copied into each row so old rows stay readable.
+    -->
+    <changeSet author="racine" id="ss-0049-create-selfservice-event">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_selfservice_event"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_selfservice_event">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="appuser_id" type="BIGINT"/>
+            <column name="username" type="VARCHAR(100)"/>
+            <column name="client_id" type="BIGINT"/>
+            <column name="office_id" type="BIGINT"/>
+            <column name="event_type" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="result" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actor" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="staff_username" type="VARCHAR(100)"/>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="amount" type="DECIMAL(19,6)"/>
+            <column name="currency_code" type="VARCHAR(3)"/>
+            <column name="ip_address" type="VARCHAR(64)"/>
+            <column name="details" type="VARCHAR(2000)"/>
+            <column name="created_on_utc" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="m_selfservice_event" indexName="idx_selfservice_event_user_time">
+            <column name="appuser_id"/>
+            <column name="created_on_utc"/>
+        </createIndex>
+        <createIndex tableName="m_selfservice_event" indexName="idx_selfservice_event_time">
+            <column name="created_on_utc"/>
+        </createIndex>
+    </changeSet>
+    <!-- First successful login, for the sign-up funnel (code confirmed -> first login) -->
+    <changeSet author="racine" id="ss-0049-add-first-login-column">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_appselfservice_user" columnName="first_login_on_utc"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_appselfservice_user">
+            <column name="first_login_on_utc" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

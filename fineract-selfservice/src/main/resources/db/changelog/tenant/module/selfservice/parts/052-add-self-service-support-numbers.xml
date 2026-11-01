@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet author="racine" id="ss-0052-add-support-phone-numbers-config">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'self-service-support-phone-numbers'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="self-service-support-phone-numbers"/>
+            <column name="string_value" value="+256 774 067 967"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Phone numbers mobile app (self-service) clients call for help, separated by commas, e.g. +256 774 067 967, +256 700 000 000. Shown when a login is refused (suspended, closed, locked) and added to the SMS and email sent when staff change a client's app access. When disabled or empty, clients are told to contact their branch."/>
+        </insert>
+    </changeSet>
+    <!-- Add the support numbers to the access-change messages; templates a bank has already edited are left as they are -->
+    <changeSet author="racine" id="ss-0052-access-changed-support-1">
+        <update tableName="m_template">
+            <column name="text" value="Hello ${firstname} ${lastname}, ${accessChange} Reason: ${reason}. If you did not expect this change or need help, ${supportContact}."/>
+            <where>name = 'SELF_SERVICE_ACCESS_CHANGED_EMAIL' AND text = 'Hello ${firstname} ${lastname}, ${accessChange} Reason: ${reason}. If you did not expect this change, please contact your branch.'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0052-access-changed-support-2">
+        <update tableName="m_template">
+            <column name="text" value="Hi ${firstname}, ${accessChange} Reason: ${reason}. For help, ${supportContact}."/>
+            <where>name = 'SELF_SERVICE_ACCESS_CHANGED_SMS' AND text = 'Hi ${firstname}, ${accessChange} Reason: ${reason}. Questions? Contact your branch.'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0052-access-changed-support-3">
+        <update tableName="m_template">
+            <column name="text" value="Hi ${firstname}, ${accessChange} Reason: ${reason}. For help, ${supportContact}."/>
+            <where>name = 'SELF_SERVICE_ACCESS_CHANGED_WHATSAPP' AND text = 'Hi ${firstname}, ${accessChange} Reason: ${reason}. Questions? Contact your branch.'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

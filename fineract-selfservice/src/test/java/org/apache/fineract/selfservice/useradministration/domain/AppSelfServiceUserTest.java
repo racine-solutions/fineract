@@ -185,4 +185,54 @@ class AppSelfServiceUserTest {
         assertNull(user.getStaffId());
         assertNull(user.getStaff());
     }
+
+    @Test
+    void newEnabledUser_isActiveWithCreatedDate() {
+        AppSelfServiceUser user = createUser(new HashSet<>());
+        assertEquals(SelfServiceUserStatus.ACTIVE, user.getStatus());
+        assertNotNull(user.getCreatedOnUtc());
+    }
+
+    @Test
+    void newDisabledUser_isPendingUntilEnabled() {
+        Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("DUMMY_ROLE"));
+        User disabled = new User("pending", "password123", false, true, true, true, authorities);
+        AppSelfServiceUser user = new AppSelfServiceUser(mock(Office.class), disabled, new HashSet<>(), "p@email.com", "Pat", "Doe", null,
+                true, true, new ArrayList<>(), false);
+        assertEquals(SelfServiceUserStatus.PENDING, user.getStatus());
+
+        user.enable();
+
+        assertEquals(SelfServiceUserStatus.ACTIVE, user.getStatus());
+        assertTrue(user.isEnabled());
+    }
+
+    @Test
+    void changeStatus_keepsLoginFlagInStepAndRecordsWhoAndWhy() {
+        AppSelfServiceUser user = createUser(new HashSet<>());
+
+        user.changeStatus(SelfServiceUserStatus.SUSPENDED, "Disputed transfer", 5L);
+        assertFalse(user.isEnabled());
+        assertEquals("Disputed transfer", user.getStatusReason());
+        assertEquals(5L, user.getStatusChangedById());
+        assertNotNull(user.getStatusChangedOnUtc());
+
+        user.changeStatus(SelfServiceUserStatus.VIEW_ONLY, "Review", 5L);
+        assertTrue(user.isEnabled());
+        assertTrue(user.isViewOnly());
+
+        user.changeStatus(SelfServiceUserStatus.CLOSED, "Client exited", 5L);
+        assertFalse(user.isEnabled());
+    }
+
+    @Test
+    void enable_doesNotReopenAViewOnlyUser() {
+        AppSelfServiceUser user = createUser(new HashSet<>());
+        user.changeStatus(SelfServiceUserStatus.VIEW_ONLY, "Review", 5L);
+
+        user.enable();
+
+        assertEquals(SelfServiceUserStatus.VIEW_ONLY, user.getStatus());
+    }
 }

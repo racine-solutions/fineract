@@ -59,6 +59,15 @@ public class CommandWrapperBuilderSelfService {
                 this.sanitizeJsonKeys);
     }
 
+    /** Back-office command on a self-service user, e.g. SUSPEND; permission ACTION_SELFSERVICEUSER. */
+    public CommandWrapperBuilderSelfService selfServiceUserCommand(final String action, final Long selfServiceUserId) {
+        this.actionName = action;
+        this.entityName = "SELFSERVICEUSER";
+        this.entityId = selfServiceUserId;
+        this.href = "/selfserviceusers/" + selfServiceUserId;
+        return this;
+    }
+
     public CommandWrapperBuilderSelfService addSelfServiceBeneficiaryTPT() {
         this.actionName = "CREATE";
         this.entityName = "SSBENEFICIARYTPT";

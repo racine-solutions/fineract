@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.campaigns.email.data.EmailMessageWithAttachmentData;
 import org.apache.fineract.infrastructure.configuration.data.SMTPCredentialsData;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesPropertiesReadPlatformService;
+import org.apache.fineract.infrastructure.core.service.BrevoEmailClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -39,9 +40,15 @@ public final class EmailMessageJobEmailServiceImpl implements EmailMessageJobEma
 
     private static final Logger LOG = LoggerFactory.getLogger(EmailMessageJobEmailServiceImpl.class);
     private final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService;
+    private final BrevoEmailClient brevoEmailClient;
 
     @Override
     public void sendEmailWithAttachment(EmailMessageWithAttachmentData emailMessageWithAttachmentData) {
+        if (brevoEmailClient.isEnabled()) {
+            brevoEmailClient.send(emailMessageWithAttachmentData.getTo(), null, emailMessageWithAttachmentData.getSubject(),
+                    emailMessageWithAttachmentData.getText(), true, emailMessageWithAttachmentData.getAttachments(), null);
+            return;
+        }
         final SMTPCredentialsData smtpCredentialsData = this.externalServicesReadPlatformService.getSMTPCredentials();
         try {
             JavaMailSenderImpl javaMailSenderImpl = new JavaMailSenderImpl();

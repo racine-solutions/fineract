@@ -21,8 +21,10 @@ package org.apache.fineract.infrastructure.reportmailingjob.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.util.Collection;
+import java.util.List;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.fineract.infrastructure.core.service.BrevoEmailClient;
 import org.apache.fineract.infrastructure.reportmailingjob.ReportMailingJobConstants;
 import org.apache.fineract.infrastructure.reportmailingjob.data.ReportMailingJobConfigurationData;
 import org.apache.fineract.infrastructure.reportmailingjob.data.ReportMailingJobEmailData;
@@ -38,19 +40,28 @@ public class ReportMailingJobEmailServiceImpl implements ReportMailingJobEmailSe
 
     private static final Logger LOG = LoggerFactory.getLogger(ReportMailingJobEmailServiceImpl.class);
     private final ReportMailingJobConfigurationReadPlatformService reportMailingJobConfigurationReadPlatformService;
+    private final BrevoEmailClient brevoEmailClient;
 
     /**
      * ReportMailingJobEmailServiceImpl constructor
      **/
     @Autowired
     public ReportMailingJobEmailServiceImpl(
-            final ReportMailingJobConfigurationReadPlatformService reportMailingJobConfigurationReadPlatformService) {
+            final ReportMailingJobConfigurationReadPlatformService reportMailingJobConfigurationReadPlatformService,
+            final BrevoEmailClient brevoEmailClient) {
         this.reportMailingJobConfigurationReadPlatformService = reportMailingJobConfigurationReadPlatformService;
+        this.brevoEmailClient = brevoEmailClient;
 
     }
 
     @Override
     public void sendEmailWithAttachment(ReportMailingJobEmailData reportMailingJobEmailData) {
+        if (brevoEmailClient.isEnabled()) {
+            brevoEmailClient.send(reportMailingJobEmailData.getTo(), null, reportMailingJobEmailData.getSubject(),
+                    reportMailingJobEmailData.getText(), false,
+                    reportMailingJobEmailData.getAttachment() == null ? null : List.of(reportMailingJobEmailData.getAttachment()), null);
+            return;
+        }
         Collection<ReportMailingJobConfigurationData> reportMailingJobConfigurationDataCollection;
         try {
             // get all ReportMailingJobConfiguration objects from the database
