@@ -38,6 +38,7 @@ import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistration;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistrationRepository;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRequestType;
+import org.apache.fineract.selfservice.security.service.SelfServiceContactConflictService;
 import org.apache.fineract.selfservice.security.service.SelfServicePasswordChangeService;
 import org.apache.fineract.selfservice.security.service.SelfServiceUserIdentifierResolver;
 import org.apache.fineract.selfservice.signup.exception.SelfServiceCodeException;
@@ -74,13 +75,14 @@ public class SelfServicePasswordResetService {
     private final JdbcTemplate jdbcTemplate;
     private final SelfServiceEventRecorder eventRecorder;
     private final ClientRepository clientRepository;
+    private final SelfServiceContactConflictService contactConflictService;
     Supplier<LocalDateTime> clock = SelfServiceCodeChecks.systemClock();
 
     public SelfServicePasswordResetService(final SelfServiceRegistrationRepository registrationRepository,
             final SelfServiceUserIdentifierResolver identifierResolver, final AppSelfServiceUserRepository appUserRepository,
             final SelfServiceCodeSender codeSender, final SelfServicePasswordChangeService passwordChangeService,
             final SelfServiceSupportContacts supportContacts, final JdbcTemplate jdbcTemplate, final SelfServiceEventRecorder eventRecorder,
-            final ClientRepository clientRepository) {
+            final ClientRepository clientRepository, final SelfServiceContactConflictService contactConflictService) {
         this.registrationRepository = registrationRepository;
         this.identifierResolver = identifierResolver;
         this.appUserRepository = appUserRepository;
@@ -90,6 +92,7 @@ public class SelfServicePasswordResetService {
         this.jdbcTemplate = jdbcTemplate;
         this.eventRecorder = eventRecorder;
         this.clientRepository = clientRepository;
+        this.contactConflictService = contactConflictService;
     }
 
     @Transactional
@@ -104,7 +107,7 @@ public class SelfServicePasswordResetService {
         }
         final AppSelfServiceUser user = appUserRepository.findById(matches.get(0).userId()).orElse(null);
         final Client client = user == null ? null : linkedClient(user);
-        if (user == null || client == null || !mayReset(user)) {
+        if (user == null || client == null || !mayReset(user) || contactConflictService.hasConflict(user)) {
             log.info("Password reset asked for app user {} who cannot reset now; nothing sent", user == null ? null : user.getId());
             return neutralAnswer(UUID.randomUUID().toString());
         }
@@ -164,6 +167,8 @@ public class SelfServicePasswordResetService {
         }
         // A lock only comes from wrong passwords (staff block members by suspending them), and the member has just
         // proved who they are, so the reset lifts it. Suspended and closed members never get this far.
+        // Shared phone or email: the member has proved the code, so they may see why and get the reference
+        contactConflictService.checkUser(user);
         final boolean wasLocked = !user.isAccountNonLocked();
         if (wasLocked) {
             user.unlock(UNLOCK_REASON, null);

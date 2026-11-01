@@ -30,9 +30,15 @@ import org.springframework.security.core.userdetails.UserDetailsChecker;
 public class SelfServiceUserDetailsChecker implements UserDetailsChecker {
 
     private final UserDetailsChecker delegate;
+    private final SelfServiceContactConflictService contactConflictService;
 
     public SelfServiceUserDetailsChecker(UserDetailsChecker delegate) {
+        this(delegate, null);
+    }
+
+    public SelfServiceUserDetailsChecker(UserDetailsChecker delegate, SelfServiceContactConflictService contactConflictService) {
         this.delegate = delegate;
+        this.contactConflictService = contactConflictService;
     }
 
     /**
@@ -41,6 +47,14 @@ public class SelfServiceUserDetailsChecker implements UserDetailsChecker {
      */
     public static SelfServiceUserDetailsChecker accountStatusChecker() {
         return new SelfServiceUserDetailsChecker(new AccountStatusUserDetailsChecker());
+    }
+
+    /**
+     * The account-status checks, then the shared-contact check: a member whose phone or email is also on another
+     * client's record is refused at login and on every later request until staff correct the records.
+     */
+    public static SelfServiceUserDetailsChecker accountStatusChecker(SelfServiceContactConflictService contactConflictService) {
+        return new SelfServiceUserDetailsChecker(new AccountStatusUserDetailsChecker(), contactConflictService);
     }
 
     @Override
@@ -57,6 +71,9 @@ public class SelfServiceUserDetailsChecker implements UserDetailsChecker {
                 throw new SelfServiceDisabledException(ex.getMessage(), (AppSelfServiceUser) user);
             }
             throw ex;
+        }
+        if (contactConflictService != null && user instanceof AppSelfServiceUser appUser) {
+            contactConflictService.checkUser(appUser);
         }
     }
 }

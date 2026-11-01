@@ -46,6 +46,8 @@ import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistration;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistrationRepository;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRequestType;
+import org.apache.fineract.selfservice.security.exception.SelfServiceContactConflictException;
+import org.apache.fineract.selfservice.security.service.SelfServiceContactConflictService;
 import org.apache.fineract.selfservice.security.service.SelfServicePasswordChangeService;
 import org.apache.fineract.selfservice.signup.exception.SelfServiceCodeException;
 import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
@@ -71,6 +73,7 @@ class SelfServiceSignupServiceTest {
     private AppSelfServiceUserRepository userRepository;
     private AppSelfServiceUserClientMappingRepository mappingRepository;
     private SelfServiceSignupService service;
+    private SelfServiceContactConflictService conflictService;
     private Client client;
     private final AtomicReference<String> sentCode = new AtomicReference<>();
     private final AtomicReference<SelfServiceRegistration> saved = new AtomicReference<>();
@@ -87,6 +90,7 @@ class SelfServiceSignupServiceTest {
         jdbcTemplate = mock(JdbcTemplate.class);
         userRepository = mock(AppSelfServiceUserRepository.class);
         mappingRepository = mock(AppSelfServiceUserClientMappingRepository.class);
+        conflictService = mock(SelfServiceContactConflictService.class);
         final RoleRepository roleRepository = mock(RoleRepository.class);
         when(roleRepository.getRoleByName("Self Service User")).thenReturn(mock(Role.class));
         final PlatformPasswordEncoder encoder = mock(PlatformPasswordEncoder.class);
@@ -97,7 +101,7 @@ class SelfServiceSignupServiceTest {
 
         service = new SelfServiceSignupService(repository, clientRepository, codeSender, mock(SelfServicePasswordChangeService.class),
                 encoder, support, jdbcTemplate, roleRepository, userRepository, mappingRepository, mock(ApplicationEventPublisher.class),
-                mock(SelfServiceEventRecorder.class));
+                mock(SelfServiceEventRecorder.class), conflictService);
         service.clock = () -> NOW;
 
         client = mock(Client.class);
@@ -239,6 +243,29 @@ class SelfServiceSignupServiceTest {
         assertThatThrownBy(() -> service.verify(registration.getExternalAuthorizationToken(), sentCode.get()))
                 .isInstanceOfSatisfying(SelfServiceCodeException.class, e -> assertThat(e.getStatus()).isEqualTo(409));
         assertThat(registration.isConsumed()).isTrue();
+        verify(userRepository, never()).saveAndFlush(any(AppSelfServiceUser.class));
+    }
+
+    @Test
+    void start_whenThePhoneOrEmailIsOnAnotherClient_isBlockedAndNothingIsSent() {
+        org.mockito.Mockito.doThrow(new SelfServiceContactConflictException("blocked", "DUP-000000005", List.of())).when(conflictService)
+                .checkSignup(5L, "000000005", "256785154434", "jane.record@example.com", "jane@example.com");
+        assertThatThrownBy(() -> service.start(startRequest("0785154434", "jane@example.com"))).isInstanceOfSatisfying(
+                SelfServiceContactConflictException.class, e -> assertThat(e.getReference()).isEqualTo("DUP-000000005"));
+        verify(codeSender, never()).send(any(), anyString(), any(), any(), any(), any(), anyInt());
+    }
+
+    @Test
+    void verify_whenAConflictAppearedAfterTheCodeWasSent_createsNothing() {
+        service.start(startRequest("0785154434", "jane@example.com"));
+        final SelfServiceRegistration registration = saved.get();
+        when(repository.getRequestByExternalAuthorizationToken(registration.getExternalAuthorizationToken(), SelfServiceRequestType.SIGNUP))
+                .thenReturn(registration);
+        org.mockito.Mockito.doThrow(new SelfServiceContactConflictException("blocked", "DUP-000000005", List.of())).when(conflictService)
+                .checkSignup(any(), any(), any(), any(), any());
+
+        assertThatThrownBy(() -> service.verify(registration.getExternalAuthorizationToken(), sentCode.get()))
+                .isInstanceOf(SelfServiceContactConflictException.class);
         verify(userRepository, never()).saveAndFlush(any(AppSelfServiceUser.class));
     }
 }

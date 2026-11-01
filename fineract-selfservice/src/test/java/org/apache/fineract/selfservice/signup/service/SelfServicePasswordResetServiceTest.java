@@ -40,6 +40,7 @@ import org.apache.fineract.selfservice.audit.service.SelfServiceEventRecorder;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistration;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistrationRepository;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRequestType;
+import org.apache.fineract.selfservice.security.service.SelfServiceContactConflictService;
 import org.apache.fineract.selfservice.security.service.SelfServicePasswordChangeService;
 import org.apache.fineract.selfservice.security.service.SelfServiceUserIdentifierResolver;
 import org.apache.fineract.selfservice.signup.exception.SelfServiceCodeException;
@@ -61,6 +62,7 @@ class SelfServicePasswordResetServiceTest {
     private SelfServiceCodeSender codeSender;
     private SelfServicePasswordChangeService passwordChangeService;
     private SelfServicePasswordResetService service;
+    private SelfServiceContactConflictService conflictService;
     private AppSelfServiceUser user;
     private final AtomicReference<String> sentCode = new AtomicReference<>();
     private final AtomicReference<SelfServiceRegistration> saved = new AtomicReference<>();
@@ -72,12 +74,13 @@ class SelfServicePasswordResetServiceTest {
         userRepository = mock(AppSelfServiceUserRepository.class);
         codeSender = mock(SelfServiceCodeSender.class);
         passwordChangeService = mock(SelfServicePasswordChangeService.class);
+        conflictService = mock(SelfServiceContactConflictService.class);
         final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         final ClientRepository clientRepository = mock(ClientRepository.class);
         final SelfServiceSupportContacts support = mock(SelfServiceSupportContacts.class);
         when(support.callInstruction()).thenReturn("call +256 774 067 967");
         service = new SelfServicePasswordResetService(repository, resolver, userRepository, codeSender, passwordChangeService, support,
-                jdbcTemplate, mock(SelfServiceEventRecorder.class), clientRepository);
+                jdbcTemplate, mock(SelfServiceEventRecorder.class), clientRepository, conflictService);
         service.clock = () -> NOW;
 
         final Client client = mock(Client.class);
@@ -198,5 +201,14 @@ class SelfServicePasswordResetServiceTest {
                     assertThat(e.getCode()).isEqualTo("error.msg.code.invalid");
                 });
         verify(passwordChangeService, never()).setNewPassword(any(), any(), any());
+    }
+
+    @Test
+    void start_forAMemberWithASharedPhoneOrEmail_sendsNothing_andStaysNeutral() {
+        when(conflictService.hasConflict(user)).thenReturn(true);
+        when(resolver.candidates("jane@example.com")).thenReturn(List.of(new SelfServiceUserIdentifierResolver.Match(2L, "jane@example.com")));
+        final Map<String, Object> answer = service.start("jane@example.com");
+        verify(codeSender, never()).send(any(), anyString(), any(), any(), any(), any(), anyInt());
+        assertThat(answer).containsKeys("resetId", "message");
     }
 }

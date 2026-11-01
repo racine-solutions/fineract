@@ -51,6 +51,7 @@ import org.apache.fineract.selfservice.registration.SelfServiceApiConstants;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistration;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRegistrationRepository;
 import org.apache.fineract.selfservice.registration.domain.SelfServiceRequestType;
+import org.apache.fineract.selfservice.security.service.SelfServiceContactConflictService;
 import org.apache.fineract.selfservice.security.service.SelfServicePasswordChangeService;
 import org.apache.fineract.selfservice.signup.exception.SelfServiceCodeException;
 import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
@@ -102,6 +103,7 @@ public class SelfServiceSignupService {
     private final AppSelfServiceUserClientMappingRepository clientMappingRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final SelfServiceEventRecorder eventRecorder;
+    private final SelfServiceContactConflictService contactConflictService;
     Supplier<LocalDateTime> clock = SelfServiceCodeChecks.systemClock();
 
     public SelfServiceSignupService(final SelfServiceRegistrationRepository registrationRepository, final ClientRepository clientRepository,
@@ -110,7 +112,7 @@ public class SelfServiceSignupService {
             final JdbcTemplate jdbcTemplate, final RoleRepository roleRepository,
             final AppSelfServiceUserRepository appSelfServiceUserRepository,
             final AppSelfServiceUserClientMappingRepository clientMappingRepository, final ApplicationEventPublisher eventPublisher,
-            final SelfServiceEventRecorder eventRecorder) {
+            final SelfServiceEventRecorder eventRecorder, final SelfServiceContactConflictService contactConflictService) {
         this.registrationRepository = registrationRepository;
         this.clientRepository = clientRepository;
         this.codeSender = codeSender;
@@ -123,6 +125,7 @@ public class SelfServiceSignupService {
         this.clientMappingRepository = clientMappingRepository;
         this.eventPublisher = eventPublisher;
         this.eventRecorder = eventRecorder;
+        this.contactConflictService = contactConflictService;
     }
 
     public record StartRequest(String accountNumber, String firstName, String lastName, String mobileNumber, String email, String password,
@@ -158,6 +161,9 @@ public class SelfServiceSignupService {
         }
         final String username = SelfServiceContactFormats.normaliseEmail(email);
         checkClientAndUsernameFree(client, username);
+        // A phone or email shared with another client could send codes or data to the wrong member: block and explain
+        contactConflictService.checkSignup(client.getId(), client.getAccountNumber(), client.getMobileNo(), client.getEmailAddress(),
+                username);
 
         final LocalDateTime now = clock.get();
         SelfServiceCodeChecks.checkCanSend(
@@ -223,6 +229,9 @@ public class SelfServiceSignupService {
                     "Your membership is not active, so you cannot sign up. " + StringUtils.capitalize(supportContacts.callInstruction())
                             + ".");
         }
+
+        contactConflictService.checkSignup(client.getId(), client.getAccountNumber(), client.getMobileNo(), client.getEmailAddress(),
+                registration.getUsername());
 
         final AppSelfServiceUser appUser = createUser(registration, client);
         registration.close();
