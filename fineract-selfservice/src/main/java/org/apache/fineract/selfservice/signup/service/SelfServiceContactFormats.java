@@ -58,9 +58,26 @@ public final class SelfServiceContactFormats {
         return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
-    /** The number for the SMS gateway: digits only (a leading + dropped). */
-    public static String smsNumber(final String phone) {
-        return phone == null ? null : phone.replaceAll("\\D", "");
+    /**
+     * The number for the SMS gateway in international format, digits only: 0785154434 or 785154434 becomes 256785154434
+     * with country code 256, 00256... drops the 00, and +256 785 154 434 drops the + and spaces.
+     */
+    public static String smsNumber(final String phone, final String countryCode) {
+        if (phone == null) {
+            return null;
+        }
+        final String digits = phone.replaceAll("\\D", "");
+        final String code = countryCode == null ? "" : countryCode.replaceAll("\\D", "");
+        if (digits.startsWith("00")) {
+            return digits.substring(2);
+        }
+        if (code.isEmpty() || digits.startsWith(code) && digits.length() > SIGNIFICANT_DIGITS) {
+            return digits;
+        }
+        if (digits.startsWith("0")) {
+            return code + digits.substring(1);
+        }
+        return digits.length() == SIGNIFICANT_DIGITS ? code + digits : digits;
     }
 
     /** 2567•••••434: shows enough for the member to recognise their number and no more. */

@@ -50,6 +50,14 @@ class SelfServiceContactFormatsTest {
         assertThat(SelfServiceContactFormats.maskPhone("0785154434")).isEqualTo("0785•••434");
         assertThat(SelfServiceContactFormats.maskPhone("12")).isEqualTo("•••");
         assertThat(SelfServiceContactFormats.maskEmail("john@gmail.com")).isEqualTo("j•••@gmail.com");
-        assertThat(SelfServiceContactFormats.smsNumber("+256 785 154 434")).isEqualTo("256785154434");
+    }
+
+    @Test
+    void smsNumbersAreSentInInternationalFormat() {
+        assertThat(SelfServiceContactFormats.smsNumber("+256 785 154 434", "256")).isEqualTo("256785154434");
+        assertThat(SelfServiceContactFormats.smsNumber("256785154434", "256")).isEqualTo("256785154434");
+        assertThat(SelfServiceContactFormats.smsNumber("0785154434", "256")).isEqualTo("256785154434");
+        assertThat(SelfServiceContactFormats.smsNumber("785152234", "256")).isEqualTo("256785152234");
+        assertThat(SelfServiceContactFormats.smsNumber("00254712345678", "256")).isEqualTo("254712345678");
     }
 }

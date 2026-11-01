@@ -27,6 +27,7 @@ import org.apache.fineract.infrastructure.core.service.SelfServicePluginEmailSer
 import org.apache.fineract.notification.data.SmsMessageData;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 /**
@@ -75,6 +76,7 @@ public class SelfServiceCodeSender {
     private final SmsNotificationWritePlatformService smsService;
     private final SelfServicePluginEmailService emailService;
     private final ConfigurationDomainService configurationDomainService;
+    private final Environment environment;
 
     /**
      * Tries the preferred channel first and the other one when it fails or is not available.
@@ -118,9 +120,8 @@ public class SelfServiceCodeSender {
 
     private boolean sendSms(final Purpose purpose, final String code, final String phone, final int validMinutes) {
         try {
-            final boolean sent = smsService.sendSmsNow(
-                    new SmsMessageData(SelfServiceContactFormats.smsNumber(phone), smsText(purpose, code, validMinutes), null),
-                    SmsTypeEnum.SELF_SERVICE);
+            final boolean sent = smsService.sendSmsNow(new SmsMessageData(SelfServiceContactFormats.smsNumber(phone, countryCode()),
+                    smsText(purpose, code, validMinutes), null), SmsTypeEnum.SELF_SERVICE);
             if (!sent) {
                 log.warn("{} code SMS to {} was not accepted", purpose, SelfServiceContactFormats.maskPhone(phone));
             }
@@ -145,6 +146,10 @@ public class SelfServiceCodeSender {
             log.warn("{} code email to {} failed: {}", purpose, SelfServiceContactFormats.maskEmail(email), e.getMessage());
             return false;
         }
+    }
+
+    private String countryCode() {
+        return environment.getProperty("sms.default.country.code", "256");
     }
 
     private String appHash() {
