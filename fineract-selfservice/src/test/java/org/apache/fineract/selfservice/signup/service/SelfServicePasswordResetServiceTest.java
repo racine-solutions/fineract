@@ -94,6 +94,7 @@ class SelfServicePasswordResetServiceTest {
         when(user.getEmail()).thenReturn("jane@example.com");
         when(user.getFirstname()).thenReturn("Jane");
         when(user.getStatus()).thenReturn(SelfServiceUserStatus.ACTIVE);
+        when(user.isAccountNonLocked()).thenReturn(true);
         when(userRepository.findById(2L)).thenReturn(Optional.of(user));
         when(userRepository.findAppSelfServiceUserByName("jane@example.com")).thenReturn(user);
         when(jdbcTemplate.queryForList(anyString(), eq(Long.class), eq(2L))).thenReturn(List.of(5L));
@@ -151,6 +152,30 @@ class SelfServicePasswordResetServiceTest {
         assertThat(service.verify(resetId, sentCode.get(), "New#Pass2026", "New#Pass2026")).containsEntry("username", "jane@example.com");
         verify(passwordChangeService).setNewPassword(user, "New#Pass2026", "New#Pass2026");
         assertThat(request.isConsumed()).isTrue();
+        verify(user, never()).unlock(any(), any());
+    }
+
+    @Test
+    void verify_unlocksAnAccountLockedByWrongPasswords() {
+        when(user.isAccountNonLocked()).thenReturn(false);
+        when(resolver.candidates("jane@example.com")).thenReturn(List.of(new SelfServiceUserIdentifierResolver.Match(2L, "jane@example.com")));
+        final String resetId = (String) service.start("jane@example.com").get("resetId");
+        when(repository.getRequestByExternalAuthorizationToken(resetId, SelfServiceRequestType.RESET_CODE)).thenReturn(saved.get());
+
+        service.verify(resetId, sentCode.get(), "New#Pass2026", "New#Pass2026");
+        verify(user).unlock(SelfServicePasswordResetService.UNLOCK_REASON, null);
+    }
+
+    @Test
+    void verify_withAWrongCode_leavesTheLockInPlace() {
+        when(user.isAccountNonLocked()).thenReturn(false);
+        when(resolver.candidates("jane@example.com")).thenReturn(List.of(new SelfServiceUserIdentifierResolver.Match(2L, "jane@example.com")));
+        final String resetId = (String) service.start("jane@example.com").get("resetId");
+        when(repository.getRequestByExternalAuthorizationToken(resetId, SelfServiceRequestType.RESET_CODE)).thenReturn(saved.get());
+        final String wrong = sentCode.get().equals("000000") ? "111111" : "000000";
+
+        assertThatThrownBy(() -> service.verify(resetId, wrong, "New#Pass2026", "New#Pass2026")).isInstanceOf(SelfServiceCodeException.class);
+        verify(user, never()).unlock(any(), any());
     }
 
     @Test

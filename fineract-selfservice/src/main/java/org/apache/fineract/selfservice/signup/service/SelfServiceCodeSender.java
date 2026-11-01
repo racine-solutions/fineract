@@ -73,6 +73,8 @@ public class SelfServiceCodeSender {
     public record Delivery(Channel channel, String destination, boolean smsFailed) {
     }
 
+    static final String APP_HASH_PATTERN = "[A-Za-z0-9+/]{11}";
+
     private final SmsNotificationWritePlatformService smsService;
     private final SelfServicePluginEmailService emailService;
     private final ConfigurationDomainService configurationDomainService;
@@ -152,13 +154,24 @@ public class SelfServiceCodeSender {
         return environment.getProperty("sms.default.country.code", "256");
     }
 
-    private String appHash() {
+    /**
+     * The Android app hashes to end the SMS with, separated by spaces. The setting may list several (comma separated),
+     * one per build: debug and release apps are signed with different keys. Values that are not 11-character hashes are
+     * skipped.
+     */
+    String appHash() {
+        final String value;
         try {
-            final String hash = configurationDomainService.retrieveSelfServiceSmsAppHash();
-            return StringUtils.isBlank(hash) ? null : hash.trim();
+            value = configurationDomainService.retrieveSelfServiceSmsAppHash();
         } catch (RuntimeException e) {
             return null;
         }
+        if (StringUtils.isBlank(value)) {
+            return null;
+        }
+        final String hashes = java.util.Arrays.stream(value.split("[,;\\s]+")).map(String::trim)
+                .filter(hash -> hash.matches(APP_HASH_PATTERN)).distinct().collect(java.util.stream.Collectors.joining(" "));
+        return hashes.isEmpty() ? null : hashes;
     }
 
     private static String escape(final String value) {

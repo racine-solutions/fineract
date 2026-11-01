@@ -196,8 +196,9 @@ public interface ConfigurationDomainService {
     String retrieveSelfServiceSupportPhoneNumbers();
 
     /**
-     * The 11-character Android app hash added to the end of sign-up and password-reset code SMS so the app can read the
-     * code by itself (SMS Retriever), or null when none is set or the setting is disabled.
+     * The 11-character Android app hash(es) added to the end of sign-up and password-reset code SMS so the app can read
+     * the code by itself (SMS Retriever), comma separated when there are several builds, or null when none is set or
+     * the setting is disabled.
      */
     String retrieveSelfServiceSmsAppHash();
 }

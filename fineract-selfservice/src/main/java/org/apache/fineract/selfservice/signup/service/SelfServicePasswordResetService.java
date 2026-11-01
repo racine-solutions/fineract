@@ -63,6 +63,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SelfServicePasswordResetService {
 
     static final String RESET_EVENT = "PASSWORD_RENEWED";
+    static final String UNLOCK_REASON = "Unlocked by the member's password reset with a code";
 
     private final SelfServiceRegistrationRepository registrationRepository;
     private final SelfServiceUserIdentifierResolver identifierResolver;
@@ -161,12 +162,19 @@ public class SelfServicePasswordResetService {
             throw new SelfServiceCodeException(400, "error.msg.password.reset.not.allowed",
                     "Your password cannot be reset in the app. " + StringUtils.capitalize(supportContacts.callInstruction()) + ".");
         }
+        // A lock only comes from wrong passwords (staff block members by suspending them), and the member has just
+        // proved who they are, so the reset lifts it. Suspended and closed members never get this far.
+        final boolean wasLocked = !user.isAccountNonLocked();
+        if (wasLocked) {
+            user.unlock(UNLOCK_REASON, null);
+        }
         passwordChangeService.setNewPassword(user, password, repeatPassword);
         request.close();
         registrationRepository.saveAndFlush(request);
         eventRecorder.record(SelfServiceEventEntry.builder().appUserId(user.getId()).username(user.getUsername()).clientId(linked.getId())
                 .eventType(RESET_EVENT).category("PASSWORD").result(SelfServiceEventEntry.RESULT_SUCCESS)
-                .actor(SelfServiceEventEntry.ACTOR_CLIENT).description("Password reset with a code").build());
+                .actor(SelfServiceEventEntry.ACTOR_CLIENT)
+                .description(wasLocked ? "Password reset with a code; account unlocked" : "Password reset with a code").build());
         log.info("Mobile app user {} reset their password with a code", user.getId());
 
         final Map<String, Object> body = new LinkedHashMap<>();
