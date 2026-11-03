@@ -99,7 +99,11 @@ class SelfAuthenticationApiResourceTest {
                 org.mockito.Mockito.mock(org.apache.fineract.selfservice.support.SelfServiceSupportContacts.class), toApiJsonSerializer,
                 securityContext, clientReadPlatformService, applicationEventPublisher, environment, appUserRepository,
                 kycFeatureStatusReadService, officeAddressReadPlatformService, selfServiceAuthenticationTokenService,
-                org.mockito.Mockito.mock(org.apache.fineract.selfservice.useradministration.service.SelfServiceUserActivityService.class));
+                org.mockito.Mockito.mock(org.apache.fineract.selfservice.useradministration.service.SelfServiceUserActivityService.class),
+                // Usernames pass through unchanged, as they do for an existing username
+                org.mockito.Mockito.mock(org.apache.fineract.selfservice.security.service.SelfServiceUserIdentifierResolver.class,
+                        invocation -> invocation.getArgument(0)),
+                org.mockito.Mockito.mock(org.apache.fineract.selfservice.security.service.SelfServiceContactConflictService.class));
     }
 
     @Test

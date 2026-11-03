@@ -83,6 +83,8 @@ public class SelfServiceSecurityConfiguration {
     @Autowired
     private ConfigurationDomainService configurationDomainService;
     @Autowired
+    private org.apache.fineract.selfservice.security.service.SelfServiceContactConflictService contactConflictService;
+    @Autowired
     private CacheWritePlatformService cacheWritePlatformService;
     @Autowired
     private UserNotificationService userNotificationService;
@@ -144,6 +146,14 @@ public class SelfServiceSecurityConfiguration {
                         .permitAll()
                         .requestMatchers(antMatcher(HttpMethod.POST, "/api/v1/self/registration/client-user/confirm"),
                                 antMatcher(HttpMethod.POST, "/v1/self/registration/client-user/confirm"))
+                        .permitAll()
+
+                        // Sign-up and forgot password with a 6-digit code
+                        .requestMatchers(antMatcher(HttpMethod.POST, "/api/v1/self/signup/*"),
+                                antMatcher(HttpMethod.POST, "/v1/self/signup/*"))
+                        .permitAll()
+                        .requestMatchers(antMatcher(HttpMethod.POST, "/api/v1/self/password-reset/*"),
+                                antMatcher(HttpMethod.POST, "/v1/self/password-reset/*"))
                         .permitAll()
 
                         // Client Identity documents available in the platform
@@ -235,7 +245,8 @@ public class SelfServiceSecurityConfiguration {
     @Bean(name = "selfServiceTokenAuthenticationProvider")
     public SelfServiceTokenAuthenticationProvider selfServiceTokenAuthProvider() {
         return new SelfServiceTokenAuthenticationProvider(tokenService, userDetailsService,
-                org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker.accountStatusChecker());
+                org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker
+                        .accountStatusChecker(contactConflictService));
     }
 
     @Bean(name = "selfServiceBasicAuthenticationEntryPoint")
@@ -253,8 +264,8 @@ public class SelfServiceSecurityConfiguration {
         // Account state (locked, suspended, closed, pending) is checked only after the password, so its reason is never
         // shown to someone who does not know the password
         authProvider.setPreAuthenticationChecks(user -> {});
-        authProvider.setPostAuthenticationChecks(
-                org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker.accountStatusChecker());
+        authProvider.setPostAuthenticationChecks(org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker
+                .accountStatusChecker(contactConflictService));
         return authProvider;
     }
 

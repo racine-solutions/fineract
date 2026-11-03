@@ -58,5 +58,17 @@ public enum SelfServiceRequestType {
      */
     SINPE_ENROLLMENT,
 
-    ACCOUNT_TRANSFER
+    ACCOUNT_TRANSFER,
+
+    /**
+     * Sign-up started from the mobile app. The member proves the phone or email on their client record with a 6-digit
+     * code; the app keeps the request id (registration reference) so it can resume after leaving the screen.
+     */
+    SIGNUP,
+
+    /**
+     * Forgot-password request: a 6-digit code sent to the member's registered phone or email lets them set a new
+     * password.
+     */
+    RESET_CODE
 }

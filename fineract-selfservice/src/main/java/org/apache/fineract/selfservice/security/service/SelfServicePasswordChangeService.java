@@ -68,16 +68,18 @@ public class SelfServicePasswordChangeService {
         final JsonElement element = fromApiJsonHelper.parse(apiRequestBodyAsJson);
         final String password = fromApiJsonHelper.extractStringNamed(PASSWORD, element);
         final String repeatPassword = fromApiJsonHelper.extractStringNamed(REPEAT_PASSWORD, element);
-        if (StringUtils.isBlank(password) || StringUtils.isBlank(repeatPassword)) {
-            throw new IllegalArgumentException("Enter the new password twice.");
-        }
-        if (!password.equals(repeatPassword)) {
-            throw new IllegalArgumentException("The two passwords do not match.");
-        }
-        final PasswordValidationPolicy policy = passwordValidationPolicyRepository.findActivePasswordValidationPolicy();
-        if (policy != null && StringUtils.isNotBlank(policy.getRegex()) && !password.matches(policy.getRegex())) {
-            throw new IllegalArgumentException("The password does not meet the password rules: " + policy.getDescription());
-        }
+        setNewPassword(user, password, repeatPassword);
+        log.info("Mobile app user {} changed their password", user.getId());
+        return user.getId();
+    }
+
+    /**
+     * Checks the new password against the rules, stores it, clears a forced password change and ends the user's
+     * sessions. Also used by the forgot-password flow once the member has proved who they are with a code.
+     */
+    @Transactional
+    public void setNewPassword(final AppSelfServiceUser user, final String password, final String repeatPassword) {
+        validateNewPassword(password, repeatPassword);
         if (passwordMatcher.matches(password, user.getPassword())) {
             throw new IllegalArgumentException("The new password must be different from the current one.");
         }
@@ -88,8 +90,20 @@ public class SelfServicePasswordChangeService {
         user.updatePasswordResetRequired(false);
         appSelfServiceUserRepository.saveAndFlush(user);
         tokenService.revokeAllSessions(user.getId());
-        log.info("Mobile app user {} changed their password", user.getId());
-        return user.getId();
+    }
+
+    /** Both entries present, equal and matching the active password policy. */
+    public void validateNewPassword(final String password, final String repeatPassword) {
+        if (StringUtils.isBlank(password) || StringUtils.isBlank(repeatPassword)) {
+            throw new IllegalArgumentException("Enter the new password twice.");
+        }
+        if (!password.equals(repeatPassword)) {
+            throw new IllegalArgumentException("The two passwords do not match.");
+        }
+        final PasswordValidationPolicy policy = passwordValidationPolicyRepository.findActivePasswordValidationPolicy();
+        if (policy != null && StringUtils.isNotBlank(policy.getRegex()) && !password.matches(policy.getRegex())) {
+            throw new IllegalArgumentException("The password does not meet the password rules: " + policy.getDescription());
+        }
     }
 
     /** The id of the app user making the request, read straight from the session (it may still have to renew). */

@@ -60,13 +60,16 @@ import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent
 import org.apache.fineract.selfservice.security.data.SelfServiceAuthenticatedUserData;
 import org.apache.fineract.selfservice.security.data.SelfServiceAuthenticatedUserKycData;
 import org.apache.fineract.selfservice.security.domain.SelfServiceAuthenticationToken;
+import org.apache.fineract.selfservice.security.exception.SelfServiceContactConflictException;
 import org.apache.fineract.selfservice.security.exception.SelfServiceDisabledException;
 import org.apache.fineract.selfservice.security.exception.SelfServiceLockedException;
 import org.apache.fineract.selfservice.security.exception.SelfServicePasswordResetRequiredException;
 import org.apache.fineract.selfservice.security.service.PlatformSelfServiceSecurityContext;
 import org.apache.fineract.selfservice.security.service.SelfServiceAuthenticationTokenService;
+import org.apache.fineract.selfservice.security.service.SelfServiceContactConflictService;
 import org.apache.fineract.selfservice.security.service.SelfServiceOfficeAddressReadService;
 import org.apache.fineract.selfservice.security.service.SelfServiceUserDetailsChecker;
+import org.apache.fineract.selfservice.security.service.SelfServiceUserIdentifierResolver;
 import org.apache.fineract.selfservice.support.SelfServiceSupportContacts;
 import org.apache.fineract.selfservice.useradministration.data.AppSelfServiceUserData;
 import org.apache.fineract.selfservice.useradministration.domain.AppSelfServiceUser;
@@ -119,6 +122,8 @@ public class SelfAuthenticationApiResource {
     private final SelfServiceOfficeAddressReadService officeAddressReadPlatformService;
     private final SelfServiceAuthenticationTokenService tokenService;
     private final SelfServiceUserActivityService selfServiceUserActivityService;
+    private final SelfServiceUserIdentifierResolver identifierResolver;
+    private final SelfServiceContactConflictService contactConflictService;
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -139,6 +144,8 @@ public class SelfAuthenticationApiResource {
         if (StringUtils.isBlank(request.username) || StringUtils.isBlank(request.password)) {
             throw new IllegalArgumentException("Username or Password is blank in JSON (see FINERACT-726) of POST to /authentication.");
         }
+        // Members may log in with their username, email or phone; use the one account it points to
+        request.username = identifierResolver.resolveLoginUsername(request.username);
 
         final Authentication authentication = new UsernamePasswordAuthenticationToken(request.username, request.password);
         Authentication authenticationCheck = null;
@@ -152,6 +159,9 @@ public class SelfAuthenticationApiResource {
         } catch (SelfServiceLockedException ex) {
             AppSelfServiceUser failedUser = ex.getUser();
             publishNotificationEvent(SelfServiceNotificationEvent.Type.LOGIN_FAILURE, failedUser, request.username, httpRequest);
+            throw ex;
+        } catch (SelfServiceContactConflictException ex) {
+            // Shared phone or email: explained to the member with a reference, never turned into "wrong password"
             throw ex;
         } catch (BadCredentialsException ex) {
             AppSelfServiceUser failedUser = this.appUserRepository.findAppSelfServiceUserByName(request.username);
@@ -316,7 +326,7 @@ public class SelfAuthenticationApiResource {
             throw new BadCredentialsException("Invalid or expired refresh token");
         }
         try {
-            SelfServiceUserDetailsChecker.accountStatusChecker().check(sessionUser);
+            SelfServiceUserDetailsChecker.accountStatusChecker(contactConflictService).check(sessionUser);
         } catch (AccountStatusException e) {
             tokenService.revokeAllSessions(refreshSession.getUserId());
             throw e;

@@ -29,6 +29,14 @@ public interface SmsNotificationWritePlatformService {
 
     void sendSms(SmsMessageData messageData, SmsTypeEnum smsType);
 
+    /**
+     * Sends the message straight away and reports the outcome. The text is treated as secret: it is kept out of the log
+     * and the message history.
+     *
+     * @return true only when the gateway accepted the message
+     */
+    boolean sendSmsNow(SmsMessageData messageData, SmsTypeEnum smsType);
+
     void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction);
 
     void processSavingsSmsNotification(SavingsAccount savingsAccount, SmsTypeEnum smsType, SavingsAccountTransaction transaction);
