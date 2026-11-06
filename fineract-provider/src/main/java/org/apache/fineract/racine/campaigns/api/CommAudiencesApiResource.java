@@ -1,0 +1,132 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements. See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership. The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.fineract.racine.campaigns.api;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.fineract.infrastructure.core.service.Page;
+import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.racine.campaigns.data.AudienceClientData;
+import org.apache.fineract.racine.campaigns.data.AudienceCountData;
+import org.apache.fineract.racine.campaigns.domain.CommPurpose;
+import org.apache.fineract.racine.campaigns.service.AudienceQueryBuilder;
+import org.apache.fineract.racine.campaigns.service.AudienceService;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+@Path("/v1/comm/audiences")
+@Component
+@Tag(name = "Communication Audiences", description = "Who a campaign reaches: filter options, live count with skip reasons, and a sample")
+@RequiredArgsConstructor
+public class CommAudiencesApiResource {
+
+    private final PlatformSecurityContext context;
+    private final AudienceService audienceService;
+    private final JdbcTemplate jdbcTemplate;
+
+    @GET
+    @Path("template")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Filter options", description = "Fields, and the values for offices, genders, client types, classifications, "
+            + "loan products and delinquency ranges.")
+    public Map<String, Object> template() {
+        context.authenticatedUser().validateHasReadPermission(CommCampaignsApiResource.RESOURCE);
+        final Map<String, Object> options = new LinkedHashMap<>();
+        options.put("fields", AudienceQueryBuilder.FIELDS);
+        options.put("offices", jdbcTemplate.queryForList("select id, name from m_office where hierarchy like ? order by hierarchy",
+                context.officeHierarchy() + "%"));
+        // Campaigns target Female and Male; Trans-Gender stays a Gender value elsewhere but is not offered here
+        options.put("genders", codeValues("Gender").stream().filter(value -> !isTransGender(value.get("name"))).toList());
+        options.put("clientTypes", codeValues("ClientType"));
+        options.put("classifications", codeValues("ClientClassification"));
+        options.put("loanProducts", jdbcTemplate.queryForList("select id, name from m_product_loan order by name"));
+        options.put("delinquencyRanges", jdbcTemplate
+                .queryForList("select id, classification name, min_age_days, max_age_days from m_delinquency_range order by min_age_days"));
+        return options;
+    }
+
+    @POST
+    @Path("count")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Count matching clients", description = "Body: audience (filters) and purpose. Returns matching clients, how many "
+            + "get the message, and the skipped ones by reason.")
+    public AudienceCountData count(final String body) {
+        context.authenticatedUser().validateHasReadPermission(CommCampaignsApiResource.RESOURCE);
+        final JsonObject json = parse(body);
+        return audienceService.count(AudienceService.parse(audience(json)), context.officeHierarchy(), purpose(json));
+    }
+
+    @POST
+    @Path("clients")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Matching clients, one page at a time", description = "Body: audience, purpose, show (ALL, RECIPIENTS or "
+            + "SKIPPED), search (name, account number or phone), offset, limit (up to 500). Skipped clients carry the reason.")
+    public Page<AudienceClientData> clients(final String body) {
+        context.authenticatedUser().validateHasReadPermission(CommCampaignsApiResource.RESOURCE);
+        final JsonObject json = parse(body);
+        return audienceService.clients(AudienceService.parse(audience(json)), context.officeHierarchy(), purpose(json), text(json, "show"),
+                text(json, "search"), number(json, "offset", 0), number(json, "limit", 25));
+    }
+
+    private List<Map<String, Object>> codeValues(final String code) {
+        return jdbcTemplate.queryForList("select cv.id, cv.code_value name from m_code_value cv join m_code c on c.id = cv.code_id"
+                + " where c.code_name = ? and cv.is_active = ? order by cv.order_position, cv.code_value", code, true);
+    }
+
+    static boolean isTransGender(final Object name) {
+        return String.valueOf(name).toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "").equals("transgender");
+    }
+
+    private static String text(final JsonObject json, final String name) {
+        return json.has(name) && !json.get(name).isJsonNull() ? json.get(name).getAsString() : null;
+    }
+
+    private static int number(final JsonObject json, final String name, final int fallback) {
+        return json.has(name) && !json.get(name).isJsonNull() ? json.get(name).getAsInt() : fallback;
+    }
+
+    private static JsonObject parse(final String body) {
+        return StringUtils.isBlank(body) ? new JsonObject() : JsonParser.parseString(body).getAsJsonObject();
+    }
+
+    private static String audience(final JsonObject json) {
+        return json.has("audience") ? json.get("audience").toString() : "[]";
+    }
+
+    private static CommPurpose purpose(final JsonObject json) {
+        return json.has("purpose") && "MARKETING".equalsIgnoreCase(json.get("purpose").getAsString()) ? CommPurpose.MARKETING
+                : CommPurpose.GENERAL;
+    }
+}

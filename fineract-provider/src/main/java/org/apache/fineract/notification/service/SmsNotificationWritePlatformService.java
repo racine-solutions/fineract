@@ -19,6 +19,7 @@
 package org.apache.fineract.notification.service;
 
 import org.apache.fineract.notification.data.SmsMessageData;
+import org.apache.fineract.notification.data.SmsSendOutcome;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
@@ -38,6 +39,12 @@ public interface SmsNotificationWritePlatformService {
      * @return true only when the gateway accepted the message
      */
     boolean sendSmsNow(SmsMessageData messageData, SmsTypeEnum smsType);
+
+    /**
+     * Sends one campaign SMS straight away and says what happened, so the campaign can record a reason for each
+     * recipient. The text is kept in the message history.
+     */
+    SmsSendOutcome sendCampaignSms(SmsMessageData messageData);
 
     void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction);
 
