@@ -116,17 +116,17 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
     @Override
     public void sendSms(SmsMessageData messageData, SmsTypeEnum smsType) {
-        deliver(messageData, smsType, false);
+        deliver(messageData, smsType, false, null);
     }
 
     @Override
     public boolean sendSmsNow(SmsMessageData messageData, SmsTypeEnum smsType) {
-        return deliver(messageData, smsType, true).isSent();
+        return deliver(messageData, smsType, true, null).isSent();
     }
 
     @Override
-    public SmsSendOutcome sendCampaignSms(SmsMessageData messageData) {
-        return deliver(messageData, SmsTypeEnum.CAMPAIGN, false);
+    public SmsSendOutcome sendCampaignSms(SmsMessageData messageData, String senderId) {
+        return deliver(messageData, SmsTypeEnum.CAMPAIGN, false, senderId);
     }
 
     /**
@@ -137,7 +137,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
      * @return what happened; with no credit left the message is skipped, never an error, so the deposit, repayment or
      *         approval that triggered it still goes through
      */
-    private SmsSendOutcome deliver(SmsMessageData messageData, SmsTypeEnum smsType, boolean sensitive) {
+    private SmsSendOutcome deliver(SmsMessageData messageData, SmsTypeEnum smsType, boolean sensitive, String senderId) {
 
         final GlobalConfigurationProperty property = this.configurationRepositoryWrapper
                 .findOneByNameWithNotFoundDetection(GlobalConfigurationConstants.ENABLE_SMS_NOTIFICATIONS);
@@ -170,7 +170,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         Gson gson = new GsonBuilder().create();
 
         SmsUserData userData = new SmsUserData(getConfigProperty("sms.username"), getConfigProperty("sms.password"));
-        messageData.setSenderid(getConfigProperty("sms.sender.id"));
+        messageData.setSenderid(senderId != null && !senderId.isBlank() ? senderId.trim() : getConfigProperty("sms.sender.id"));
         List<SmsMessageData> msgdata = new ArrayList<>();
         msgdata.add(messageData);
         SmsNotificationData smsNotificationData = new SmsNotificationData();

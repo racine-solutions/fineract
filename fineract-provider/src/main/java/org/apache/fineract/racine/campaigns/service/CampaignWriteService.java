@@ -20,7 +20,9 @@ package org.apache.fineract.racine.campaigns.service;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -42,6 +44,8 @@ import org.apache.fineract.racine.campaigns.data.MessageCheckData;
 import org.apache.fineract.racine.campaigns.domain.CampaignStatus;
 import org.apache.fineract.racine.campaigns.domain.DeliveryReason;
 import org.apache.fineract.racine.campaigns.domain.DeliveryStatus;
+import org.apache.fineract.racine.campaigns.domain.RepeatStop;
+import org.apache.fineract.racine.campaigns.domain.RepeatUnit;
 import org.apache.fineract.racine.campaigns.domain.ScheduleType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -73,8 +77,7 @@ public class CampaignWriteService {
         final String name = name(command, null);
         final CommTemplateData template = template(command.longValueOfParameterNamed("templateId"));
         final String audience = audience(json, null);
-        final ScheduleType scheduleType = scheduleType(command, null);
-        final LocalDateTime scheduledAt = scheduledAt(command, scheduleType, null);
+        final ScheduleInput schedule = schedule(command);
         final Long userId = context.authenticatedUser().getId();
         final LocalDateTime now = CommSupport.nowUtc();
         final Map<String, Object> values = new java.util.HashMap<>();
@@ -86,8 +89,7 @@ public class CampaignWriteService {
         values.put("message_text", template.text());
         values.put("email_subject", template.emailSubject());
         values.put("audience_json", audience);
-        values.put("schedule_type", scheduleType.name());
-        values.put("scheduled_at", scheduledAt);
+        values.putAll(schedule.columns());
         values.put("status", CampaignStatus.DRAFT.name());
         values.put("office_id", context.authenticatedUser().getOffice().getId());
         values.put("created_by", userId);
@@ -111,18 +113,28 @@ public class CampaignWriteService {
         final JsonObject json = command.parsedJson().getAsJsonObject();
         final CommTemplateData template = template(command.parameterExists("templateId") ? command.longValueOfParameterNamed("templateId")
                 : jdbcTemplate.queryForObject("select template_id from m_comm_campaign where id = ?", Long.class, id));
-        final ScheduleType scheduleType = scheduleType(command, row.scheduleType());
-        final LocalDateTime scheduledAt = scheduledAt(command, scheduleType, row.scheduledAt());
+        // The schedule is sent whole; without scheduleType the stored schedule is kept
+        final ScheduleInput schedule = command.parameterExists("scheduleType") ? schedule(command) : null;
         // An edit after submission or approval needs a fresh approval; a rejected campaign becomes a draft again
         final CampaignStatus next = status == CampaignStatus.PENDING_APPROVAL || status == CampaignStatus.SCHEDULED
                 ? CampaignStatus.PENDING_APPROVAL
                 : CampaignStatus.DRAFT;
-        jdbcTemplate.update("update m_comm_campaign set name = ?, template_id = ?, channel = ?, purpose = ?, tag = ?, message_text = ?,"
-                + " email_subject = ?, audience_json = ?, schedule_type = ?, scheduled_at = ?, status = ?, next_run_at = null, last_error = null,"
-                + " approved_by = null, approved_on_utc = null, last_modified_by = ?, last_modified_on_utc = ? where id = ?",
+        jdbcTemplate.update(
+                "update m_comm_campaign set name = ?, template_id = ?, channel = ?, purpose = ?, tag = ?, message_text = ?,"
+                        + " email_subject = ?, audience_json = ?, status = ?, next_run_at = null, last_error = null,"
+                        + " approved_by = null, approved_on_utc = null, last_modified_by = ?, last_modified_on_utc = ? where id = ?",
                 name(command, id), template.id(), template.channel(), template.purpose(), template.tag(), template.text(),
-                template.emailSubject(), audience(json, id), scheduleType.name(), scheduledAt, next.name(),
-                context.authenticatedUser().getId(), CommSupport.nowUtc(), id);
+                template.emailSubject(), audience(json, id), next.name(), context.authenticatedUser().getId(), CommSupport.nowUtc(), id);
+        if (schedule != null) {
+            final StringBuilder sql = new StringBuilder("update m_comm_campaign set ");
+            final java.util.List<Object> params = new ArrayList<>();
+            schedule.columns().forEach((column, value) -> {
+                sql.append(params.isEmpty() ? "" : ", ").append(column).append(" = ?");
+                params.add(value);
+            });
+            params.add(id);
+            jdbcTemplate.update(sql.append(" where id = ?").toString(), params.toArray());
+        }
         history(id, "UPDATED", next == CampaignStatus.PENDING_APPROVAL ? "Changed after submission: needs approval again" : null);
         return result(command, id);
     }
@@ -151,8 +163,9 @@ public class CampaignWriteService {
         expect(row, EnumSet.of(CampaignStatus.PENDING_APPROVAL), "approved");
         final Long userId = context.authenticatedUser().getId();
         checkSendTime(row);
-        final LocalDateTime nextRun = ScheduleType.ONCE.name().equals(row.scheduleType()) ? row.scheduledAt()
-                : DateUtils.getLocalDateTimeOfTenant();
+        final CampaignSchedule schedule = schedule(id);
+        final LocalDateTime nextRun = schedule.firstAllowed(
+                ScheduleType.NOW.name().equals(row.scheduleType()) ? DateUtils.getLocalDateTimeOfTenant() : row.scheduledAt());
         jdbcTemplate
                 .update("update m_comm_campaign set status = ?, approved_by = ?, approved_on_utc = ?, next_run_at = ?, last_error = null"
                         + " where id = ?", CampaignStatus.SCHEDULED.name(), userId, CommSupport.nowUtc(), nextRun, id);
@@ -218,7 +231,8 @@ public class CampaignWriteService {
     @Transactional
     public CommandProcessingResult retry(final Long id, final Long runId, final JsonCommand command) {
         final Row row = load(id);
-        expect(row, EnumSet.of(CampaignStatus.COMPLETED, CampaignStatus.SENDING, CampaignStatus.PAUSED), "retried");
+        expect(row, EnumSet.of(CampaignStatus.COMPLETED, CampaignStatus.SENDING, CampaignStatus.PAUSED, CampaignStatus.SCHEDULED),
+                "retried");
         final Integer runFound = jdbcTemplate.queryForObject("select count(*) from m_comm_run where id = ? and campaign_id = ?",
                 Integer.class, runId, id);
         if (runFound == null || runFound == 0) {
@@ -250,7 +264,7 @@ public class CampaignWriteService {
             throw rule("nothing.to.retry", "There is nothing to retry in this run.");
         }
         jdbcTemplate.update("update m_comm_run set finished_on_utc = null where id = ?", runId);
-        if (CampaignStatus.COMPLETED.name().equals(row.status())) {
+        if (CampaignStatus.COMPLETED.name().equals(row.status()) || CampaignStatus.SCHEDULED.name().equals(row.status())) {
             jdbcTemplate.update("update m_comm_campaign set status = ? where id = ?", CampaignStatus.SENDING.name(), id);
         }
         history(id, "RETRIED", queued + " message" + (queued == 1 ? "" : "s") + " queued again from run " + runNumber(runId));
@@ -324,32 +338,108 @@ public class CampaignWriteService {
         return AudienceService.toJson(filters);
     }
 
-    private ScheduleType scheduleType(final JsonCommand command, final String current) {
-        final String value = command.parameterExists("scheduleType") ? command.stringValueOfParameterNamedAllowingNull("scheduleType")
-                : StringUtils.defaultIfBlank(current, ScheduleType.NOW.name());
-        return CommTemplateService.parse(ScheduleType.class, value, "scheduleType", "Choose to send now or once at a set time.");
+    /** A checked schedule and the m_comm_campaign columns it is stored in. */
+    record ScheduleInput(CampaignSchedule schedule, Map<String, Object> columns) {
     }
 
-    private LocalDateTime scheduledAt(final JsonCommand command, final ScheduleType type, final LocalDateTime current) {
-        if (type == ScheduleType.NOW) {
+    /** The stored schedule of a campaign. */
+    CampaignSchedule schedule(final Long id) {
+        return CampaignSchedule
+                .of(jdbcTemplate.queryForMap("select " + CampaignSchedule.COLUMNS + " from m_comm_campaign where id = ?", id));
+    }
+
+    /**
+     * Reads and checks the schedule: scheduleType (NOW, ONCE or REPEAT), scheduledAt (yyyy-MM-dd HH:mm) for ONCE and
+     * REPEAT; for REPEAT repeatEvery, repeatUnit (DAYS, WEEKS, MONTHS) and repeatStop (NEVER, ON_DATE with repeatUntil
+     * yyyy-MM-dd, AFTER_RUNS with repeatMaxRuns); optional quietFrom and quietTo (HH:mm).
+     */
+    private ScheduleInput schedule(final JsonCommand command) {
+        final ScheduleType type = CommTemplateService.parse(ScheduleType.class,
+                StringUtils.defaultIfBlank(command.stringValueOfParameterNamedAllowingNull("scheduleType"), ScheduleType.NOW.name()),
+                "scheduleType", "Choose to send now, once at a set time, or on a repeat.");
+        LocalDateTime start = null;
+        if (type != ScheduleType.NOW) {
+            final String value = command.stringValueOfParameterNamedAllowingNull("scheduledAt");
+            if (StringUtils.isBlank(value)) {
+                throw CommTemplateService.invalid("scheduledAt", "Choose the date and time of the first send.");
+            }
+            try {
+                start = LocalDateTime.parse(value.trim(), CommSupport.LOCAL_TIME);
+            } catch (DateTimeParseException e) {
+                throw CommTemplateService.invalid("scheduledAt", "Give the send time as yyyy-MM-dd HH:mm.", e);
+            }
+        }
+        Integer every = null;
+        RepeatUnit unit = null;
+        RepeatStop stop = null;
+        LocalDate until = null;
+        Integer maxRuns = null;
+        if (type == ScheduleType.REPEAT) {
+            every = integer(command, "repeatEvery", 1, 365, "Repeat every 1 to 365 days, weeks or months.");
+            unit = CommTemplateService.parse(RepeatUnit.class, command.stringValueOfParameterNamedAllowingNull("repeatUnit"), "repeatUnit",
+                    "Repeat in DAYS, WEEKS or MONTHS.");
+            stop = CommTemplateService.parse(RepeatStop.class,
+                    StringUtils.defaultIfBlank(command.stringValueOfParameterNamedAllowingNull("repeatStop"), RepeatStop.NEVER.name()),
+                    "repeatStop", "Stop NEVER, ON_DATE or AFTER_RUNS.");
+            if (stop == RepeatStop.ON_DATE) {
+                try {
+                    until = LocalDate.parse(StringUtils.trimToEmpty(command.stringValueOfParameterNamedAllowingNull("repeatUntil")));
+                } catch (DateTimeParseException e) {
+                    throw CommTemplateService.invalid("repeatUntil", "Give the last date to send as yyyy-MM-dd.", e);
+                }
+                if (until.isBefore(start.toLocalDate())) {
+                    throw CommTemplateService.invalid("repeatUntil", "The last date must be on or after the first send.");
+                }
+            } else if (stop == RepeatStop.AFTER_RUNS) {
+                maxRuns = integer(command, "repeatMaxRuns", 1, 1000, "Stop after 1 to 1000 runs.");
+            }
+        }
+        final LocalTime quietFrom = clock(command, "quietFrom");
+        final LocalTime quietTo = clock(command, "quietTo");
+        if ((quietFrom == null) != (quietTo == null) || (quietFrom != null && !quietFrom.isBefore(quietTo))) {
+            throw CommTemplateService.invalid("quietFrom",
+                    "Quiet hours need a start and an end, and the start must come first (e.g. 08:00 to 20:00).");
+        }
+        final Map<String, Object> columns = new java.util.LinkedHashMap<>();
+        columns.put("schedule_type", type.name());
+        columns.put("scheduled_at", start);
+        columns.put("repeat_every", every);
+        columns.put("repeat_unit", unit == null ? null : unit.name());
+        columns.put("repeat_stop", stop == null ? null : stop.name());
+        columns.put("repeat_until", until);
+        columns.put("repeat_max_runs", maxRuns);
+        columns.put("quiet_from", quietFrom == null ? null : quietFrom.toString());
+        columns.put("quiet_to", quietTo == null ? null : quietTo.toString());
+        return new ScheduleInput(new CampaignSchedule(type, start, every, unit, stop, until, maxRuns, quietFrom, quietTo), columns);
+    }
+
+    private static Integer integer(final JsonCommand command, final String name, final int min, final int max, final String message) {
+        final Long value;
+        try {
+            value = command.longValueOfParameterNamed(name);
+        } catch (RuntimeException e) {
+            throw CommTemplateService.invalid(name, message, e);
+        }
+        if (value == null || value < min || value > max) {
+            throw CommTemplateService.invalid(name, message);
+        }
+        return value.intValue();
+    }
+
+    private static LocalTime clock(final JsonCommand command, final String name) {
+        final String value = StringUtils.trimToNull(command.stringValueOfParameterNamedAllowingNull(name));
+        if (value == null) {
             return null;
         }
-        final String value = command.stringValueOfParameterNamedAllowingNull("scheduledAt");
-        if (StringUtils.isBlank(value)) {
-            if (current != null) {
-                return current;
-            }
-            throw CommTemplateService.invalid("scheduledAt", "Choose the date and time to send.");
-        }
         try {
-            return LocalDateTime.parse(value.trim(), CommSupport.LOCAL_TIME);
+            return LocalTime.parse(value);
         } catch (DateTimeParseException e) {
-            throw CommTemplateService.invalid("scheduledAt", "Give the send time as yyyy-MM-dd HH:mm.", e);
+            throw CommTemplateService.invalid(name, "Give quiet hours as HH:mm, e.g. 08:00.", e);
         }
     }
 
     private static void checkSendTime(final Row row) {
-        if (ScheduleType.ONCE.name().equals(row.scheduleType())
+        if (!ScheduleType.NOW.name().equals(row.scheduleType())
                 && (row.scheduledAt() == null || !row.scheduledAt().isAfter(DateUtils.getLocalDateTimeOfTenant()))) {
             throw rule("send.time.passed", "The send time has passed. Edit the campaign and choose a later time.");
         }

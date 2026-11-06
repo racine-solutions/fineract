@@ -42,9 +42,9 @@ public interface SmsNotificationWritePlatformService {
 
     /**
      * Sends one campaign SMS straight away and says what happened, so the campaign can record a reason for each
-     * recipient. The text is kept in the message history.
+     * recipient. The text is kept in the message history. A blank senderId uses the usual sender ID.
      */
-    SmsSendOutcome sendCampaignSms(SmsMessageData messageData);
+    SmsSendOutcome sendCampaignSms(SmsMessageData messageData, String senderId);
 
     void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction);
 

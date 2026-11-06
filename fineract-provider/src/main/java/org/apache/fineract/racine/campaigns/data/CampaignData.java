@@ -24,5 +24,7 @@ public record CampaignData(Long id, String name, Long templateId, String templat
         String messageText, String audience, String scheduleType, String scheduledAt, String nextRunAt, String status, String lastError,
         Long officeId, String officeName, String createdBy, Long createdById, String createdOn, String lastModifiedBy,
         Long lastModifiedById, String submittedBy, String submittedOn, String approvedBy, String approvedOn, String rejectedBy,
-        String rejectedOn, String rejectionReason, CampaignRunData lastRun, List<CampaignHistoryData> history) {
+        String rejectedOn, String rejectionReason, CampaignRunData lastRun, List<CampaignHistoryData> history, Integer repeatEvery,
+        String repeatUnit, String repeatStop, String repeatUntil, Integer repeatMaxRuns, String quietFrom, String quietTo, int runsDone,
+        List<String> upcomingRuns) {
 }

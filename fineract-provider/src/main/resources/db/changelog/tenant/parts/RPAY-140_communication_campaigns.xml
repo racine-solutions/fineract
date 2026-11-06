@@ -302,4 +302,84 @@
             <column name="short_name" value="COMM_SND"/>
         </insert>
     </changeSet>
+    <!-- Phase 2: repeating campaigns, quiet hours, saved audiences, marketing sender ID -->
+    <changeSet id="rpay140-7-repeat-and-quiet-hours" author="racine">
+        <addColumn tableName="m_comm_campaign">
+            <column name="repeat_every" type="INT"/>
+            <column name="repeat_unit" type="VARCHAR(10)"/>
+            <column name="repeat_stop" type="VARCHAR(12)"/>
+            <column name="repeat_until" type="DATE"/>
+            <column name="repeat_max_runs" type="INT"/>
+            <!-- Sending allowed only from quiet_from to quiet_to (HH:mm, tenant time); both null means any time -->
+            <column name="quiet_from" type="VARCHAR(5)"/>
+            <column name="quiet_to" type="VARCHAR(5)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="rpay140-8-saved-audiences" author="racine">
+        <createTable tableName="m_comm_audience">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="name" type="VARCHAR(100)"><constraints nullable="false" unique="true" uniqueConstraintName="uq_m_comm_audience_name"/></column>
+            <column name="audience_json" type="TEXT"><constraints nullable="false"/></column>
+            <column name="office_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_comm_audience_office" references="m_office(id)"/>
+            </column>
+            <column name="created_by" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="created_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="last_modified_by" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="last_modified_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+        </createTable>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="READ_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="CREATE_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="UPDATE_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="DELETE_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay140-9-campaign-settings" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name IN ('campaign-quiet-hours', 'sms-marketing-sender-id')</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="campaign-quiet-hours"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value" value="08:00-20:00"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Default hours campaigns may send SMS in, as HH:mm-HH:mm in the institution's time zone (08:00-20:00). New campaigns start with these hours and staff can change them per campaign. Disable to start new campaigns with no quiet hours."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="sms-marketing-sender-id"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Sender ID for Sales and marketing campaign SMS, if the institution has registered a separate one with the SMS gateway. While disabled or empty, marketing SMS use the same sender ID as every other SMS."/>
+        </insert>
+    </changeSet>
 </databaseChangeLog>

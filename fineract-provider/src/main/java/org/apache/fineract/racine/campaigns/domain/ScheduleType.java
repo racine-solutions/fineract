@@ -18,10 +18,12 @@
  */
 package org.apache.fineract.racine.campaigns.domain;
 
-/** When an approved campaign is sent. Repeating campaigns arrive in phase 2. */
+/** When an approved campaign is sent. */
 public enum ScheduleType {
     /** As soon as it is approved. */
     NOW,
     /** Once, at scheduled_at (tenant local time). */
-    ONCE
+    ONCE,
+    /** From scheduled_at, every repeat_every repeat_unit, until the stop rule is met. */
+    REPEAT
 }

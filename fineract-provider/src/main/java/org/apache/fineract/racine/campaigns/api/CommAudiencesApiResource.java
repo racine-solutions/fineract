@@ -23,10 +23,14 @@ import com.google.gson.JsonParser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,13 +38,17 @@ import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
+import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.racine.campaigns.data.AudienceClientData;
 import org.apache.fineract.racine.campaigns.data.AudienceCountData;
+import org.apache.fineract.racine.campaigns.data.SavedAudienceData;
 import org.apache.fineract.racine.campaigns.domain.CommPurpose;
 import org.apache.fineract.racine.campaigns.service.AudienceQueryBuilder;
 import org.apache.fineract.racine.campaigns.service.AudienceService;
+import org.apache.fineract.racine.campaigns.service.SavedAudienceService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -50,9 +58,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CommAudiencesApiResource {
 
+    static final String SAVED_RESOURCE = "COMMAUDIENCE";
+
     private final PlatformSecurityContext context;
     private final AudienceService audienceService;
     private final JdbcTemplate jdbcTemplate;
+    private final SavedAudienceService savedAudienceService;
+    private final PortfolioCommandSourceWritePlatformService commands;
 
     @GET
     @Path("template")
@@ -73,6 +85,43 @@ public class CommAudiencesApiResource {
         options.put("delinquencyRanges", jdbcTemplate
                 .queryForList("select id, classification name, min_age_days, max_age_days from m_delinquency_range order by min_age_days"));
         return options;
+    }
+
+    @GET
+    @Path("saved")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Saved audiences", description = "Named sets of filters, by name, for the staff member's offices.")
+    public Page<SavedAudienceData> retrieveSaved(@QueryParam("offset") final Integer offset, @QueryParam("limit") final Integer limit) {
+        context.authenticatedUser().validateHasReadPermission(SAVED_RESOURCE);
+        return savedAudienceService.retrieveAll(offset, limit);
+    }
+
+    @POST
+    @Path("saved")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Save an audience", description = "Body: name and audience (filters).")
+    public CommandProcessingResult createSaved(final String body) {
+        return commands.logCommandSource(CommCommands.of("CREATE", SAVED_RESOURCE, null, null, null, "/comm/audiences/saved", body));
+    }
+
+    @PUT
+    @Path("saved/{audienceId}")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Rename or change a saved audience")
+    public CommandProcessingResult updateSaved(@PathParam("audienceId") final Long audienceId, final String body) {
+        return commands.logCommandSource(
+                CommCommands.of("UPDATE", SAVED_RESOURCE, audienceId, null, null, "/comm/audiences/saved/" + audienceId, body));
+    }
+
+    @DELETE
+    @Path("saved/{audienceId}")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Delete a saved audience", description = "Campaigns that used it keep their own copy of the filters.")
+    public CommandProcessingResult deleteSaved(@PathParam("audienceId") final Long audienceId) {
+        return commands.logCommandSource(
+                CommCommands.of("DELETE", SAVED_RESOURCE, audienceId, null, null, "/comm/audiences/saved/" + audienceId, "{}"));
     }
 
     @POST

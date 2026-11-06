@@ -58,6 +58,7 @@ public class CommCampaignsApiResource {
     private final PlatformSecurityContext context;
     private final CampaignReadService readService;
     private final PortfolioCommandSourceWritePlatformService commands;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @GET
     @Produces({ MediaType.APPLICATION_JSON })
@@ -68,6 +69,29 @@ public class CommCampaignsApiResource {
             @QueryParam("limit") @Parameter(description = "limit, up to 500 (default 25)") final Integer limit) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE);
         return readService.retrieveAll(status, offset, limit);
+    }
+
+    @GET
+    @Path("template")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Defaults for a new campaign", description = "The default quiet hours (campaign-quiet-hours configuration).")
+    public java.util.Map<String, Object> template() {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE);
+        final java.util.Map<String, Object> defaults = new java.util.LinkedHashMap<>();
+        final List<java.util.Map<String, Object>> setting = jdbcTemplate
+                .queryForList("select enabled, string_value from c_configuration where name = 'campaign-quiet-hours'");
+        String from = null;
+        String to = null;
+        if (!setting.isEmpty() && Boolean.TRUE.equals(setting.get(0).get("enabled"))) {
+            final String[] hours = StringUtils.defaultString((String) setting.get(0).get("string_value")).split("-");
+            if (hours.length == 2 && hours[0].trim().matches("\\d{2}:\\d{2}") && hours[1].trim().matches("\\d{2}:\\d{2}")) {
+                from = hours[0].trim();
+                to = hours[1].trim();
+            }
+        }
+        defaults.put("quietFrom", from);
+        defaults.put("quietTo", to);
+        return defaults;
     }
 
     @GET

@@ -213,7 +213,61 @@ public class CampaignReadService {
                 CommSupport.utcText(time(rs, "created_on_utc")), user(rs, "mu"), rs.getLong("last_modified_by"), user(rs, "su"),
                 CommSupport.utcText(time(rs, "submitted_on_utc")), user(rs, "au"), CommSupport.utcText(time(rs, "approved_on_utc")),
                 user(rs, "ru"), CommSupport.utcText(time(rs, "rejected_on_utc")), rs.getString("rejection_reason"),
-                lastRun.isEmpty() ? null : run(lastRun.get(0)), history);
+                lastRun.isEmpty() ? null : run(lastRun.get(0)), history, (Integer) rs.getObject("repeat_every", Integer.class),
+                rs.getString("repeat_unit"), rs.getString("repeat_stop"),
+                rs.getObject("repeat_until", java.time.LocalDate.class) == null ? null
+                        : rs.getObject("repeat_until", java.time.LocalDate.class).toString(),
+                (Integer) rs.getObject("repeat_max_runs", Integer.class), rs.getString("quiet_from"), rs.getString("quiet_to"),
+                runsDone(id), full ? upcoming(rs) : List.of());
+    }
+
+    private int runsDone(final Long campaignId) {
+        final Integer runs = jdbcTemplate.queryForObject("select count(*) from m_comm_run where campaign_id = ?", Integer.class,
+                campaignId);
+        return runs == null ? 0 : runs;
+    }
+
+    /** The next few run times still to come, for a scheduled or repeating campaign. */
+    private List<String> upcoming(final ResultSet rs) throws SQLException {
+        final String status = rs.getString("status");
+        if (!List.of("DRAFT", "PENDING_APPROVAL", "SCHEDULED", "PAUSED", "REJECTED", "SENDING").contains(status)
+                || "NOW".equals(rs.getString("schedule_type"))) {
+            return List.of();
+        }
+        final java.util.Map<String, Object> row = new java.util.HashMap<>();
+        for (String column : CampaignSchedule.COLUMNS.split(",\\s*")) {
+            row.put(column, rs.getObject(column));
+        }
+        final CampaignSchedule schedule = CampaignSchedule.of(row);
+        final int done = runsDone(rs.getLong("id"));
+        final LocalDateTime now = org.apache.fineract.infrastructure.core.service.DateUtils.getLocalDateTimeOfTenant();
+        return schedule.upcoming(done + 5).stream().skip(done).filter(time -> time.isAfter(now)).limit(5).map(CommSupport::localText)
+                .toList();
+    }
+
+    /** Campaign messages one client has received, failed or been skipped for, newest first. */
+    public Page<org.apache.fineract.racine.campaigns.data.ClientCampaignMessageData> retrieveClientMessages(final Long clientId,
+            final Integer offset, final Integer limit) {
+        final Integer client = jdbcTemplate.queryForObject(
+                "select count(*) from m_client c join m_office o on o.id = c.office_id" + " where c.id = ? and o.hierarchy like ?",
+                Integer.class, clientId, context.officeHierarchy() + "%");
+        if (client == null || client == 0) {
+            throw new ResourceNotFoundException("error.msg.client.id.invalid", "Client " + clientId + " does not exist.",
+                    new Object[] { clientId });
+        }
+        final Integer total = jdbcTemplate.queryForObject("select count(*) from m_comm_delivery where client_id = ?", Integer.class,
+                clientId);
+        final List<org.apache.fineract.racine.campaigns.data.ClientCampaignMessageData> rows = jdbcTemplate.query(
+                "select d.*, c.name campaign_name, r.run_number from m_comm_delivery d join m_comm_campaign c on c.id = d.campaign_id"
+                        + " join m_comm_run r on r.id = d.run_id where d.client_id = ? order by d.id desc "
+                        + sqlGenerator.limit(size(limit), from(offset)),
+                (rs, n) -> new org.apache.fineract.racine.campaigns.data.ClientCampaignMessageData(rs.getLong("id"),
+                        rs.getLong("campaign_id"), rs.getString("campaign_name"), rs.getInt("run_number"), rs.getString("channel"),
+                        rs.getString("address"), rs.getString("message"), rs.getString("status"), rs.getString("reason"),
+                        CommSupport.utcText(
+                                time(rs, rs.getTimestamp("last_attempt_on_utc") != null ? "last_attempt_on_utc" : "created_on_utc"))),
+                clientId);
+        return new Page<>(rows, total == null ? 0 : total);
     }
 
     private static String user(final ResultSet rs, final String prefix) throws SQLException {

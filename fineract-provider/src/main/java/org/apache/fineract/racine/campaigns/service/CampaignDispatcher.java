@@ -33,6 +33,7 @@ import org.apache.fineract.racine.campaigns.domain.CampaignStatus;
 import org.apache.fineract.racine.campaigns.domain.CommPurpose;
 import org.apache.fineract.racine.campaigns.domain.DeliveryReason;
 import org.apache.fineract.racine.campaigns.domain.DeliveryStatus;
+import org.apache.fineract.racine.campaigns.domain.ScheduleType;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -86,6 +87,13 @@ public class CampaignDispatcher {
                 .queryForMap("select c.status, c.purpose, c.audience_json, c.channel, c.last_error,"
                         + " o.hierarchy from m_comm_campaign c join m_office o on o.id = c.office_id where c.id = ?", id);
         if (!CampaignStatus.SCHEDULED.name().equals(campaign.get("status"))) {
+            return;
+        }
+        final CampaignSchedule schedule = writeService.schedule(id);
+        final LocalDateTime localNow = DateUtils.getLocalDateTimeOfTenant();
+        if (!schedule.allowsSendingAt(localNow)) {
+            // Within quiet hours: start when sending is allowed again
+            jdbcTemplate.update("update m_comm_campaign set next_run_at = ? where id = ?", schedule.firstAllowed(localNow), id);
             return;
         }
         final List<AudienceService.Recipient> recipients = audienceService.recipients(
@@ -144,7 +152,18 @@ public class CampaignDispatcher {
             runInNewTransaction(() -> finish(id), id);
             return;
         }
+        final CampaignSchedule schedule = writeService.schedule(id);
+        final LocalDateTime localNow = DateUtils.getLocalDateTimeOfTenant();
+        if (!schedule.allowsSendingAt(localNow)) {
+            final String waiting = "Paused for quiet hours: sending continues at "
+                    + schedule.firstAllowed(localNow).format(CommSupport.LOCAL_TIME) + ".";
+            jdbcTemplate.update("update m_comm_campaign set last_error = ? where id = ? and (last_error is null or last_error <> ?)",
+                    waiting, id, waiting);
+            return;
+        }
+        jdbcTemplate.update("update m_comm_campaign set last_error = null where id = ? and last_error like 'Paused for quiet hours%'", id);
         final String text = jdbcTemplate.queryForObject("select message_text from m_comm_campaign where id = ?", String.class, id);
+        final String senderId = senderId(id);
         final Mustache mustache = renderer.compile(text, "campaign-" + id);
         final List<Map<String, Object>> batch = queued.subList(0, Math.min(BATCH_SIZE, queued.size()));
         final Map<Long, Map<String, Object>> scopes = renderer
@@ -158,7 +177,7 @@ public class CampaignDispatcher {
             }
             final Long deliveryId = ((Number) row.get("id")).longValue();
             final Map<String, Object> scope = scopes.get(((Number) row.get("client_id")).longValue());
-            final DeliveryReason stopReason = callInNewTransaction(() -> sendOne(deliveryId, scope, mustache, countryCode), id);
+            final DeliveryReason stopReason = callInNewTransaction(() -> sendOne(deliveryId, scope, mustache, countryCode, senderId), id);
             if (stopReason != null) {
                 // Nothing else can go out until the SMS account is fixed: leave the rest retryable
                 runInNewTransaction(() -> {
@@ -180,7 +199,7 @@ public class CampaignDispatcher {
      * @return a reason when the SMS account stops all further sending, else null
      */
     private DeliveryReason sendOne(final Long deliveryId, final Map<String, Object> scope, final Mustache mustache,
-            final String countryCode) {
+            final String countryCode, final String senderId) {
         final LocalDateTime now = CommSupport.nowUtc();
         if (scope == null) {
             jdbcTemplate.update(
@@ -200,7 +219,7 @@ public class CampaignDispatcher {
             return null;
         }
         final SmsMessageData message = new SmsMessageData(phone, renderer.render(mustache, scope), null);
-        final SmsSendOutcome outcome = smsService.sendCampaignSms(message);
+        final SmsSendOutcome outcome = smsService.sendCampaignSms(message, senderId);
         final DeliveryReason reason = switch (outcome.status()) {
             case SENT -> null;
             case NO_CREDIT -> DeliveryReason.NO_SMS_CREDIT;
@@ -219,6 +238,7 @@ public class CampaignDispatcher {
                 : null;
     }
 
+    /** Closes the run; a repeating campaign is scheduled for its next run, any other one is completed. */
     private void finish(final Long id) {
         jdbcTemplate.update("update m_comm_run set finished_on_utc = ? where campaign_id = ? and finished_on_utc is null",
                 CommSupport.nowUtc(), id);
@@ -227,10 +247,35 @@ public class CampaignDispatcher {
                         + " sum(case when d.status = ? then 1 else 0 end) failed, sum(case when d.status = ? then 1 else 0 end) skipped"
                         + " from m_comm_delivery d where d.run_id = (select max(r.id) from m_comm_run r where r.campaign_id = ?)",
                 DeliveryStatus.SENT.name(), DeliveryStatus.FAILED.name(), DeliveryStatus.SKIPPED.name(), id);
-        jdbcTemplate.update("update m_comm_campaign set status = ? where id = ? and status = ?", CampaignStatus.COMPLETED.name(), id,
-                CampaignStatus.SENDING.name());
-        writeService.history(id, "RUN_FINISHED", number(counts.get("sent")) + " sent, " + number(counts.get("failed")) + " failed, "
-                + number(counts.get("skipped")) + " skipped");
+        final Integer runsDone = jdbcTemplate.queryForObject("select count(*) from m_comm_run where campaign_id = ?", Integer.class, id);
+        final CampaignSchedule schedule = writeService.schedule(id);
+        final LocalDateTime nextRun = schedule.nextRun(runsDone == null ? 0 : runsDone, DateUtils.getLocalDateTimeOfTenant());
+        final String summary = number(counts.get("sent")) + " sent, " + number(counts.get("failed")) + " failed, "
+                + number(counts.get("skipped")) + " skipped";
+        if (nextRun != null) {
+            final LocalDateTime start = schedule.firstAllowed(nextRun);
+            jdbcTemplate.update("update m_comm_campaign set status = ?, next_run_at = ? where id = ? and status = ?",
+                    CampaignStatus.SCHEDULED.name(), start, id, CampaignStatus.SENDING.name());
+            writeService.history(id, "RUN_FINISHED", summary + ". Next run " + start.format(CommSupport.LOCAL_TIME) + ".");
+        } else {
+            jdbcTemplate.update("update m_comm_campaign set status = ?, next_run_at = null where id = ? and status = ?",
+                    CampaignStatus.COMPLETED.name(), id, CampaignStatus.SENDING.name());
+            writeService.history(id, "RUN_FINISHED", summary + (schedule.type() == ScheduleType.REPEAT ? ". That was the last run." : ""));
+        }
+    }
+
+    /** The marketing sender ID, when the campaign is Sales and marketing and one is set and switched on; else null. */
+    private String senderId(final Long id) {
+        final String purpose = jdbcTemplate.queryForObject("select purpose from m_comm_campaign where id = ?", String.class, id);
+        if (!CommPurpose.MARKETING.name().equals(purpose)) {
+            return null;
+        }
+        final List<Map<String, Object>> setting = jdbcTemplate
+                .queryForList("select enabled, string_value from c_configuration where name = 'sms-marketing-sender-id'");
+        if (setting.isEmpty() || !Boolean.TRUE.equals(setting.get(0).get("enabled"))) {
+            return null;
+        }
+        return StringUtils.trimToNull((String) setting.get(0).get("string_value"));
     }
 
     /** Why the run can't start yet, or null when SMS is on and the wallet covers it. */
