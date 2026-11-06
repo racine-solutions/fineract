@@ -29,6 +29,7 @@ import java.math.MathContext;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -52,6 +53,8 @@ import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidati
 import org.apache.fineract.infrastructure.core.exception.PlatformServiceUnavailableException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepositoryWrapper;
 import org.apache.fineract.organisation.monetary.domain.ApplicationCurrencyRepositoryWrapper;
 import org.apache.fineract.organisation.monetary.domain.Money;
@@ -138,6 +141,7 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     private final HolidayRepositoryWrapper holidayRepository;
     private final WorkingDaysRepositoryWrapper workingDaysRepository;
     private final DepositAccountOnHoldTransactionRepository depositAccountOnHoldTransactionRepository;
+    private final SmsNotificationWritePlatformService smsNotificationWritePlatformService;
 
     @Transactional
     @Override
@@ -216,6 +220,10 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
         }
         postJournalEntries(account, existingTransactionIds, existingReversedTransactionIds);
 
+        if (!changes.isEmpty()) {
+            smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.FIXED_DEPOSIT_ACTIVATION, null);
+        }
+
         return new CommandProcessingResultBuilder() //
                 .withEntityId(savingsId) //
                 .withOfficeId(account.officeId()) //
@@ -224,6 +232,24 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
                 .withSavingsId(savingsId) //
                 .with(changes) //
                 .build();
+    }
+
+    private static SmsTypeEnum withdrawSmsType(final DepositAccountType depositAccountType) {
+        return depositAccountType == DepositAccountType.RECURRING_DEPOSIT ? SmsTypeEnum.RECURRING_DEPOSIT_WITHDRAW
+                : SmsTypeEnum.FIXED_DEPOSIT_WITHDRAW;
+    }
+
+    /**
+     * The withdrawal that paid the member out when the account closed, or null when nothing was paid out (for example
+     * the money was reinvested).
+     */
+    static SavingsAccountTransaction closurePayout(final SavingsAccount account) {
+        final LocalDate closedOn = account.getClosedOnDate();
+        return account.getTransactions().stream().filter(transaction -> transaction.isWithdrawal() && transaction.isNotReversed())
+                .filter(transaction -> closedOn == null || !transaction.getTransactionDate().isBefore(closedOn))
+                .max(Comparator.comparing(SavingsAccountTransaction::getTransactionDate)
+                        .thenComparing(transaction -> transaction.getId() == null ? 0L : transaction.getId()))
+                .orElse(null);
     }
 
     private Money getActivationCharge(final FixedDepositAccount account) {
@@ -339,6 +365,10 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
 
         postJournalEntries(account, existingTransactionIds, existingReversedTransactionIds);
 
+        if (!changes.isEmpty()) {
+            smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.RECURRING_DEPOSIT_ACTIVATION, null);
+        }
+
         return new CommandProcessingResultBuilder() //
                 .withEntityId(savingsId) //
                 .withOfficeId(account.officeId()) //
@@ -433,6 +463,8 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
         final SavingsAccountTransaction deposit = this.depositAccountDomainService.handleRDDeposit(account, fmt, transactionDate,
                 transactionAmount, paymentDetail, isRegularTransaction);
 
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.RECURRING_DEPOSIT_DEPOSIT, deposit);
+
         return new CommandProcessingResultBuilder() //
                 .withEntityId(deposit.getId()) //
                 .withOfficeId(account.officeId()) //
@@ -472,6 +504,8 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
 
         final SavingsAccountTransaction withdrawal = this.depositAccountDomainService.handleWithdrawal(account, fmt, transactionDate,
                 transactionAmount, paymentDetail, true, isRegularTransaction);
+
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, withdrawSmsType(depositAccountType), withdrawal);
 
         return new CommandProcessingResultBuilder() //
                 .withEntityId(withdrawal.getId()) //
@@ -935,6 +969,9 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
             this.noteRepository.save(note);
         }
 
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.FIXED_DEPOSIT_WITHDRAW,
+                closurePayout(account));
+
         return new CommandProcessingResultBuilder() //
                 .withEntityId(savingsId) //
                 .withOfficeId(account.officeId()) //
@@ -968,6 +1005,9 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
             this.noteRepository.save(note);
         }
 
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.RECURRING_DEPOSIT_WITHDRAW,
+                closurePayout(account));
+
         return new CommandProcessingResultBuilder() //
                 .withEntityId(savingsId) //
                 .withOfficeId(account.officeId()) //
@@ -1000,6 +1040,9 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
             changes.put("note", noteText);
             this.noteRepository.save(note);
         }
+
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.FIXED_DEPOSIT_WITHDRAW,
+                closurePayout(account));
 
         return new CommandProcessingResultBuilder() //
                 .withEntityId(savingsId) //
@@ -1042,6 +1085,9 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
             changes.put("note", noteText);
             this.noteRepository.save(note);
         }
+
+        smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.RECURRING_DEPOSIT_WITHDRAW,
+                closurePayout(account));
 
         return new CommandProcessingResultBuilder() //
                 .withEntityId(savingsId) //

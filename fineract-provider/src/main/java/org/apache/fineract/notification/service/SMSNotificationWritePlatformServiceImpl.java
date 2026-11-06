@@ -23,6 +23,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -41,7 +42,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.configuration.api.GlobalConfigurationConstants;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationProperty;
 import org.apache.fineract.infrastructure.configuration.domain.GlobalConfigurationRepositoryWrapper;
-import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.event.external.repository.SmsEventConfigurationRepository;
@@ -57,8 +57,12 @@ import org.apache.fineract.notification.domain.SmsNotificationMessageRepository;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
+import org.apache.fineract.portfolio.savings.DepositAccountType;
+import org.apache.fineract.portfolio.savings.domain.FixedDepositAccount;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccount;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransaction;
+import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccount;
+import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountTransaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 
@@ -85,18 +89,38 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.LOAN_REPAYMENT, "LoanAccountRepaymentEvent");
         SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.LOAN_CLEARANCE, "LoanAccountClearanceEvent");
         // Savings
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SAVINGS_SUBMISSION, "SavingsAccountCreationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SAVINGS_APPROVAL, "SavingsAccountApprovalEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SAVINGS_ACTIVATION, "SavingsAccountActivationEvent");
         SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SAVINGS_DEPOSIT, "SavingsAccountDepositEvent");
         SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SAVINGS_WITHDRAW, "SavingsAccountWithdrawEvent");
+        // Fixed deposits: the deposit is made on activation, the payout on closure
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.FIXED_DEPOSIT_SUBMISSION, "FixedDepositAccountCreationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.FIXED_DEPOSIT_APPROVAL, "FixedDepositAccountApprovalEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.FIXED_DEPOSIT_ACTIVATION, "FixedDepositAccountActivationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.FIXED_DEPOSIT_WITHDRAW, "FixedDepositAccountWithdrawEvent");
+        // Recurring deposits
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.RECURRING_DEPOSIT_SUBMISSION, "RecurringDepositAccountCreationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.RECURRING_DEPOSIT_APPROVAL, "RecurringDepositAccountApprovalEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.RECURRING_DEPOSIT_ACTIVATION, "RecurringDepositAccountActivationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.RECURRING_DEPOSIT_DEPOSIT, "RecurringDepositAccountDepositEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.RECURRING_DEPOSIT_WITHDRAW, "RecurringDepositAccountWithdrawEvent");
+        // Shares
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SHARE_SUBMISSION, "ShareAccountCreationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SHARE_APPROVAL, "ShareAccountApprovalEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SHARE_ACTIVATION, "ShareAccountActivationEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SHARE_PURCHASE, "ShareAccountPurchaseEvent");
+        SMS_TYPE_TO_EVENT_MAP.put(SmsTypeEnum.SHARE_REDEEM, "ShareAccountRedeemEvent");
     }
 
     @Override
     public void sendSms(SmsMessageData messageData, SmsTypeEnum smsType) {
-        deliver(messageData, smsType, false, true);
+        deliver(messageData, smsType, false);
     }
 
     @Override
     public boolean sendSmsNow(SmsMessageData messageData, SmsTypeEnum smsType) {
-        return deliver(messageData, smsType, true, false);
+        return deliver(messageData, smsType, true);
     }
 
     /**
@@ -104,11 +128,10 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
      *
      * @param sensitive
      *            the text carries a secret (one-time code), so it is never written to the log or the message history
-     * @param failOnNoCredit
-     *            keep the old behaviour of rejecting the call when the SMS account has no credit
-     * @return true only when the gateway accepted the message
+     * @return true only when the gateway accepted the message; with no credit left it is skipped and false, never an
+     *         error, so the deposit, repayment or approval that triggered it still goes through
      */
-    private boolean deliver(SmsMessageData messageData, SmsTypeEnum smsType, boolean sensitive, boolean failOnNoCredit) {
+    private boolean deliver(SmsMessageData messageData, SmsTypeEnum smsType, boolean sensitive) {
 
         final GlobalConfigurationProperty property = this.configurationRepositoryWrapper
                 .findOneByNameWithNotFoundDetection(GlobalConfigurationConstants.ENABLE_SMS_NOTIFICATIONS);
@@ -127,11 +150,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         if (account.getSmsTotalBalance() == null || account.getSmsTotalBalance() <= 0) {
             log.warn("Insufficient SMS credit balance ({}) for tenant :- {}. Message not sent.", account.getSmsTotalBalance(),
                     ThreadLocalContextUtil.getTenant().getName());
-            if (!failOnNoCredit) {
-                return false;
-            }
-            throw new PlatformApiDataValidationException("error.msg.sms.insufficient.balance",
-                    "Insufficient SMS credit balance. Please top up your SMS account before sending messages.", "smsTotalBalance");
+            return false;
         }
 
         if (!property.isEnabled()) {
@@ -246,14 +265,26 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
     @Override
     public void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction) {
+        try {
+            notifyLoanSmsNotification(loan, smsType, transaction);
+        } catch (RuntimeException e) {
+            // An SMS is a courtesy: it must never undo the transaction it reports on
+            log.error("{} SMS failed and was skipped: {}", smsType, e.getMessage(), e);
+        }
+    }
+
+    private void notifyLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction) {
 
         if (!isSmsNotificationEnabled(smsType)) {
             log.info("Loan Sms Event Type " + smsType + " Is Not Activate");
             return;
         }
 
+        if (loan.client() == null) {
+            log.info("No client on loan {}: group loans get no SMS", loan.getId());
+            return;
+        }
         String clientName = recipientName(loan.client());
-        String mobileNo = loan.client().getMobileNo();
         String message = null;
         String messageId = null;
         switch (smsType) {
@@ -301,50 +332,169 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
         }
 
-        if (mobileNo != null) {
-            sendSms(new SmsMessageData(mobileNo, message, messageId), smsType);
-        } else {
-            log.info("No mobile number found for client :-> %s    --->  %s", clientName, ThreadLocalContextUtil.getTenant().getName());
-        }
+        send(loan.client(), message, messageId, smsType);
     }
 
     @Override
     public void processSavingsSmsNotification(SavingsAccount savingsAccount, SmsTypeEnum smsType, SavingsAccountTransaction transaction) {
+        try {
+            notifySavingsSmsNotification(savingsAccount, smsType, transaction);
+        } catch (RuntimeException e) {
+            // An SMS is a courtesy: it must never undo the transaction it reports on
+            log.error("{} SMS failed and was skipped: {}", smsType, e.getMessage(), e);
+        }
+    }
+
+    private void notifySavingsSmsNotification(SavingsAccount savingsAccount, SmsTypeEnum smsType, SavingsAccountTransaction transaction) {
 
         if (!isSmsNotificationEnabled(smsType)) {
             log.info("SavingsAccount Sms Event Type " + smsType + " Is Not Activate");
             return;
         }
+        if (savingsAccount.getClient() == null) {
+            log.info("No client on savings account {}: group accounts get no SMS", savingsAccount.getId());
+            return;
+        }
 
-        String clientName = recipientName(savingsAccount.getClient());
-        String mobileNo = savingsAccount.getClient().getMobileNo();
-        String message = null;
-        String messageId = null;
+        String message = savingsMessage(savingsAccount, smsType, transaction);
+        if (message == null) {
+            log.info("No sms type found to process a notification");
+            return;
+        }
+        Long reference = transaction != null ? transaction.getId() : savingsAccount.getId();
+        send(savingsAccount.getClient(), message, smsType.name().replace('_', '-') + "-" + reference, smsType);
+    }
+
+    /**
+     * One wording for savings, fixed deposit and recurring deposit accounts, so every account reads the same: "Hi Doe,
+     * your fixed deposit #0****42 is approved."
+     */
+    static String savingsMessage(SavingsAccount account, SmsTypeEnum smsType, SavingsAccountTransaction transaction) {
+        String name = recipientName(account.getClient());
+        String product = productName(account.depositAccountType());
+        String number = SmsText.maskAccountNumber(account.getAccountNumber());
+        String currency = account.getCurrency().getCode();
         switch (smsType) {
+            case SAVINGS_SUBMISSION:
+            case FIXED_DEPOSIT_SUBMISSION:
+            case RECURRING_DEPOSIT_SUBMISSION:
+                return String.format("Hi %s, your %s application #%s is under review. We will update you soon.", name, product, number);
+            case SAVINGS_APPROVAL:
+            case FIXED_DEPOSIT_APPROVAL:
+            case RECURRING_DEPOSIT_APPROVAL:
+                return String.format("Hi %s, your %s #%s is approved.", name, product, number);
+            case FIXED_DEPOSIT_ACTIVATION:
+                if (account instanceof FixedDepositAccount fixedDeposit && fixedDeposit.maturityDate() != null
+                        && fixedDeposit.maturityAmount() != null) {
+                    return String.format("Hi %s, your fixed deposit #%s of %s %s is active. Matures on %s with %s %s.", name, number,
+                            currency, amount(fixedDeposit.getDepositAmount()), fixedDeposit.maturityDate(), currency,
+                            amount(fixedDeposit.maturityAmount()));
+                }
+                return String.format("Hi %s, your %s #%s is now active.", name, product, number);
+            case SAVINGS_ACTIVATION:
+            case RECURRING_DEPOSIT_ACTIVATION:
+                return String.format("Hi %s, your %s #%s is now active.", name, product, number);
             case SAVINGS_DEPOSIT:
-                message = String.format("Hi %s, deposit of %s %s made to account #%s #%s Date:%s", clientName,
-                        savingsAccount.getCurrency().getCode(), transaction.getAmount().setScale(2, RoundingMode.HALF_UP),
-                        SmsText.maskAccountNumber(savingsAccount.getAccountNumber()), transaction.getId(),
-                        transaction.getTransactionDate());
-                messageId = String.format("SAVINGS-DEPOSIT-%s", transaction.getId());
-            break;
+            case RECURRING_DEPOSIT_DEPOSIT:
+                return String.format("Hi %s, deposit of %s %s made to %s #%s #%s Date:%s", name, currency, amount(transaction.getAmount()),
+                        product, number, transaction.getId(), transaction.getTransactionDate());
             case SAVINGS_WITHDRAW:
-                message = String.format("Hi %s, withdrawal of %s %s made from account #%s #%s Date:%s", clientName,
-                        savingsAccount.getCurrency().getCode(), transaction.getAmount().setScale(2, RoundingMode.HALF_UP),
-                        SmsText.maskAccountNumber(savingsAccount.getAccountNumber()), transaction.getId(),
-                        transaction.getTransactionDate());
-                messageId = String.format("SAVINGS-WITHDRAW-%s", transaction.getId());
-            break;
+            case FIXED_DEPOSIT_WITHDRAW:
+            case RECURRING_DEPOSIT_WITHDRAW:
+                if (account.isClosed()) {
+                    // A fixed or recurring deposit pays out when it is closed, at or before maturity
+                    if (transaction == null) {
+                        return String.format("Hi %s, your %s #%s is closed. Date:%s", name, product, number,
+                                DateUtils.getBusinessLocalDate());
+                    }
+                    return String.format("Hi %s, your %s #%s is closed and %s %s paid out. #%s Date:%s", name, product, number, currency,
+                            amount(transaction.getAmount()), transaction.getId(), transaction.getTransactionDate());
+                }
+                return String.format("Hi %s, withdrawal of %s %s made from %s #%s #%s Date:%s", name, currency,
+                        amount(transaction.getAmount()), product, number, transaction.getId(), transaction.getTransactionDate());
             default:
-                log.info("No sms type found to process a notification");
-                return;
+                return null;
+        }
+    }
+
+    @Override
+    public void processShareSmsNotification(ShareAccount shareAccount, SmsTypeEnum smsType, ShareAccountTransaction transaction) {
+        try {
+            notifyShareSmsNotification(shareAccount, smsType, transaction);
+        } catch (RuntimeException e) {
+            // An SMS is a courtesy: it must never undo the transaction it reports on
+            log.error("{} SMS failed and was skipped: {}", smsType, e.getMessage(), e);
+        }
+    }
+
+    private void notifyShareSmsNotification(ShareAccount shareAccount, SmsTypeEnum smsType, ShareAccountTransaction transaction) {
+
+        if (!isSmsNotificationEnabled(smsType)) {
+            log.info("ShareAccount Sms Event Type " + smsType + " Is Not Activate");
+            return;
+        }
+        if (shareAccount.getClient() == null) {
+            log.info("No client on share account {}: no SMS sent", shareAccount.getId());
+            return;
         }
 
-        if (mobileNo != null) {
-            sendSms(new SmsMessageData(mobileNo, message, messageId), smsType);
-        } else {
-            log.info("No mobile number found for client :-> %s    --->  %s", clientName, ThreadLocalContextUtil.getTenant().getName());
+        String message = shareMessage(shareAccount, smsType, transaction);
+        if (message == null) {
+            log.info("No sms type found to process a notification");
+            return;
         }
+        Long reference = transaction != null ? transaction.getId() : shareAccount.getId();
+        send(shareAccount.getClient(), message, smsType.name().replace('_', '-') + "-" + reference, smsType);
+    }
+
+    static String shareMessage(ShareAccount account, SmsTypeEnum smsType, ShareAccountTransaction transaction) {
+        String name = recipientName(account.getClient());
+        String number = SmsText.maskAccountNumber(account.getAccountNumber());
+        String currency = account.getCurrency().getCode();
+        switch (smsType) {
+            case SHARE_SUBMISSION:
+                return String.format("Hi %s, your share account application #%s is under review. We will update you soon.", name, number);
+            case SHARE_APPROVAL:
+                return String.format("Hi %s, your share account #%s is approved.", name, number);
+            case SHARE_ACTIVATION:
+                return String.format("Hi %s, your share account #%s is now active with %s shares.", name, number,
+                        account.getTotalApprovedShares());
+            case SHARE_PURCHASE:
+                return String.format("Hi %s, purchase of %s shares for %s %s on share account #%s #%s Date:%s", name,
+                        transaction.getTotalShares(), currency, amount(transaction.amount()), number, transaction.getId(),
+                        transaction.getPurchasedDate());
+            case SHARE_REDEEM:
+                return String.format("Hi %s, %s shares redeemed for %s %s from share account #%s #%s Date:%s", name,
+                        transaction.getTotalShares(), currency, amount(transaction.amount()), number, transaction.getId(),
+                        transaction.getPurchasedDate());
+            default:
+                return null;
+        }
+    }
+
+    private static String productName(DepositAccountType type) {
+        if (type == null) {
+            return "savings account";
+        }
+        return switch (type) {
+            case FIXED_DEPOSIT -> "fixed deposit";
+            case RECURRING_DEPOSIT -> "recurring deposit";
+            default -> "savings account";
+        };
+    }
+
+    private static BigDecimal amount(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO.setScale(2) : value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** The one way every account SMS goes out: to the client's mobile number, when there is one. */
+    private void send(Client client, String message, String messageId, SmsTypeEnum smsType) {
+        String mobileNo = client.getMobileNo();
+        if (StringUtils.isBlank(mobileNo)) {
+            log.info("No mobile number for client {}, so no {} SMS", client.getId(), smsType);
+            return;
+        }
+        sendSms(new SmsMessageData(mobileNo, message, messageId), smsType);
     }
 
     /** Last name, else first name; entity clients have neither, so they fall back to their display name. */

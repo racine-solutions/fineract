@@ -53,6 +53,8 @@ import org.apache.fineract.infrastructure.event.business.domain.deposit.FixedDep
 import org.apache.fineract.infrastructure.event.business.domain.deposit.RecurringDepositAccountCreateBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
 import org.apache.fineract.organisation.staff.domain.Staff;
 import org.apache.fineract.organisation.staff.domain.StaffRepositoryWrapper;
 import org.apache.fineract.portfolio.account.domain.AccountAssociationType;
@@ -121,6 +123,7 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
     private final ConfigurationDomainService configurationDomainService;
     private final AccountNumberFormatRepositoryWrapper accountNumberFormatRepository;
     private final BusinessEventNotifierService businessEventNotifierService;
+    private final SmsNotificationWritePlatformService smsNotificationWritePlatformService;
 
     /*
      * Guaranteed to throw an exception no matter what the data integrity issue is.
@@ -193,6 +196,7 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
 
             final Long savingsId = account.getId();
             businessEventNotifierService.notifyPostBusinessEvent(new FixedDepositAccountCreateBusinessEvent(account));
+            smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.FIXED_DEPOSIT_SUBMISSION, null);
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(command.commandId()) //
@@ -252,6 +256,7 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
             account.validateApplicableInterestRate();
             savingAccountRepository.save(account);
             businessEventNotifierService.notifyPostBusinessEvent(new RecurringDepositAccountCreateBusinessEvent(account));
+            smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.RECURRING_DEPOSIT_SUBMISSION, null);
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(command.commandId()) //
@@ -610,6 +615,13 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
                 changes.put("note", noteText);
                 this.noteRepository.save(note);
             }
+        }
+
+        if (!changes.isEmpty()) {
+            smsNotificationWritePlatformService.processSavingsSmsNotification(savingsAccount,
+                    depositAccountType == DepositAccountType.RECURRING_DEPOSIT ? SmsTypeEnum.RECURRING_DEPOSIT_APPROVAL
+                            : SmsTypeEnum.FIXED_DEPOSIT_APPROVAL,
+                    null);
         }
 
         return new CommandProcessingResultBuilder() //

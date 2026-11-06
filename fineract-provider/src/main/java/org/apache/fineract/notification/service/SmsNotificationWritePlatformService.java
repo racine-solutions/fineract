@@ -24,6 +24,8 @@ import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccount;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransaction;
+import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccount;
+import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountTransaction;
 
 public interface SmsNotificationWritePlatformService {
 
@@ -39,5 +41,12 @@ public interface SmsNotificationWritePlatformService {
 
     void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction);
 
+    /**
+     * Savings, fixed deposit and recurring deposit accounts. The transaction is only needed for deposits and
+     * withdrawals; for a closed fixed or recurring deposit it is the payout, or null when nothing was paid out.
+     */
     void processSavingsSmsNotification(SavingsAccount savingsAccount, SmsTypeEnum smsType, SavingsAccountTransaction transaction);
+
+    /** The transaction is only needed for share purchases and redemptions. */
+    void processShareSmsNotification(ShareAccount shareAccount, SmsTypeEnum smsType, ShareAccountTransaction transaction);
 }

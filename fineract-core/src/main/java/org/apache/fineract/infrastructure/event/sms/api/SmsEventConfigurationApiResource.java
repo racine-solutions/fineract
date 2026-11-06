@@ -44,6 +44,7 @@ import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSeria
 import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSerializer;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
+import org.apache.fineract.infrastructure.event.external.data.SmsCreditStatusData;
 import org.apache.fineract.infrastructure.event.external.data.SmsEventConfigurationData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationAccountData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationMessageData;
@@ -68,6 +69,7 @@ public class SmsEventConfigurationApiResource {
     private final PortfolioCommandSourceWritePlatformService commandWritePlatformService;
     private final DefaultToApiJsonSerializer<SmsEventConfigurationData> jsonSerializer;
     private final DefaultToApiJsonSerializer<SmsNotificationAccountData> accountSerializer;
+    private final DefaultToApiJsonSerializer<SmsCreditStatusData> creditStatusSerializer;
     private final DefaultToApiJsonSerializer<Page<SmsNotificationMessageData>> messagesSerializer;
     private final DefaultToApiJsonSerializer<Page<SmsWalletTransactionData>> walletTransactionsSerializer;
     private final SmsEventConfigurationReadPlatformService readPlatformService;
@@ -105,6 +107,20 @@ public class SmsEventConfigurationApiResource {
         final SmsNotificationAccountData accountData = smsNotificationReadPlatformService.retrieveSmsAccount();
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return accountSerializer.serialize(settings, accountData);
+    }
+
+    /**
+     * The SMS credit left and whether it is running low. Any logged-in staff user may read it: it feeds the low-credit
+     * banner shown to everyone, not only those who manage SMS.
+     */
+    @GET
+    @Path("/account/status")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String retrieveSmsCreditStatus(@Context final UriInfo uriInfo) {
+        context.authenticatedUser();
+        final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return creditStatusSerializer.serialize(settings, smsNotificationReadPlatformService.retrieveCreditStatus());
     }
 
     @GET
