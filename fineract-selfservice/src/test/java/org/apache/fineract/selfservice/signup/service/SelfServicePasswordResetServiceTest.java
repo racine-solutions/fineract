@@ -96,6 +96,7 @@ class SelfServicePasswordResetServiceTest {
         when(user.getUsername()).thenReturn("jane@example.com");
         when(user.getEmail()).thenReturn("jane@example.com");
         when(user.getFirstname()).thenReturn("Jane");
+        when(user.getLastname()).thenReturn("Doe");
         when(user.getStatus()).thenReturn(SelfServiceUserStatus.ACTIVE);
         when(user.isAccountNonLocked()).thenReturn(true);
         when(userRepository.findById(2L)).thenReturn(Optional.of(user));
@@ -119,7 +120,7 @@ class SelfServicePasswordResetServiceTest {
         when(resolver.candidates("0785154434")).thenReturn(List.of(new SelfServiceUserIdentifierResolver.Match(2L, "jane@example.com")));
         final Map<String, Object> known = service.start("0785154434");
         verify(codeSender).send(eq(SelfServiceCodeSender.Purpose.PASSWORD_RESET), anyString(), eq("256785154434"), eq("jane@example.com"),
-                eq("Jane"), eq(SelfServiceCodeSender.Channel.SMS), eq(10));
+                eq("Doe"), eq(SelfServiceCodeSender.Channel.SMS), eq(10));
         assertThat(known.get("resetId")).isEqualTo(saved.get().getExternalAuthorizationToken());
 
         when(resolver.candidates("nobody@example.com")).thenReturn(List.of());

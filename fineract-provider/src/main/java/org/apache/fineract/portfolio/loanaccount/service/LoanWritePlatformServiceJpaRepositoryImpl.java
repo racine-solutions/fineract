@@ -1141,6 +1141,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             changes.put(LoanApiConstants.externalIdParameterName, txnExternalId);
         }
         Loan loan = this.loanAssembler.assembleFrom(loanId);
+        final LoanStatus statusBeforeRepayment = loan.getStatus();
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
 
         if (paymentDetail != null && paymentDetail.getPaymentType() != null
@@ -1167,6 +1168,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
         // Send SMS
         smsNotificationWritePlatformService.processLoanSmsNotification(loan, SmsTypeEnum.LOAN_REPAYMENT, loanTransaction);
+        // Clearance SMS only when this repayment is the one that settled the loan
+        if (!isClearedStatus(statusBeforeRepayment) && isClearedStatus(loan.getStatus())) {
+            smsNotificationWritePlatformService.processLoanSmsNotification(loan, SmsTypeEnum.LOAN_CLEARANCE, loanTransaction);
+        }
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
@@ -1178,6 +1183,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .withGroupId(loan.getGroupId()) //
                 .with(changes) //
                 .build();
+    }
+
+    private static boolean isClearedStatus(final LoanStatus status) {
+        return status != null && (status.isClosedObligationsMet() || status.isOverpaid());
     }
 
     @Transactional

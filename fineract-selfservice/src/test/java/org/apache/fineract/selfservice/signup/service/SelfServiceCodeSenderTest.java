@@ -44,8 +44,8 @@ class SelfServiceCodeSenderTest {
     @Test
     void theSmsEndsWithEveryValidAppHash() {
         when(configuration.retrieveSelfServiceSmsAppHash()).thenReturn("x/MrSJkY/JS, 3esZTVbW2qB,not-a-hash");
-        final String text = sender.smsText(SelfServiceCodeSender.Purpose.SIGNUP, "482913", 10);
-        assertThat(text).startsWith("Your mobile app sign-up code is 482913. It expires in 10 minutes.")
+        final String text = sender.smsText(SelfServiceCodeSender.Purpose.SIGNUP, "482913", "Mwesigye", 10);
+        assertThat(text).startsWith("Hi Mwesigye, your mobile app sign-up code is 482913. It expires in 10 minutes.")
                 .endsWith("\nx/MrSJkY/JS 3esZTVbW2qB");
         assertThat(text.length()).isLessThanOrEqualTo(160);
     }
@@ -53,7 +53,22 @@ class SelfServiceCodeSenderTest {
     @Test
     void withoutAHashTheSmsIsJustTheMessage() {
         when(configuration.retrieveSelfServiceSmsAppHash()).thenReturn(null);
-        assertThat(sender.smsText(SelfServiceCodeSender.Purpose.PASSWORD_RESET, "482913", 10)).doesNotContain("\n")
-                .startsWith("Your password reset code is 482913.");
+        assertThat(sender.smsText(SelfServiceCodeSender.Purpose.PASSWORD_RESET, "482913", "Doe", 10)).doesNotContain("\n")
+                .startsWith("Hi Doe, your password reset code is 482913.");
+    }
+
+    @Test
+    void withoutANameTheSmsHasNoGreeting() {
+        when(configuration.retrieveSelfServiceSmsAppHash()).thenReturn(null);
+        assertThat(sender.smsText(SelfServiceCodeSender.Purpose.SIGNUP, "482913", null, 10))
+                .startsWith("Your mobile app sign-up code is 482913.");
+    }
+
+    @Test
+    void aNameTooLongForOneSmsIsDroppedSoTheAppCanStillReadTheCode() {
+        when(configuration.retrieveSelfServiceSmsAppHash()).thenReturn("x/MrSJkY/JS,3esZTVbW2qB");
+        final String text = sender.smsText(SelfServiceCodeSender.Purpose.SIGNUP, "482913", "Abcdefghijklmnopqrstuvwxyz-Abcdefghijklmnopqrs", 10);
+        assertThat(text).startsWith("Your mobile app sign-up code is 482913.").endsWith("\nx/MrSJkY/JS 3esZTVbW2qB");
+        assertThat(text.length()).isLessThanOrEqualTo(160);
     }
 }

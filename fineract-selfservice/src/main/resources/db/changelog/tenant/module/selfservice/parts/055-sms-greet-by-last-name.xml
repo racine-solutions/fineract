@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <!--
+        SMS templates greet the member by one name: ${name} is the last name, or the first name when there is
+        no last name (see SelfServiceNotificationService). REPLACE also catches templates edited by the bank.
+    -->
+    <changeSet author="racine" id="ss-0055-sms-templates-use-name">
+        <sql>
+            UPDATE m_template SET text = REPLACE(text, '${firstname}', '${name}')
+            WHERE name LIKE 'SELF_SERVICE_%_SMS' AND text LIKE '%${firstname}%'
+        </sql>
+    </changeSet>
+    <!-- These Spanish templates had no greeting at all: "Su código ..." becomes "Hola ${name}, su código ..." -->
+    <changeSet author="racine" id="ss-0055-sms-templates-add-greeting">
+        <sql>
+            UPDATE m_template SET text = CONCAT('Hola ${name}, ', LOWER(SUBSTRING(text, 1, 1)), SUBSTRING(text, 2))
+            WHERE name IN ('SELF_SERVICE_TRANSFER_OTP_SMS', 'SELF_SERVICE_SINPE_ENROLLMENT_OTP_SMS',
+                           'SELF_SERVICE_SINPE_ENROLLMENT_SUCCESS_SMS', 'SELF_SERVICE_SINPE_SUBSCRIPTION_CREATED_SMS',
+                           'SELF_SERVICE_SINPE_SUBSCRIPTION_UPDATED_SMS', 'SELF_SERVICE_SINPE_SUBSCRIPTION_DELETED_SMS')
+              AND text NOT LIKE '%${name}%'
+        </sql>
+    </changeSet>
+    <!--
+        Shorter wording so each SMS fits in 160 characters. Only the stock text is replaced: a template the bank
+        has already edited is left as it is. The transfer SMS drops ${transactionDate} (never filled in) and the
+        free-text description; the password SMS drop ${username}, which can be a long email address.
+    -->
+    <changeSet author="racine" id="ss-0055-sms-templates-shorter-1">
+        <update tableName="m_template">
+            <column name="text" value="Hi ${name}, to create your user use Request ID ${requestId} and code ${authCode}."/>
+            <where>name = 'SELF_SERVICE_ENROLLMENT_TOKEN_SMS' AND text = 'Hello ${name}, to create a user use Request ID: ${requestId} and Authorization Code: ${authCode}. Regards, The Institution Team'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0055-sms-templates-shorter-2">
+        <update tableName="m_template">
+            <column name="text" value="Hi ${name}, transfer of ${transactionAmount} from ${fromAccountNumber} to ${toAccountNumber} was successful. #${transferId}"/>
+            <where>name = 'SELF_SERVICE_TRANSFER_SUCCESS_SMS' AND text = 'Hi ${name}, your transfer of ${transactionAmount} from ${fromAccountNumber} to ${toAccountNumber} on ${transactionDate} was successful. Ref: ${transferId}. Desc: ${transferDescription}.'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0055-sms-templates-shorter-3">
+        <update tableName="m_template">
+            <column name="text" value="Hi ${name}, ${accessChange} Reason: ${reason}. Help: ${supportContact}."/>
+            <where>name = 'SELF_SERVICE_ACCESS_CHANGED_SMS' AND text = 'Hi ${name}, ${accessChange} Reason: ${reason}. For help, ${supportContact}.'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0055-sms-templates-shorter-4">
+        <update tableName="m_template">
+            <column name="text" value="Hola ${name}, tu código para restablecer la contraseña es ${authCode}. Expira en ${expirationMinutes} min. Si no lo pediste, ignóralo."/>
+            <where>name = 'SELF_SERVICE_PASSWORD_RESET_REQUESTED_SMS' AND text = 'Hola ${name}, tu código para restablecer la contraseña de ${username} es: ${authCode}. Expira en ${expirationMinutes} min. Si no lo solicitaste, ignora este mensaje.'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0055-sms-templates-shorter-5">
+        <update tableName="m_template">
+            <column name="text" value="Hola ${name}, tu contraseña fue restablecida. Si no fuiste tú, contacta a soporte."/>
+            <where>name = 'SELF_SERVICE_PASSWORD_RENEWED_SMS' AND text = 'Hola ${name}, la contraseña de tu cuenta ${username} ha sido restablecida exitosamente. Si no fuiste tú, contacta inmediatamente a soporte.'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0055-sms-templates-shorter-6">
+        <update tableName="m_template">
+            <column name="text" value="Hola ${name}, su número ${mobileNumber} fue verificado para SINPE Móvil. Ya puede transferir."/>
+            <where>name = 'SELF_SERVICE_SINPE_ENROLLMENT_SUCCESS_SMS' AND text = 'Hola ${name}, su número ${mobileNumber} ha sido verificado exitosamente para SINPE Móvil. Ya puede realizar transferencias.'</where>
+        </update>
+    </changeSet>
+    <changeSet author="racine" id="ss-0055-sms-templates-shorter-7">
+        <update tableName="m_template">
+            <column name="text" value="Hola ${name}, su suscripción SINPE Móvil para ${phoneNumber} fue creada. IBAN: ${iban}."/>
+            <where>name = 'SELF_SERVICE_SINPE_SUBSCRIPTION_CREATED_SMS' AND text = 'Hola ${name}, su suscripción SINPE Móvil para ${phoneNumber} ha sido creada exitosamente. IBAN: ${iban}.'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

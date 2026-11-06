@@ -34,6 +34,7 @@ import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.notification.data.SmsMessageData;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
+import org.apache.fineract.notification.service.SmsText;
 import org.apache.fineract.selfservice.external.client.ExternalNotificationSystemClient;
 import org.apache.fineract.selfservice.notification.NotificationCooldownCache;
 import org.apache.fineract.selfservice.notification.SelfServiceNotificationEvent;
@@ -199,7 +200,8 @@ public class SelfServiceNotificationService {
             Map<String, Object> params) {
         try {
             String message = selfServiceTemplateService.mergeTemplate(event.getType(), "SMS", params);
-            message = stripHtml(message);
+            // The external provider gets the same one-SMS guard as egosms
+            message = SmsText.fit(stripHtml(message));
 
             Map<String, String> payload = new HashMap<>();
             payload.put("phone", event.getMobileNumber());
@@ -302,10 +304,16 @@ public class SelfServiceNotificationService {
         if (event.getContextData() != null) {
             params.putAll(event.getContextData());
         }
+        // A beneficiary's account number goes out masked, like every account number in an SMS
+        if (params.get("accountNumber") != null) {
+            params.put("accountNumber", SmsText.maskAccountNumber(params.get("accountNumber").toString()));
+        }
 
         params.put("firstName", event.getFirstName());
         params.put("lastName", event.getLastName());
         params.put("ipAddress", event.getIpAddress());
+        // The single name SMS templates greet with: ${name}
+        params.put("name", StringUtils.defaultIfBlank(SmsText.recipientName(event.getLastName(), event.getFirstName()), "Customer"));
         params.put("eventTimestamp", java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC));
 
         return params;

@@ -309,4 +309,16 @@
         </insert>
     </changeSet>
 
+    <changeSet id="add_loan_account_clearance_sms_event-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'LoanAccountClearanceEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="LoanAccountClearanceEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
 </databaseChangeLog>

@@ -27,6 +27,7 @@ import org.apache.fineract.infrastructure.core.service.SelfServicePluginEmailSer
 import org.apache.fineract.notification.data.SmsMessageData;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
+import org.apache.fineract.notification.service.SmsText;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
@@ -90,7 +91,7 @@ public class SelfServiceCodeSender {
         boolean smsFailed = false;
         if (preferred == Channel.SMS) {
             if (StringUtils.isNotBlank(phone)) {
-                if (sendSms(purpose, code, phone, validMinutes)) {
+                if (sendSms(purpose, code, phone, recipientName, validMinutes)) {
                     return new Delivery(Channel.SMS, SelfServiceContactFormats.maskPhone(phone), false);
                 }
                 smsFailed = true;
@@ -103,27 +104,33 @@ public class SelfServiceCodeSender {
         if (StringUtils.isNotBlank(email) && sendEmail(purpose, code, email, recipientName, validMinutes)) {
             return new Delivery(Channel.EMAIL, SelfServiceContactFormats.maskEmail(email), false);
         }
-        if (StringUtils.isNotBlank(phone) && sendSms(purpose, code, phone, validMinutes)) {
+        if (StringUtils.isNotBlank(phone) && sendSms(purpose, code, phone, recipientName, validMinutes)) {
             return new Delivery(Channel.SMS, SelfServiceContactFormats.maskPhone(phone), false);
         }
         return null;
     }
 
-    String smsText(final Purpose purpose, final String code, final int validMinutes) {
-        final StringBuilder text = new StringBuilder("Your ").append(purpose.smsName).append(" code is ").append(code)
-                .append(". It expires in ").append(validMinutes).append(" minutes. Never share it with anyone, including staff.");
+    String smsText(final Purpose purpose, final String code, final String recipientName, final int validMinutes) {
+        final String body = "our " + purpose.smsName + " code is " + code + ". It expires in " + validMinutes
+                + " minutes. Never share it, even with staff.";
         final String appHash = appHash();
-        if (appHash != null) {
-            // Lets the Android app read the code from this SMS by itself (SMS Retriever API)
-            text.append('\n').append(appHash);
+        // Lets the Android app read the code from this SMS by itself (SMS Retriever API)
+        final String suffix = appHash == null ? "" : "\n" + appHash;
+        if (StringUtils.isNotBlank(recipientName)) {
+            final String greeted = "Hi " + recipientName.trim() + ", y" + body + suffix;
+            // A long name must not push the code past one SMS, or the app can no longer read it
+            if (greeted.length() <= SmsText.MAX_LENGTH) {
+                return greeted;
+            }
         }
-        return text.toString();
+        return "Y" + body + suffix;
     }
 
-    private boolean sendSms(final Purpose purpose, final String code, final String phone, final int validMinutes) {
+    private boolean sendSms(final Purpose purpose, final String code, final String phone, final String recipientName,
+            final int validMinutes) {
         try {
             final boolean sent = smsService.sendSmsNow(new SmsMessageData(SelfServiceContactFormats.smsNumber(phone, countryCode()),
-                    smsText(purpose, code, validMinutes), null), SmsTypeEnum.SELF_SERVICE);
+                    smsText(purpose, code, recipientName, validMinutes), null), SmsTypeEnum.SELF_SERVICE);
             if (!sent) {
                 log.warn("{} code SMS to {} was not accepted", purpose, SelfServiceContactFormats.maskPhone(phone));
             }
