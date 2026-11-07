@@ -52,6 +52,9 @@ class TemplateDomainServiceImplTest {
     @Mock
     private TemplateMapperDataMapper templateMapperDataMapper;
 
+    @Mock
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @InjectMocks
     private TemplateDomainServiceImpl service;
 
@@ -87,6 +90,29 @@ class TemplateDomainServiceImplTest {
         assertThat(response.getFirst().getName()).isEqualTo("anvay");
         assertThat(response.getFirst().getEntity()).isEqualTo("loan");
         assertThat(response.getFirst().getType()).isEqualTo("Document");
+    }
+
+    @Test
+    void campaignTemplatesAreLeftOutOfTheLists() {
+        Template campaign = org.mockito.Mockito.mock(Template.class);
+        Template report = org.mockito.Mockito.mock(Template.class);
+        when(campaign.getId()).thenReturn(120L);
+        when(report.getId()).thenReturn(7L);
+        when(jdbcTemplate.queryForList("select template_id from m_comm_template_meta", Long.class)).thenReturn(List.of(120L));
+        when(templateRepository.findByEntityAndType(TemplateEntity.CLIENT, TemplateType.DOCUMENT)).thenReturn(List.of(campaign, report));
+        when(templateMapper.map(List.of(report))).thenReturn(List.of(templateData()));
+
+        assertThat(service.getAllByEntityAndType(TemplateEntity.CLIENT, TemplateType.DOCUMENT)).hasSize(1);
+    }
+
+    @Test
+    void campaignTemplatesCanNotBeChangedOrDeletedHere() {
+        when(templateRepository.findById(120L)).thenReturn(java.util.Optional.of(new Template().setName("Campaign")));
+        when(jdbcTemplate.queryForList("select template_id from m_comm_template_meta", Long.class)).thenReturn(List.of(120L));
+
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> service.removeTemplate(org.apache.fineract.template.data.TemplateDeleteRequest.builder().id(120L).build()))
+                .isInstanceOf(org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException.class);
     }
 
     private TemplateData templateData() {
