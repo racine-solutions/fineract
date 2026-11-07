@@ -102,4 +102,17 @@ class SmsTextTest {
         assertThat(SmsText.currentTenantShortName()).isNull();
         assertThat(SmsText.firstWord(" ")).isNull();
     }
+
+    @Test
+    void aMessageThatAlreadyEndsWithTheInstitutionIsNotSignedTwice() {
+        assertThat(SmsText.fit("Hi Test, your balance is UGX 0. Default", "Default")).isEqualTo("Hi Test, your balance is UGX 0. Default");
+        assertThat(SmsText.fit("Thanks, Showroom!", "Showroom")).isEqualTo("Thanks, Showroom!");
+        assertThat(SmsText.fit("Hi Test", "Default")).isEqualTo("Hi Test - Default");
+    }
+
+    @Test
+    void staffNamesReadFirstNameFirst() {
+        assertThat(SmsText.personName("Campaign", "Test Staff", "Test Staff, Campaign")).isEqualTo("Campaign Test Staff");
+        assertThat(SmsText.personName(null, " ", "Test Staff, Campaign")).isEqualTo("Test Staff, Campaign");
+    }
 }

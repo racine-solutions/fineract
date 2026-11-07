@@ -130,15 +130,30 @@ public class CampaignReadService {
                 params.toArray());
         final int size = limit == null || limit <= 0 ? 50 : Math.min(limit, 5000);
         final int from = offset == null || offset < 0 ? 0 : offset;
-        final List<DeliveryData> rows = jdbcTemplate.query("select d.*, c.display_name, c.account_no from m_comm_delivery d"
-                + " join m_client c on c.id = d.client_id" + where + " order by d.id " + sqlGenerator.limit(size, from), (rs, n) -> {
+        final List<DeliveryData> rows = jdbcTemplate.query(
+                "select d.*, c.display_name, c.account_no, st.display_name staff_name, st.firstname staff_first, st.lastname staff_last,"
+                        + " au.firstname user_first, au.lastname user_last, au.username user_name from m_comm_delivery d"
+                        + " left join m_client c on c.id = d.client_id"
+                        + " left join m_staff st on d.recipient_type = 'STAFF' and st.id = d.recipient_id"
+                        + " left join m_appuser au on d.recipient_type = 'USER' and au.id = d.recipient_id" + where + " order by d.id "
+                        + sqlGenerator.limit(size, from),
+                (rs, n) -> {
                     final String rowReason = rs.getString("reason");
                     final String rowStatus = rs.getString("status");
-                    return new DeliveryData(rs.getLong("id"), rs.getLong("client_id"), rs.getString("display_name"),
+                    final String type = StringUtils.defaultIfBlank(rs.getString("recipient_type"), "CLIENT");
+                    final String name = switch (type) {
+                        case "STAFF" -> org.apache.fineract.notification.service.SmsText.personName(rs.getString("staff_first"),
+                                rs.getString("staff_last"), rs.getString("staff_name"));
+                        case "USER" ->
+                            StringUtils.defaultIfBlank(StringUtils.normalizeSpace(StringUtils.defaultString(rs.getString("user_first"))
+                                    + " " + StringUtils.defaultString(rs.getString("user_last"))), rs.getString("user_name"));
+                        default -> rs.getString("display_name");
+                    };
+                    return new DeliveryData(rs.getLong("id"), (Long) rs.getObject("client_id", Long.class), name,
                             rs.getString("account_no"), rs.getString("channel"), rs.getString("address"), rs.getString("message"),
                             rowStatus, rowReason, retryable(rowStatus, rowReason), rs.getInt("attempts"),
                             CommSupport.utcText(time(rs, "last_attempt_on_utc")), rs.getString("subject"), rs.getString("provider_event"),
-                            CommSupport.utcText(time(rs, "provider_event_on_utc")));
+                            CommSupport.utcText(time(rs, "provider_event_on_utc")), type, (Long) rs.getObject("recipient_id", Long.class));
                 }, params.toArray());
         return new Page<>(rows, total == null ? 0 : total);
     }

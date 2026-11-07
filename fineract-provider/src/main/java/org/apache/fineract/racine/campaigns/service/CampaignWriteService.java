@@ -152,6 +152,7 @@ public class CampaignWriteService {
                     + ". Shorten the template first.");
         }
         checkSendTime(row);
+        checkTagsSuitAudience(id);
         jdbcTemplate.update(
                 "update m_comm_campaign set status = ?, submitted_by = ?, submitted_on_utc = ?, rejected_by = null,"
                         + " rejected_on_utc = null, rejection_reason = null where id = ?",
@@ -276,6 +277,21 @@ public class CampaignWriteService {
                 .with(Map.<String, Object>of("queued", queued)).build();
     }
 
+    /** A message to staff can't use client details, and a message to clients can't use staff details. */
+    private void checkTagsSuitAudience(final Long id) {
+        final Map<String, Object> campaign = jdbcTemplate
+                .queryForMap("select message_text, email_subject, audience_json from m_comm_campaign where id = ?", id);
+        final boolean toStaff = StaffAudienceQueryBuilder.isStaffAudience(AudienceService.parse((String) campaign.get("audience_json")));
+        final List<String> wrong = CommPlaceholders.unsuitable(StringUtils.defaultString((String) campaign.get("message_text")) + " "
+                + StringUtils.defaultString((String) campaign.get("email_subject")), toStaff);
+        if (!wrong.isEmpty()) {
+            throw rule("tags.audience",
+                    (toStaff ? "This campaign goes to staff, but the template uses client details: "
+                            : "This campaign goes to clients, but the template uses staff details: ") + String.join(", ", wrong)
+                            + ". Choose a template written for " + (toStaff ? "staff" : "clients") + ".");
+        }
+    }
+
     void history(final Long campaignId, final String action, final String note) {
         Long userId = null;
         try {
@@ -338,7 +354,7 @@ public class CampaignWriteService {
             return jdbcTemplate.queryForObject("select audience_json from m_comm_campaign where id = ?", String.class, id);
         }
         final List<AudienceFilter> filters = AudienceService.parse(json.get("audience").toString());
-        AudienceQueryBuilder.of(filters, context.officeHierarchy(), DateUtils.getBusinessLocalDate());
+        AudienceService.validate(filters, context.officeHierarchy());
         return AudienceService.toJson(filters);
     }
 

@@ -21,6 +21,7 @@ package org.apache.fineract.racine.campaigns.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.apache.fineract.racine.campaigns.data.MessageCheckData;
+import org.apache.fineract.racine.campaigns.data.PlaceholderData;
 import org.junit.jupiter.api.Test;
 
 class CommPlaceholdersTest {
@@ -60,5 +61,34 @@ class CommPlaceholdersTest {
         assertThat(check.message()).isEqualTo("Hi Mwesigye");
         assertThat(check.length()).isEqualTo(11);
         assertThat(check.fits()).isTrue();
+    }
+
+    @Test
+    void everyPlaceholderHasAnExampleWithinItsLongestValueAndIsFilledIn() {
+        assertThat(CommPlaceholders.ALL.stream().map(PlaceholderData::key).distinct().count()).isEqualTo(CommPlaceholders.ALL.size());
+        CommPlaceholders.ALL.forEach(placeholder -> assertThat(placeholder.example().length()).as(placeholder.key())
+                .isLessThanOrEqualTo(placeholder.maxLength()));
+        final String text = CommPlaceholders.ALL.stream().map(placeholder -> "{{" + placeholder.key() + "}}")
+                .collect(java.util.stream.Collectors.joining(" "));
+        final CommMessageRenderer renderer = new CommMessageRenderer(null, null);
+        final String rendered = renderer.render(renderer.compile(text, "all"), CommMessageRenderer.exampleScope());
+        assertThat(rendered).doesNotContain("{{").contains("Business Loan", "7 Nov 2026", "Sarah Namuli");
+    }
+
+    @Test
+    void amountsShowCentsWithTwoDigitsAndWholeAmountsWithout() {
+        assertThat(CommMessageRenderer.money("USD", new java.math.BigDecimal("1126324.900000"))).isEqualTo("USD 1,126,324.90");
+        assertThat(CommMessageRenderer.money("UGX", new java.math.BigDecimal("70000.000000"))).isEqualTo("UGX 70,000");
+        assertThat(CommMessageRenderer.money("UGX", new java.math.BigDecimal("85000.5"))).isEqualTo("UGX 85,000.50");
+        assertThat(CommMessageRenderer.money("UGX", null)).isEqualTo("UGX 0");
+    }
+
+    @Test
+    void staffMessagesRefuseClientTagsAndClientMessagesRefuseStaffTags() {
+        assertThat(CommPlaceholders.unsuitable("Hi {{staff.firstName}}, {{staff.loansInArrears}} loans are late. {{tenant.name}}", true))
+                .isEmpty();
+        assertThat(CommPlaceholders.unsuitable("Hi {{staff.name}}, pay {{loans.nextDueAmount}} by {{loans.nextDueDate}}", true))
+                .containsExactly("loans.nextDueAmount", "loans.nextDueDate");
+        assertThat(CommPlaceholders.unsuitable("Hi {{client.name}}, your officer is {{staff.name}}", false)).containsExactly("staff.name");
     }
 }

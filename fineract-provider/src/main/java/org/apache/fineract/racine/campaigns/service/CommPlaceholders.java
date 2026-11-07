@@ -40,21 +40,44 @@ public final class CommPlaceholders {
     public static final List<PlaceholderData> ALL = List.of(
             new PlaceholderData("client.name", "Client name", "Client", "Mwesigye", SmsText.MAX_NAME_LENGTH),
             new PlaceholderData("client.firstName", "First name", "Client", "John", 20),
+            new PlaceholderData("client.lastName", "Last name", "Client", "Mwesigye", 20),
             new PlaceholderData("client.fullName", "Full name", "Client", "John Mwesigye", 30),
             new PlaceholderData("client.phone", "Phone", "Client", "256785154434", 15),
+            new PlaceholderData("client.email", "Email", "Client", "john@example.com", 40),
             new PlaceholderData("client.accountNo", "Account no (masked)", "Client", "0****13", 7),
             new PlaceholderData("client.office", "Office", "Client", "Ntinda Branch", 30),
+            new PlaceholderData("client.loanOfficer", "Loan officer", "Client", "Sarah Namuli", 30),
+            new PlaceholderData("client.memberSince", "Member since", "Client", "3 Feb 2021", 11),
             new PlaceholderData("loans.totalOutstanding", "Loan balance", "Loans", "UGX 1,250,000", 17),
             new PlaceholderData("loans.nextDueDate", "Next due date", "Loans", "25 Nov 2026", 11),
             new PlaceholderData("loans.nextDueAmount", "Next due amount", "Loans", "UGX 85,000", 17),
             new PlaceholderData("loans.daysInArrears", "Days in arrears", "Loans", "12", 5),
             new PlaceholderData("loans.arrearsAmount", "Arrears amount", "Loans", "UGX 170,000", 17),
+            new PlaceholderData("loans.count", "Active loans", "Loans", "1", 2),
+            new PlaceholderData("loans.product", "Loan product", "Loans", "Business Loan", 30),
+            new PlaceholderData("loans.accountNo", "Loan account (masked)", "Loans", "0****42", 7),
+            new PlaceholderData("loans.lastPaymentAmount", "Last payment", "Loans", "UGX 85,000", 17),
+            new PlaceholderData("loans.lastPaymentDate", "Last payment date", "Loans", "25 Oct 2026", 11),
+            new PlaceholderData("loans.endDate", "Loan end date", "Loans", "25 Jun 2027", 11),
             new PlaceholderData("savings.totalBalance", "Savings balance", "Savings", "UGX 640,500", 17),
+            new PlaceholderData("savings.count", "Savings accounts", "Savings", "1", 2),
+            new PlaceholderData("savings.accountNo", "Savings account (masked)", "Savings", "0****57", 7),
+            new PlaceholderData("savings.lastDepositAmount", "Last deposit", "Savings", "UGX 50,000", 17),
+            new PlaceholderData("savings.lastDepositDate", "Last deposit date", "Savings", "30 Oct 2026", 11),
             new PlaceholderData("fixedDeposit.nextMaturityDate", "Maturity date", "Deposits", "2 Dec 2026", 11),
             new PlaceholderData("fixedDeposit.maturityAmount", "Maturity amount", "Deposits", "UGX 5,600,000", 17),
+            new PlaceholderData("fixedDeposit.totalBalance", "Fixed deposit balance", "Deposits", "UGX 5,000,000", 17),
+            new PlaceholderData("recurringDeposit.totalBalance", "Recurring deposit balance", "Deposits", "UGX 360,000", 17),
             new PlaceholderData("shares.count", "Shares", "Shares", "120", 10),
             new PlaceholderData("shares.value", "Shares value", "Shares", "UGX 1,200,000", 17),
-            new PlaceholderData("tenant.name", "Institution", "Institution", "Showroom", SmsText.MAX_NAME_LENGTH));
+            new PlaceholderData("staff.name", "Staff name", "Staff", "Sarah Namuli", 30),
+            new PlaceholderData("staff.firstName", "Staff first name", "Staff", "Sarah", 20),
+            new PlaceholderData("staff.office", "Staff office", "Staff", "Ntinda Branch", 30),
+            new PlaceholderData("staff.clients", "Their clients", "Staff", "148", 5),
+            new PlaceholderData("staff.activeLoans", "Their active loans", "Staff", "96", 5),
+            new PlaceholderData("staff.loansInArrears", "Their loans in arrears", "Staff", "7", 5),
+            new PlaceholderData("tenant.name", "Institution", "General", "Showroom", SmsText.MAX_NAME_LENGTH),
+            new PlaceholderData("date.today", "Today's date", "General", "7 Nov 2026", 11));
 
     private static final Map<String, PlaceholderData> BY_KEY = ALL.stream()
             .collect(Collectors.toMap(PlaceholderData::key, Function.identity()));
@@ -75,6 +98,20 @@ public final class CommPlaceholders {
         }
         matcher.appendTail(out);
         return out.length();
+    }
+
+    /** Groups only clients have: a message to staff can't use them, and staff tags don't fit a message to clients. */
+    private static final List<String> CLIENT_GROUPS = List.of("client", "loans", "savings", "fixedDeposit", "recurringDeposit", "shares");
+
+    /**
+     * The tags in the text that don't suit who the message goes to, e.g. {{loans.nextDueDate}} in a message to staff.
+     */
+    public static List<String> unsuitable(final String text, final boolean toStaff) {
+        final Matcher matcher = PLACEHOLDER.matcher(text == null ? "" : text);
+        return matcher.results().map(result -> result.group(1)).filter(key -> {
+            final String group = key.contains(".") ? key.substring(0, key.indexOf('.')) : key;
+            return toStaff ? CLIENT_GROUPS.contains(group) : "staff".equals(group);
+        }).distinct().toList();
     }
 
     /** Placeholders used in the text that the catalogue does not know. */

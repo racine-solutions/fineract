@@ -94,4 +94,54 @@ class AudienceQueryBuilderTest {
         assertThatThrownBy(() -> build(new AudienceFilter("AGE", "BETWEEN", List.of(), null)))
                 .isInstanceOf(PlatformApiDataValidationException.class);
     }
+
+    @Test
+    void everyOfferedFieldBuildsWithSampleValues() {
+        final java.util.Map<String, List<String>> samples = new java.util.HashMap<>();
+        samples.put("CLIENT_STATUS", List.of("ACTIVE"));
+        samples.put("LEGAL_FORM", List.of("PERSON"));
+        samples.put("AGE", List.of("18", "60"));
+        samples.put("MEMBER_FOR", List.of("1", "5"));
+        samples.put("BIRTHDAY", List.of("THIS_MONTH"));
+        samples.put("MOBILE_APP", List.of("USES"));
+        samples.put("SAVINGS_BALANCE", List.of("1000", ""));
+        samples.put("LOAN_BALANCE", List.of("", "500000"));
+        samples.put("DAYS_IN_ARREARS", List.of("30", "90"));
+        samples.put("LOANS_TAKEN", List.of("2", ""));
+        for (final String yesNo : List.of("HAS_ACTIVE_LOAN", "HAS_SAVINGS", "HAS_FIXED_DEPOSIT", "HAS_RECURRING_DEPOSIT", "HAS_SHARES",
+                "HAS_PHONE", "HAS_EMAIL", "IN_GROUP", "LOAN_PENDING")) {
+            samples.put(yesNo, List.of("YES"));
+        }
+        AudienceQueryBuilder.FIELDS.forEach(field -> {
+            final String name = field.get("field");
+            final AudienceQueryBuilder query = build(new AudienceFilter(name, "IN", samples.getOrDefault(name, List.of("30")), true));
+            assertThat(query.where()).as(name).startsWith("o.hierarchy like :scopeHierarchy and ");
+        });
+    }
+
+    @Test
+    void daysInArrearsBecomesOverdueSinceBounds() {
+        final AudienceQueryBuilder query = build(new AudienceFilter("DAYS_IN_ARREARS", "BETWEEN", List.of("30", "90"), null));
+        assertThat(query.where()).contains("a.overdue_since_date_derived <= :p1").contains("a.overdue_since_date_derived >= :p2");
+        assertThat(query.params().getValue("p1")).isEqualTo(TODAY.minusDays(30));
+        assertThat(query.params().getValue("p2")).isEqualTo(TODAY.minusDays(90));
+    }
+
+    @Test
+    void loanBalanceAndGroupFilters() {
+        final AudienceQueryBuilder balance = build(new AudienceFilter("LOAN_BALANCE", "BETWEEN", List.of("100000", ""), null));
+        assertThat(balance.where()).contains("sum(l.total_outstanding_derived)").contains(">= :p1").doesNotContain("<=");
+        assertThat(build(new AudienceFilter("GROUP", "NOT_IN", List.of("3"), null)).where())
+                .contains("not exists (select 1 from m_group_client gc");
+        assertThat(build(new AudienceFilter("HAS_EMAIL", "IN", List.of("NO"), null)).where())
+                .contains("(c.email_address is null or c.email_address = '')");
+    }
+
+    @Test
+    void noDepositInNeedsASavingsAccount() {
+        final AudienceQueryBuilder query = build(new AudienceFilter("NO_DEPOSIT_IN", "IN", List.of("60"), null));
+        assertThat(query.where()).contains("exists (select 1 from m_savings_account s")
+                .contains("not exists (select 1 from" + " m_savings_account_transaction st");
+        assertThat(query.params().getValues()).containsValue(TODAY.minusDays(60));
+    }
 }

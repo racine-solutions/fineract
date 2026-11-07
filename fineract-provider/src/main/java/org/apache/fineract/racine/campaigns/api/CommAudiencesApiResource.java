@@ -50,6 +50,7 @@ import org.apache.fineract.racine.campaigns.domain.CommPurpose;
 import org.apache.fineract.racine.campaigns.service.AudienceQueryBuilder;
 import org.apache.fineract.racine.campaigns.service.AudienceService;
 import org.apache.fineract.racine.campaigns.service.SavedAudienceService;
+import org.apache.fineract.racine.campaigns.service.StaffAudienceQueryBuilder;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -71,11 +72,30 @@ public class CommAudiencesApiResource {
     @Path("template")
     @Produces({ MediaType.APPLICATION_JSON })
     @Operation(summary = "Filter options", description = "Fields, and the values for offices, genders, client types, classifications, "
-            + "loan products and delinquency ranges.")
+            + "loan products and purposes, savings products, loan officers, groups and delinquency ranges.")
     public Map<String, Object> template() {
         context.authenticatedUser().validateHasReadPermission(CommCampaignsApiResource.RESOURCE);
         final Map<String, Object> options = new LinkedHashMap<>();
         options.put("fields", AudienceQueryBuilder.FIELDS);
+        options.put("staffFields", StaffAudienceQueryBuilder.FIELDS);
+        options.put("roles", jdbcTemplate.queryForList("select id, name from m_role where is_disabled = ? order by name", false));
+        // Staff and system users without a staff record, for "Specific staff"; ids are "STAFF:3" and "USER:5"
+        final List<Map<String, Object>> people = new java.util.ArrayList<>();
+        jdbcTemplate.query("select s.id, s.firstname, s.lastname, s.display_name from m_staff s join m_office so on so.id = s.office_id"
+                + " where s.is_active = ? and so.hierarchy like ? order by s.firstname, s.lastname", rs -> {
+                    people.add(Map.of("id", "STAFF:" + rs.getLong("id"), "name", org.apache.fineract.notification.service.SmsText
+                            .personName(rs.getString("firstname"), rs.getString("lastname"), rs.getString("display_name"))));
+                }, true, context.officeHierarchy() + "%");
+        jdbcTemplate.query(
+                "select u.id, u.firstname, u.lastname, u.username from m_appuser u join m_office uo on uo.id = u.office_id"
+                        + " where u.is_deleted = ? and u.enabled = ? and u.staff_id is null and uo.hierarchy like ? order by u.firstname",
+                rs -> {
+                    final String name = StringUtils.normalizeSpace(StringUtils.defaultString(rs.getString("firstname")) + " "
+                            + StringUtils.defaultString(rs.getString("lastname")));
+                    people.add(Map.of("id", "USER:" + rs.getLong("id"), "name",
+                            StringUtils.defaultIfBlank(name, rs.getString("username")) + " (system user)"));
+                }, false, true, context.officeHierarchy() + "%");
+        options.put("staffPeople", people);
         options.put("offices", jdbcTemplate.queryForList("select id, name from m_office where hierarchy like ? order by hierarchy",
                 context.officeHierarchy() + "%"));
         // Campaigns target Female and Male; Trans-Gender stays a Gender value elsewhere but is not offered here
@@ -83,6 +103,17 @@ public class CommAudiencesApiResource {
         options.put("clientTypes", codeValues("ClientType"));
         options.put("classifications", codeValues("ClientClassification"));
         options.put("loanProducts", jdbcTemplate.queryForList("select id, name from m_product_loan order by name"));
+        options.put("loanPurposes", codeValues("LoanPurpose"));
+        options.put("savingsProducts", jdbcTemplate.queryForList("select id, name from m_savings_product order by name"));
+        options.put("loanOfficers", jdbcTemplate.queryForList(
+                "select s.id, concat(s.firstname, ' ', s.lastname) name from m_staff s join m_office so on so.id = s.office_id"
+                        + " where s.is_active = ? and s.is_loan_officer = ? and so.hierarchy like ? order by s.firstname, s.lastname",
+                true, true, context.officeHierarchy() + "%"));
+        options.put("groups",
+                jdbcTemplate.queryForList(
+                        "select g.id, g.display_name name from m_group g join m_office gof"
+                                + " on gof.id = g.office_id where g.status_enum = ? and gof.hierarchy like ? order by g.display_name",
+                        300, context.officeHierarchy() + "%"));
         options.put("delinquencyRanges", jdbcTemplate
                 .queryForList("select id, classification name, min_age_days, max_age_days from m_delinquency_range order by min_age_days"));
         return options;

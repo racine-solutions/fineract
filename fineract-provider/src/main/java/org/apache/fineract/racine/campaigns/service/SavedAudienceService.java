@@ -26,7 +26,6 @@ import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.exception.ResourceNotFoundException;
-import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
@@ -127,7 +126,7 @@ public class SavedAudienceService {
         if (filters.isEmpty()) {
             throw CommTemplateService.invalid("audience", "Add at least one filter before saving the audience.");
         }
-        AudienceQueryBuilder.of(filters, context.officeHierarchy(), DateUtils.getBusinessLocalDate());
+        AudienceService.validate(filters, context.officeHierarchy());
         return AudienceService.toJson(filters);
     }
 }

@@ -20,5 +20,5 @@ package org.apache.fineract.racine.campaigns.data;
 
 public record DeliveryData(Long id, Long clientId, String clientName, String accountNo, String channel, String address, String message,
         String status, String reason, boolean retryable, int attempts, String lastAttemptOn, String subject, String providerEvent,
-        String providerEventOn) {
+        String providerEventOn, String recipientType, Long recipientId) {
 }

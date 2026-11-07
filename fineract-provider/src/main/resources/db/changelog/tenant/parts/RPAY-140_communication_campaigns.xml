@@ -424,4 +424,17 @@
             <column name="description" value="Name clients see as the sender of every email from this institution (campaigns, codes, notifications), e.g. Racine Pay Info. Up to 70 characters. While disabled or empty, the server's default sender name is used. The sending address stays the same."/>
         </insert>
     </changeSet>
+
+    <changeSet id="rpay140-13-staff-recipients" author="racine">
+        <!-- Campaigns can also reach staff and system users: who a delivery went to, when it is not a client -->
+        <addColumn tableName="m_comm_delivery">
+            <column name="recipient_type" type="VARCHAR(10)" defaultValue="CLIENT"><constraints nullable="false"/></column>
+            <column name="recipient_id" type="BIGINT"/>
+        </addColumn>
+        <dropNotNullConstraint tableName="m_comm_delivery" columnName="client_id" columnDataType="BIGINT"/>
+        <createIndex tableName="m_comm_delivery" indexName="ix_comm_delivery_recipient">
+            <column name="recipient_type"/>
+            <column name="recipient_id"/>
+        </createIndex>
+    </changeSet>
 </databaseChangeLog>

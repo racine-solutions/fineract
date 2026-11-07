@@ -124,21 +124,25 @@ public class CampaignDispatcher {
                 .usingColumns("campaign_id", "run_number", "started_on_utc").usingGeneratedKeyColumns("id")
                 .executeAndReturnKey(Map.of("campaign_id", id, "run_number", (last == null ? 0 : last) + 1, "started_on_utc", now))
                 .longValue();
-        jdbcTemplate.batchUpdate("insert into m_comm_delivery (run_id, campaign_id, client_id, channel, address, status, reason, attempts,"
-                + " created_on_utc) values (?, ?, ?, ?, ?, ?, ?, 0, ?)", new BatchPreparedStatementSetter() {
+        jdbcTemplate.batchUpdate(
+                "insert into m_comm_delivery (run_id, campaign_id, client_id, channel, address, status, reason, attempts,"
+                        + " created_on_utc, recipient_type, recipient_id) values (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)",
+                new BatchPreparedStatementSetter() {
 
                     @Override
                     public void setValues(final java.sql.PreparedStatement ps, final int i) throws java.sql.SQLException {
                         final AudienceService.Recipient recipient = recipients.get(i);
                         ps.setLong(1, runId);
                         ps.setLong(2, id);
-                        ps.setLong(3, recipient.clientId());
+                        ps.setObject(3, recipient.clientId());
                         ps.setString(4, channel.name());
                         ps.setString(5, StringUtils
                                 .abbreviate(recipient.address() != null ? recipient.address() : recipient.contact(channel), 150));
                         ps.setString(6, recipient.skipReason() == null ? DeliveryStatus.QUEUED.name() : DeliveryStatus.SKIPPED.name());
                         ps.setString(7, recipient.skipReason() == null ? null : recipient.skipReason().name());
                         ps.setObject(8, now);
+                        ps.setString(9, recipient.type());
+                        ps.setLong(10, recipient.recipientId());
                     }
 
                     @Override
@@ -154,9 +158,9 @@ public class CampaignDispatcher {
 
     /** Sends the next batch of queued messages, or finishes the campaign when none are left. */
     void sendBatch(final Long id) {
-        final List<Map<String, Object>> queued = jdbcTemplate.queryForList(
-                "select id, client_id from m_comm_delivery where campaign_id = ?" + " and status = ? order by id", id,
-                DeliveryStatus.QUEUED.name());
+        final List<Map<String, Object>> queued = jdbcTemplate
+                .queryForList("select id, client_id, recipient_type, recipient_id from m_comm_delivery where campaign_id = ?"
+                        + " and status = ? order by id", id, DeliveryStatus.QUEUED.name());
         if (queued.isEmpty()) {
             runInNewTransaction(() -> finish(id), id);
             return;
@@ -194,8 +198,7 @@ public class CampaignDispatcher {
                 ? renderer.compile(StringUtils.defaultString((String) campaign.get("email_subject")), "campaign-subject-" + id)
                 : null;
         final List<Map<String, Object>> batch = queued.subList(0, size);
-        final Map<Long, Map<String, Object>> scopes = renderer
-                .scopes(batch.stream().map(row -> ((Number) row.get("client_id")).longValue()).toList());
+        final Map<String, Map<String, Object>> scopes = scopes(batch);
         final String countryCode = environment.getProperty("sms.default.country.code", "256");
         for (final Map<String, Object> row : batch) {
             // Stop between messages if staff paused or stopped the campaign
@@ -204,7 +207,7 @@ public class CampaignDispatcher {
                 return;
             }
             final Long deliveryId = ((Number) row.get("id")).longValue();
-            final Map<String, Object> scope = scopes.get(((Number) row.get("client_id")).longValue());
+            final Map<String, Object> scope = scopes.get(recipientKey(row));
             final Stop stop = callInNewTransaction(() -> email ? sendOneEmail(deliveryId, scope, mustache, subject)
                     : sendOne(deliveryId, scope, mustache, countryCode, senderId), id);
             if (stop == null) {
@@ -230,6 +233,36 @@ public class CampaignDispatcher {
             }, id);
             return;
         }
+    }
+
+    /** Placeholder values for a batch of deliveries, keyed like recipientKey: clients, staff and system users. */
+    private Map<String, Map<String, Object>> scopes(final List<Map<String, Object>> batch) {
+        final List<Long> clients = new java.util.ArrayList<>();
+        final List<Long> staff = new java.util.ArrayList<>();
+        final List<Long> users = new java.util.ArrayList<>();
+        for (final Map<String, Object> row : batch) {
+            final String type = StringUtils.defaultIfBlank((String) row.get("recipient_type"), AudienceService.CLIENT);
+            final Long recipient = row.get("recipient_id") == null ? null : ((Number) row.get("recipient_id")).longValue();
+            if (AudienceService.STAFF.equals(type)) {
+                staff.add(recipient);
+            } else if (AudienceService.USER.equals(type)) {
+                users.add(recipient);
+            } else {
+                clients.add(((Number) row.get("client_id")).longValue());
+            }
+        }
+        final Map<String, Map<String, Object>> scopes = new java.util.HashMap<>(renderer.staffScopes(staff, users));
+        renderer.scopes(clients).forEach((clientId, scope) -> scopes.put(AudienceService.CLIENT + ":" + clientId, scope));
+        return scopes;
+    }
+
+    /** "CLIENT:7", "STAFF:3" or "USER:5"; deliveries from before staff audiences are clients. */
+    private static String recipientKey(final Map<String, Object> row) {
+        final String type = StringUtils.defaultIfBlank((String) row.get("recipient_type"), AudienceService.CLIENT);
+        if (AudienceService.CLIENT.equals(type)) {
+            return AudienceService.CLIENT + ":" + ((Number) row.get("client_id")).longValue();
+        }
+        return type + ":" + ((Number) row.get("recipient_id")).longValue();
     }
 
     /**

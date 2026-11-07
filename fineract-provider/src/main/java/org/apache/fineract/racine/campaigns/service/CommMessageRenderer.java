@@ -59,6 +59,9 @@ public class CommMessageRenderer {
     private static final int ACCOUNT_ACTIVE = 300;
     private static final int SAVINGS = 100;
     private static final int FIXED_DEPOSIT = 200;
+    private static final int RECURRING_DEPOSIT = 300;
+    private static final int LOAN_REPAYMENT = 2;
+    private static final int SAVINGS_DEPOSIT = 1;
 
     private final JdbcTemplate jdbcTemplate;
     private final DatabaseSpecificSQLGenerator sqlGenerator;
@@ -121,8 +124,9 @@ public class CommMessageRenderer {
         final String tenant = SmsText.currentTenantShortName();
         final LocalDate today = DateUtils.getBusinessLocalDate();
 
-        named.query("select c.id, c.firstname, c.lastname, c.display_name, c.mobile_no, c.email_address, c.account_no, o.name office_name"
-                + " from m_client c join m_office o on o.id = c.office_id where c.id in (:ids)", ids, rs -> {
+        named.query("select c.id, c.firstname, c.lastname, c.display_name, c.mobile_no, c.email_address, c.account_no, c.activation_date,"
+                + " o.name office_name, st.display_name staff_name from m_client c join m_office o on o.id = c.office_id"
+                + " left join m_staff st on st.id = c.staff_id where c.id in (:ids)", ids, rs -> {
                     final Map<String, Object> client = new HashMap<>();
                     final String name = SmsText.recipientName(rs.getString("lastname"), rs.getString("firstname"));
                     client.put("name",
@@ -130,16 +134,27 @@ public class CommMessageRenderer {
                     client.put("firstName", StringUtils.defaultIfBlank(rs.getString("firstname"), client.get("name").toString()));
                     client.put("fullName", StringUtils.defaultString(rs.getString("display_name")));
                     client.put("phone", StringUtils.defaultString(rs.getString("mobile_no")));
-                    // Where a campaign email goes; not a placeholder
+                    // Where a campaign email goes, and a placeholder
                     client.put("email", StringUtils.defaultString(rs.getString("email_address")));
                     client.put("accountNo", SmsText.maskAccountNumber(rs.getString("account_no")));
                     client.put("office", StringUtils.defaultString(rs.getString("office_name")));
+                    client.put("lastName", StringUtils.defaultIfBlank(SmsText.shorten(rs.getString("lastname")), "-"));
+                    client.put("loanOfficer", StringUtils.defaultIfBlank(rs.getString("staff_name"), "-"));
+                    final LocalDate joined = rs.getObject("activation_date", LocalDate.class);
+                    client.put("memberSince", joined == null ? "-" : joined.format(CommSupport.MESSAGE_DATE));
                     final Map<String, Object> scope = new HashMap<>();
                     scope.put("client", client);
-                    scope.put("loans", new HashMap<>(Map.of("totalOutstanding", money(currency, null), "nextDueDate", "-", "nextDueAmount",
-                            money(currency, null), "daysInArrears", "0", "arrearsAmount", money(currency, null))));
-                    scope.put("savings", new HashMap<>(Map.of("totalBalance", money(currency, null))));
-                    scope.put("fixedDeposit", new HashMap<>(Map.of("nextMaturityDate", "-", "maturityAmount", money(currency, null))));
+                    final Map<String, Object> loans = new HashMap<>(Map.of("totalOutstanding", money(currency, null), "nextDueDate", "-",
+                            "nextDueAmount", money(currency, null), "daysInArrears", "0", "arrearsAmount", money(currency, null)));
+                    loans.putAll(Map.of("count", "0", "product", "-", "accountNo", "-", "lastPaymentAmount", money(currency, null),
+                            "lastPaymentDate", "-", "endDate", "-"));
+                    scope.put("loans", loans);
+                    scope.put("savings", new HashMap<>(Map.of("totalBalance", money(currency, null), "count", "0", "accountNo", "-",
+                            "lastDepositAmount", money(currency, null), "lastDepositDate", "-")));
+                    scope.put("fixedDeposit", new HashMap<>(Map.of("nextMaturityDate", "-", "maturityAmount", money(currency, null),
+                            "totalBalance", money(currency, null))));
+                    scope.put("recurringDeposit", new HashMap<>(Map.of("totalBalance", money(currency, null))));
+                    scope.put("date", Map.of("today", today.format(CommSupport.MESSAGE_DATE)));
                     scope.put("shares", new HashMap<>(Map.of("count", "0", "value", money(currency, null))));
                     scope.put("tenant", Map.of("name", StringUtils.defaultString(tenant)));
                     scopes.put(rs.getLong("id"), scope);
@@ -221,7 +236,138 @@ public class CommMessageRenderer {
                     put(scopes, rs.getLong("client_id"), "shares", "value",
                             money(rs.getString("currency_code"), rs.getBigDecimal("share_value")));
                 });
+        loanDetails(named, clientIds, scopes);
+        savingsDetails(named, clientIds, scopes);
         return scopes;
+    }
+
+    /** Active loans: how many, and the product, masked account and end date of the newest; the last repayment. */
+    private void loanDetails(final NamedParameterJdbcTemplate named, final Collection<Long> clientIds,
+            final Map<Long, Map<String, Object>> scopes) {
+        final Map<Long, Integer> counts = new HashMap<>();
+        named.query("select l.client_id, l.account_no, l.expected_maturedon_date, p.name product from m_loan l"
+                + " join m_product_loan p on p.id = l.product_id where l.client_id in (:ids) and l.loan_status_id = :active order by l.id",
+                new MapSqlParameterSource("ids", clientIds).addValue("active", LOAN_ACTIVE), (RowCallbackHandler) rs -> {
+                    final Long clientId = rs.getLong("client_id");
+                    counts.merge(clientId, 1, Integer::sum);
+                    // Ordered by id, so the newest loan is the last one written
+                    put(scopes, clientId, "loans", "product", StringUtils.defaultIfBlank(rs.getString("product"), "-"));
+                    put(scopes, clientId, "loans", "accountNo", SmsText.maskAccountNumber(rs.getString("account_no")));
+                    final LocalDate end = rs.getObject("expected_maturedon_date", LocalDate.class);
+                    put(scopes, clientId, "loans", "endDate", end == null ? "-" : end.format(CommSupport.MESSAGE_DATE));
+                });
+        counts.forEach((clientId, count) -> put(scopes, clientId, "loans", "count", String.valueOf(count)));
+        named.query(
+                "select l.client_id, l.currency_code, t.transaction_date, t.amount from m_loan_transaction t"
+                        + " join m_loan l on l.id = t.loan_id where t.id in (select max(t2.id) from m_loan_transaction t2"
+                        + " join m_loan l2 on l2.id = t2.loan_id where l2.client_id in (:ids) and t2.transaction_type_enum = :repayment"
+                        + " and t2.is_reversed = :no group by l2.client_id)",
+                new MapSqlParameterSource("ids", clientIds).addValue("repayment", LOAN_REPAYMENT).addValue("no", false),
+                (RowCallbackHandler) rs -> {
+                    put(scopes, rs.getLong("client_id"), "loans", "lastPaymentAmount",
+                            money(rs.getString("currency_code"), rs.getBigDecimal("amount")));
+                    put(scopes, rs.getLong("client_id"), "loans", "lastPaymentDate",
+                            rs.getObject("transaction_date", LocalDate.class).format(CommSupport.MESSAGE_DATE));
+                });
+    }
+
+    /**
+     * Active savings: how many and the newest one's masked account; the last deposit; fixed and recurring deposit
+     * balances.
+     */
+    private void savingsDetails(final NamedParameterJdbcTemplate named, final Collection<Long> clientIds,
+            final Map<Long, Map<String, Object>> scopes) {
+        final Map<Long, Integer> counts = new HashMap<>();
+        final MapSqlParameterSource savings = new MapSqlParameterSource("ids", clientIds).addValue("active", ACCOUNT_ACTIVE)
+                .addValue("savings", SAVINGS);
+        named.query("select s.client_id, s.account_no from m_savings_account s where s.client_id in (:ids) and s.status_enum = :active"
+                + " and s.deposit_type_enum = :savings order by s.id", savings, (RowCallbackHandler) rs -> {
+                    counts.merge(rs.getLong("client_id"), 1, Integer::sum);
+                    put(scopes, rs.getLong("client_id"), "savings", "accountNo", SmsText.maskAccountNumber(rs.getString("account_no")));
+                });
+        counts.forEach((clientId, count) -> put(scopes, clientId, "savings", "count", String.valueOf(count)));
+        named.query(
+                "select s.client_id, s.currency_code, t.transaction_date, t.amount from m_savings_account_transaction t"
+                        + " join m_savings_account s on s.id = t.savings_account_id where t.id in (select max(t2.id)"
+                        + " from m_savings_account_transaction t2 join m_savings_account s2 on s2.id = t2.savings_account_id"
+                        + " where s2.client_id in (:ids) and s2.deposit_type_enum = :savings and t2.transaction_type_enum = :deposit"
+                        + " and t2.is_reversed = :no group by s2.client_id)",
+                savings.addValue("deposit", SAVINGS_DEPOSIT).addValue("no", false), (RowCallbackHandler) rs -> {
+                    put(scopes, rs.getLong("client_id"), "savings", "lastDepositAmount",
+                            money(rs.getString("currency_code"), rs.getBigDecimal("amount")));
+                    put(scopes, rs.getLong("client_id"), "savings", "lastDepositDate",
+                            rs.getObject("transaction_date", LocalDate.class).format(CommSupport.MESSAGE_DATE));
+                });
+        named.query("select s.client_id, s.deposit_type_enum, max(s.currency_code) currency_code, sum(s.account_balance_derived) balance"
+                + " from m_savings_account s where s.client_id in (:ids) and s.status_enum = :active and s.deposit_type_enum in (:types)"
+                + " group by s.client_id, s.deposit_type_enum",
+                new MapSqlParameterSource("ids", clientIds).addValue("active", ACCOUNT_ACTIVE).addValue("types",
+                        List.of(FIXED_DEPOSIT, RECURRING_DEPOSIT)),
+                (RowCallbackHandler) rs -> put(scopes, rs.getLong("client_id"),
+                        rs.getInt("deposit_type_enum") == FIXED_DEPOSIT ? "fixedDeposit" : "recurringDeposit", "totalBalance",
+                        money(rs.getString("currency_code"), rs.getBigDecimal("balance"))));
+    }
+
+    /**
+     * Placeholder values for staff and system users, keyed "STAFF:3" or "USER:5". Each scope also carries a "client"
+     * group with the phone, email and full name the message is sent with; client tags are refused for staff messages.
+     */
+    public Map<String, Map<String, Object>> staffScopes(final Collection<Long> staffIds, final Collection<Long> userIds) {
+        final Map<String, Map<String, Object>> scopes = new HashMap<>();
+        final NamedParameterJdbcTemplate named = new NamedParameterJdbcTemplate(jdbcTemplate);
+        final String tenant = SmsText.currentTenantShortName();
+        final String today = DateUtils.getBusinessLocalDate().format(CommSupport.MESSAGE_DATE);
+        if (!staffIds.isEmpty()) {
+            named.query("select s.id, s.firstname, s.lastname, s.display_name, s.mobile_no, o.name office_name,"
+                    + " coalesce(nullif(s.email_address, ''), (select min(lu.email) from m_appuser lu where lu.staff_id = s.id"
+                    + " and lu.is_deleted = :no)) email,"
+                    + " (select count(*) from m_client c where c.staff_id = s.id and c.status_enum = :clientActive) clients,"
+                    + " (select count(*) from m_loan l where l.loan_officer_id = s.id and l.loan_status_id = :loanActive) loans,"
+                    + " (select count(*) from m_loan l join m_loan_arrears_aging a on a.loan_id = l.id where l.loan_officer_id = s.id"
+                    + " and l.loan_status_id = :loanActive and a.total_overdue_derived > 0) late"
+                    + " from m_staff s join m_office o on o.id = s.office_id where s.id in (:ids)",
+                    new MapSqlParameterSource("ids", staffIds).addValue("no", false).addValue("clientActive", ACCOUNT_ACTIVE)
+                            .addValue("loanActive", LOAN_ACTIVE),
+                    (RowCallbackHandler) rs -> scopes.put("STAFF:" + rs.getLong("id"),
+                            staffScope(
+                                    SmsText.personName(rs.getString("firstname"), rs.getString("lastname"), rs.getString("display_name")),
+                                    rs.getString("firstname"), rs.getString("office_name"), rs.getString("mobile_no"),
+                                    rs.getString("email"), rs.getLong("clients"), rs.getLong("loans"), rs.getLong("late"), tenant, today)));
+        }
+        if (!userIds.isEmpty()) {
+            named.query(
+                    "select u.id, u.firstname, u.lastname, u.username, u.email, o.name office_name from m_appuser u"
+                            + " join m_office o on o.id = u.office_id where u.id in (:ids)",
+                    new MapSqlParameterSource("ids", userIds), (RowCallbackHandler) rs -> {
+                        final String name = StringUtils
+                                .defaultIfBlank(StringUtils.normalizeSpace(StringUtils.defaultString(rs.getString("firstname")) + " "
+                                        + StringUtils.defaultString(rs.getString("lastname"))), rs.getString("username"));
+                        scopes.put("USER:" + rs.getLong("id"), staffScope(name, rs.getString("firstname"), rs.getString("office_name"),
+                                null, rs.getString("email"), 0, 0, 0, tenant, today));
+                    });
+        }
+        return scopes;
+    }
+
+    private static Map<String, Object> staffScope(final String name, final String firstName, final String office, final String phone,
+            final String email, final long clients, final long loans, final long late, final String tenant, final String today) {
+        final Map<String, Object> staff = new HashMap<>();
+        staff.put("name", StringUtils.defaultString(name));
+        staff.put("firstName", StringUtils.defaultIfBlank(firstName, StringUtils.defaultString(name)));
+        staff.put("office", StringUtils.defaultString(office));
+        staff.put("clients", String.valueOf(clients));
+        staff.put("activeLoans", String.valueOf(loans));
+        staff.put("loansInArrears", String.valueOf(late));
+        final Map<String, Object> contact = new HashMap<>();
+        contact.put("phone", StringUtils.defaultString(phone));
+        contact.put("email", StringUtils.defaultString(email));
+        contact.put("fullName", StringUtils.defaultString(name));
+        final Map<String, Object> scope = new HashMap<>();
+        scope.put("staff", staff);
+        scope.put("client", contact);
+        scope.put("tenant", Map.of("name", StringUtils.defaultString(tenant)));
+        scope.put("date", Map.of("today", today));
+        return scope;
     }
 
     /** Example values, for a preview before any client is chosen. */
@@ -245,10 +391,15 @@ public class CommMessageRenderer {
         }
     }
 
-    /** "UGX 1,250,000" or "UGX 85,000.50"; amounts are shown in full, never rounded to whole thousands. */
+    /**
+     * "UGX 1,250,000" or "USD 1,126,324.90": whole amounts without decimals, others with two; never rounded to
+     * thousands.
+     */
     static String money(final String currency, final BigDecimal amount) {
-        final DecimalFormat format = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
-        final String number = format.format(amount == null ? BigDecimal.ZERO : amount);
+        final BigDecimal value = amount == null ? BigDecimal.ZERO : amount.setScale(2, java.math.RoundingMode.HALF_UP);
+        final boolean whole = value.stripTrailingZeros().scale() <= 0;
+        final DecimalFormat format = new DecimalFormat(whole ? "#,##0" : "#,##0.00", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+        final String number = format.format(value);
         return StringUtils.isBlank(currency) ? number : currency + " " + number;
     }
 

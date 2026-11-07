@@ -39,6 +39,8 @@ public final class AudienceQueryBuilder {
     private static final int CLIENT_PENDING = 100;
     private static final int CLIENT_ACTIVE = 300;
     private static final int CLIENT_CLOSED = 600;
+    private static final int LOAN_SUBMITTED = 100;
+    private static final int LOAN_APPROVED = 200;
     private static final int LOAN_ACTIVE = 300;
     private static final int LOAN_CLOSED_REPAID = 600;
     private static final int ACCOUNT_ACTIVE = 300;
@@ -48,6 +50,7 @@ public final class AudienceQueryBuilder {
     private static final int APP_ACTIVE = 300;
     private static final int APP_VIEW_ONLY = 400;
     private static final int APP_CLOSED = 600;
+    private static final int SAVINGS_DEPOSIT = 1;
 
     private final List<String> conditions = new ArrayList<>();
     private final MapSqlParameterSource params = new MapSqlParameterSource();
@@ -100,6 +103,9 @@ public final class AudienceQueryBuilder {
                         : "o.id in (:" + p + ")");
             }
             case "CLIENT" -> conditions.add(in("c.id", ids(values, field), negate));
+            case StaffAudienceQueryBuilder.RECIPIENTS, "IS_STAFF" -> {
+                // The audience type, and a phone and email match made after the query (AudienceService)
+            }
             case "CLIENT_STATUS" -> {
                 statusGiven = true;
                 final List<Integer> statuses = values.stream().map(value -> switch (value.toUpperCase(Locale.ROOT)) {
@@ -205,7 +211,82 @@ public final class AudienceQueryBuilder {
                                 + " where s.client_id = c.id and st.is_reversed = :" + reversed + " and st.transaction_date >= :" + since
                                 + ")");
             }
+            case "LOAN_OFFICER" -> conditions.add(in("c.staff_id", ids(values, field), negate));
+            case "MEMBER_FOR" -> {
+                final Integer min = integer(values, 0, field);
+                final Integer max = integer(values, 1, field);
+                if (min == null && max == null) {
+                    throw invalid(field, "Give the fewest years, the most years or both.");
+                }
+                if (min != null) {
+                    conditions.add("c.activation_date <= :" + param(today.minusYears(min)));
+                }
+                if (max != null) {
+                    conditions.add("c.activation_date > :" + param(today.minusYears(max + 1L)));
+                }
+            }
+            case "HAS_PHONE" -> conditions.add(
+                    yes(values, field) ? "(c.mobile_no is not null and c.mobile_no <> '')" : "(c.mobile_no is null or c.mobile_no = '')");
+            case "HAS_EMAIL" -> conditions.add(yes(values, field) ? "(c.email_address is not null and c.email_address <> '')"
+                    : "(c.email_address is null or c.email_address = '')");
+            case "GROUP" -> conditions.add(exists(!negate,
+                    "select 1 from m_group_client gc where gc.client_id = c.id and gc.group_id in (:" + param(ids(values, field)) + ")"));
+            case "IN_GROUP" -> conditions.add(exists(yes(values, field), "select 1 from m_group_client gc where gc.client_id = c.id"));
+            case "LOAN_BALANCE" -> range(values, field, "(select coalesce(sum(l.total_outstanding_derived), 0) from m_loan l"
+                    + " where l.client_id = c.id and l.loan_status_id = :" + param(LOAN_ACTIVE) + ")");
+            case "DAYS_IN_ARREARS" -> {
+                final Integer min = integer(values, 0, field);
+                final Integer max = integer(values, 1, field);
+                if (min == null && max == null) {
+                    throw invalid(field, "Give the fewest days, the most days or both.");
+                }
+                final StringBuilder late = new StringBuilder("select 1 from m_loan_arrears_aging a join m_loan l on l.id = a.loan_id"
+                        + " where l.client_id = c.id and l.loan_status_id = :" + param(LOAN_ACTIVE)
+                        + " and a.overdue_since_date_derived is not null");
+                if (min != null) {
+                    late.append(" and a.overdue_since_date_derived <= :").append(param(today.minusDays(min)));
+                }
+                if (max != null) {
+                    late.append(" and a.overdue_since_date_derived >= :").append(param(today.minusDays(max)));
+                }
+                conditions.add("exists (" + late + ")");
+            }
+            case "LOAN_ENDING" -> conditions.add("exists (select 1 from m_loan l where l.client_id = c.id and l.loan_status_id = :"
+                    + param(LOAN_ACTIVE) + " and l.expected_maturedon_date between :" + param(today) + " and :"
+                    + param(today.plusDays(days(values, field))) + ")");
+            case "LOAN_DISBURSED" -> conditions.add("exists (select 1 from m_loan l where l.client_id = c.id and l.disbursedon_date >= :"
+                    + param(today.minusDays(days(values, field))) + ")");
+            case "LOANS_TAKEN" ->
+                range(values, field, "(select count(*) from m_loan l where l.client_id = c.id and l.disbursedon_date is not null)");
+            case "LOAN_PENDING" -> conditions.add(exists(yes(values, field), "select 1 from m_loan l where l.client_id = c.id"
+                    + " and l.loan_status_id in (:" + param(List.of(LOAN_SUBMITTED, LOAN_APPROVED)) + ")"));
+            case "LOAN_PURPOSE" -> conditions.add(exists(!negate, "select 1 from m_loan l where l.client_id = c.id and l.loan_status_id = :"
+                    + param(LOAN_ACTIVE) + " and l.loanpurpose_cv_id in (:" + param(ids(values, field)) + ")"));
+            case "SAVINGS_PRODUCT" ->
+                conditions.add(exists(!negate, account(SAVINGS) + " and s.product_id in (:" + param(ids(values, field)) + ")"));
+            case "NO_DEPOSIT_IN" -> {
+                conditions.add(exists(true, account(SAVINGS)));
+                conditions.add("not exists (select 1 from m_savings_account_transaction st join m_savings_account s"
+                        + " on s.id = st.savings_account_id where s.client_id = c.id and st.transaction_type_enum = :"
+                        + param(SAVINGS_DEPOSIT) + " and st.is_reversed = :" + param(false) + " and st.transaction_date >= :"
+                        + param(today.minusDays(days(values, field))) + ")");
+            }
             default -> throw invalid("field", "Unknown audience filter " + filter.field() + ".");
+        }
+    }
+
+    /** "At least" and/or "at most" on a number worked out per client. */
+    private void range(final List<String> values, final String field, final String expression) {
+        final BigDecimal min = decimal(values, 0, field);
+        final BigDecimal max = decimal(values, 1, field);
+        if (min == null && max == null) {
+            throw invalid(field, "Give a lowest value, a highest value or both.");
+        }
+        if (min != null) {
+            conditions.add(expression + " >= :" + param(min));
+        }
+        if (max != null) {
+            conditions.add(expression + " <= :" + param(max));
         }
     }
 
@@ -294,18 +375,27 @@ public final class AudienceQueryBuilder {
     }
 
     /** Fields the audience screen offers, in display order. */
-    public static final List<Map<String, String>> FIELDS = List.of(Map.of("field", "CLIENT", "label", "Specific clients"),
-            Map.of("field", "OFFICE", "label", "Office"), Map.of("field", "CLIENT_STATUS", "label", "Client status"),
-            Map.of("field", "GENDER", "label", "Gender"), Map.of("field", "AGE", "label", "Age"),
-            Map.of("field", "BIRTHDAY", "label", "Birthday"), Map.of("field", "CLIENT_TYPE", "label", "Client type"),
-            Map.of("field", "CLASSIFICATION", "label", "Classification"), Map.of("field", "LEGAL_FORM", "label", "Legal form"),
-            Map.of("field", "NEW_CLIENTS", "label", "New clients"), Map.of("field", "HAS_ACTIVE_LOAN", "label", "Has an active loan"),
-            Map.of("field", "LOAN_PRODUCT", "label", "Loan product"), Map.of("field", "NEXT_DUE", "label", "Loan payment due within"),
-            Map.of("field", "DELINQUENCY", "label", "Delinquency"), Map.of("field", "LOAN_REPAID", "label", "Loan repaid within"),
-            Map.of("field", "HAS_SAVINGS", "label", "Has savings"), Map.of("field", "SAVINGS_BALANCE", "label", "Savings balance"),
-            Map.of("field", "HAS_FIXED_DEPOSIT", "label", "Has fixed deposit"),
-            Map.of("field", "FD_MATURING", "label", "Fixed deposit maturing within"),
-            Map.of("field", "HAS_RECURRING_DEPOSIT", "label", "Has recurring deposit"),
-            Map.of("field", "HAS_SHARES", "label", "Has shares"), Map.of("field", "SHARES", "label", "Shares at least"),
-            Map.of("field", "MOBILE_APP", "label", "Mobile app"), Map.of("field", "INACTIVE", "label", "No transactions in"));
+    public static final List<Map<String, String>> FIELDS = List.of(
+            // Client
+            field("CLIENT", "Specific clients"), field("OFFICE", "Office"), field("LOAN_OFFICER", "Loan officer"), field("GROUP", "Group"),
+            field("IN_GROUP", "In a group"), field("CLIENT_STATUS", "Client status"), field("GENDER", "Gender"), field("AGE", "Age"),
+            field("BIRTHDAY", "Birthday"), field("CLIENT_TYPE", "Client type"), field("CLASSIFICATION", "Classification"),
+            field("LEGAL_FORM", "Legal form"), field("NEW_CLIENTS", "New clients"), field("MEMBER_FOR", "Member for"),
+            field("HAS_PHONE", "Has a phone number"), field("HAS_EMAIL", "Has an email"), field("IS_STAFF", "Is a staff member"),
+            field("MOBILE_APP", "Mobile app"), field("INACTIVE", "No transactions in"),
+            // Loans
+            field("HAS_ACTIVE_LOAN", "Has an active loan"), field("LOAN_PRODUCT", "Loan product"), field("LOAN_PURPOSE", "Loan purpose"),
+            field("LOAN_BALANCE", "Loan balance"), field("NEXT_DUE", "Loan payment due within"),
+            field("DAYS_IN_ARREARS", "Days in arrears"), field("DELINQUENCY", "Delinquency"), field("LOAN_ENDING", "Loan ending within"),
+            field("LOAN_DISBURSED", "Loan disbursed within"), field("LOANS_TAKEN", "Loans taken"),
+            field("LOAN_PENDING", "Loan application pending"), field("LOAN_REPAID", "Loan repaid within"),
+            // Savings, deposits and shares
+            field("HAS_SAVINGS", "Has savings"), field("SAVINGS_PRODUCT", "Savings product"), field("SAVINGS_BALANCE", "Savings balance"),
+            field("NO_DEPOSIT_IN", "No savings deposit in"), field("HAS_FIXED_DEPOSIT", "Has fixed deposit"),
+            field("FD_MATURING", "Fixed deposit maturing within"), field("HAS_RECURRING_DEPOSIT", "Has recurring deposit"),
+            field("HAS_SHARES", "Has shares"), field("SHARES", "Shares at least"));
+
+    private static Map<String, String> field(final String field, final String label) {
+        return Map.of("field", field, "label", label);
+    }
 }

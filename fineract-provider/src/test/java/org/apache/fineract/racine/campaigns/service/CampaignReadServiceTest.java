@@ -52,7 +52,7 @@ class CampaignReadServiceTest {
     @Test
     void moneyIsShownInFullWithTheCurrency() {
         assertThat(CommMessageRenderer.money("UGX", new BigDecimal("1250000.00"))).isEqualTo("UGX 1,250,000");
-        assertThat(CommMessageRenderer.money("UGX", new BigDecimal("85000.5"))).isEqualTo("UGX 85,000.5");
+        assertThat(CommMessageRenderer.money("UGX", new BigDecimal("85000.5"))).isEqualTo("UGX 85,000.50");
         assertThat(CommMessageRenderer.money("UGX", null)).isEqualTo("UGX 0");
         assertThat(CommMessageRenderer.money("", BigDecimal.TEN)).isEqualTo("10");
     }

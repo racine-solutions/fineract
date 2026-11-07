@@ -33,6 +33,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.Page;
+import org.apache.fineract.notification.service.SmsText;
 import org.apache.fineract.racine.campaigns.data.AudienceClientData;
 import org.apache.fineract.racine.campaigns.data.AudienceCountData;
 import org.apache.fineract.racine.campaigns.data.AudienceFilter;
@@ -54,18 +55,39 @@ public class AudienceService {
     private final JdbcTemplate jdbcTemplate;
     private final Environment environment;
 
+    /** Who a message goes to: a client, a staff member, or a system user with no staff record. */
+    public static final String CLIENT = "CLIENT";
+    public static final String STAFF = "STAFF";
+    public static final String USER = "USER";
+
     /**
-     * One matching client: where the message goes, or why it is skipped.
+     * One match: where the message goes, or why it is skipped.
      *
+     * @param clientId
+     *            the client, or null for staff and system users
      * @param address
      *            the international phone for SMS or the cleaned email address, null when skipped for it
+     * @param type
+     *            CLIENT, STAFF or USER
+     * @param recipientId
+     *            the client, staff or system user id
      */
     public record Recipient(Long clientId, String accountNo, String displayName, String officeName, String mobileNo, String email,
-            String address, DeliveryReason skipReason) {
+            String address, DeliveryReason skipReason, String type, Long recipientId) {
 
-        /** What the client record holds for the channel, as typed. */
+        public Recipient(final Long clientId, final String accountNo, final String displayName, final String officeName,
+                final String mobileNo, final String email, final String address, final DeliveryReason skipReason) {
+            this(clientId, accountNo, displayName, officeName, mobileNo, email, address, skipReason, CLIENT, clientId);
+        }
+
+        /** What the record holds for the channel, as typed. */
         public String contact(final CommChannel channel) {
             return channel == CommChannel.EMAIL ? email : mobileNo;
+        }
+
+        /** "CLIENT:7", "STAFF:3" or "USER:5". */
+        public String key() {
+            return type + ":" + recipientId;
         }
     }
 
@@ -82,12 +104,37 @@ public class AudienceService {
         }
     }
 
+    /**
+     * Checks the filters with the client or the staff rules, whichever the audience is for; throws when one is wrong.
+     */
+    public static void validate(final List<AudienceFilter> filters, final String officeHierarchy) {
+        if (StaffAudienceQueryBuilder.isStaffAudience(filters)) {
+            StaffAudienceQueryBuilder.of(filters, officeHierarchy);
+        } else {
+            AudienceQueryBuilder.of(filters, officeHierarchy, DateUtils.getBusinessLocalDate());
+        }
+    }
+
     public static String toJson(final List<AudienceFilter> filters) {
         return GSON.toJson(filters == null ? List.of() : filters);
     }
 
-    /** Every matching client, in a stable order, with the phone or email or the reason they are skipped. */
+    /** Everyone the audience matches, in a stable order, with the phone or email or the reason they are skipped. */
     public List<Recipient> recipients(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose,
+            final CommChannel channel) {
+        if (StaffAudienceQueryBuilder.isStaffAudience(filters)) {
+            return staffRecipients(filters, officeHierarchy, channel);
+        }
+        final List<Recipient> clients = clientRecipients(filters, officeHierarchy, purpose, channel);
+        final Boolean staffWanted = yesNo(filters, "IS_STAFF");
+        if (staffWanted == null) {
+            return clients;
+        }
+        final Contacts staff = staffContacts();
+        return clients.stream().filter(recipient -> staff.matches(recipient.mobileNo(), recipient.email()) == staffWanted).toList();
+    }
+
+    private List<Recipient> clientRecipients(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose,
             final CommChannel channel) {
         final AudienceQueryBuilder query = AudienceQueryBuilder.of(filters, officeHierarchy, DateUtils.getBusinessLocalDate());
         final boolean email = channel == CommChannel.EMAIL;
@@ -130,6 +177,105 @@ public class AudienceService {
         return recipients;
     }
 
+    /**
+     * Staff and system users the audience matches. Staff are never skipped for sharing a phone (a staff member may also
+     * be a client) or for marketing opt-outs, which are for clients.
+     */
+    private List<Recipient> staffRecipients(final List<AudienceFilter> filters, final String officeHierarchy, final CommChannel channel) {
+        final StaffAudienceQueryBuilder query = StaffAudienceQueryBuilder.of(filters, officeHierarchy);
+        final boolean email = channel == CommChannel.EMAIL;
+        final String countryCode = environment.getProperty("sms.default.country.code", "256");
+        final NamedParameterJdbcTemplate named = new NamedParameterJdbcTemplate(jdbcTemplate);
+        final List<Recipient> recipients = new ArrayList<>();
+        if (query.includeStaff()) {
+            named.query(
+                    "select s.id, s.firstname, s.lastname, s.display_name, s.mobile_no, o.name office_name, coalesce(nullif(s.email_address, ''),"
+                            + " (select min(lu.email) from m_appuser lu where lu.staff_id = s.id and lu.is_deleted = :staffNo)) email"
+                            + " from m_staff s join m_office o on o.id = s.office_id where " + query.staffWhere()
+                            + " order by s.firstname, s.lastname, s.id",
+                    query.params().addValue("staffNo", false),
+                    (org.springframework.jdbc.core.RowCallbackHandler) rs -> recipients.add(staffRecipient(STAFF, rs.getLong("id"),
+                            SmsText.personName(rs.getString("firstname"), rs.getString("lastname"), rs.getString("display_name")),
+                            rs.getString("office_name"), rs.getString("mobile_no"), rs.getString("email"), email, countryCode)));
+        }
+        if (query.includeUsers()) {
+            named.query("select u.id, u.firstname, u.lastname, u.username, u.email, o.name office_name from m_appuser u"
+                    + " join m_office o on o.id = u.office_id where " + query.userWhere() + " order by u.firstname, u.lastname, u.id",
+                    query.params(),
+                    (org.springframework.jdbc.core.RowCallbackHandler) rs -> recipients.add(staffRecipient(USER, rs.getLong("id"),
+                            StringUtils.defaultIfBlank(StringUtils.normalizeSpace(StringUtils.defaultString(rs.getString("firstname")) + " "
+                                    + StringUtils.defaultString(rs.getString("lastname"))), rs.getString("username")),
+                            rs.getString("office_name"), null, rs.getString("email"), email, countryCode)));
+        }
+        final Boolean clientWanted = StaffAudienceQueryBuilder.isClientWanted(filters);
+        if (clientWanted == null) {
+            return recipients;
+        }
+        final Contacts clients = clientContacts();
+        return recipients.stream().filter(recipient -> clients.matches(recipient.mobileNo(), recipient.email()) == clientWanted).toList();
+    }
+
+    private static Recipient staffRecipient(final String type, final Long id, final String name, final String office, final String mobile,
+            final String emailAddress, final boolean email, final String countryCode) {
+        final String address = email ? EmailAddresses.clean(emailAddress) : PhoneNumbers.international(mobile, countryCode);
+        DeliveryReason reason = null;
+        if (email) {
+            reason = StringUtils.isBlank(emailAddress) ? DeliveryReason.NO_EMAIL : address == null ? DeliveryReason.INVALID_EMAIL : null;
+        } else {
+            reason = PhoneNumbers.isBlank(mobile) ? DeliveryReason.NO_PHONE : address == null ? DeliveryReason.INVALID_PHONE : null;
+        }
+        return new Recipient(null, null, name, office, mobile, emailAddress, reason == null ? address : null, reason, type, id);
+    }
+
+    /** Phones (last nine digits) and emails (any case) of a set of people, to tell who is also on the other side. */
+    private record Contacts(Set<String> phones, Set<String> emails) {
+
+        boolean matches(final String mobile, final String email) {
+            final String phone = PhoneNumbers.key(mobile);
+            final String address = EmailAddresses.key(email);
+            return (phone != null && phones.contains(phone)) || (address != null && emails.contains(address));
+        }
+    }
+
+    /** Clients who are pending or active. */
+    private Contacts clientContacts() {
+        return contacts("select mobile_no phone, email_address email from m_client where status_enum in (100, 300)");
+    }
+
+    /** Active staff, and system users that are not deleted. */
+    private Contacts staffContacts() {
+        final Contacts staff = contacts("select mobile_no phone, email_address email from m_staff where is_active = true");
+        final Contacts users = contacts("select null phone, email from m_appuser where is_deleted = false");
+        final Set<String> emails = new java.util.HashSet<>(staff.emails());
+        emails.addAll(users.emails());
+        return new Contacts(staff.phones(), emails);
+    }
+
+    private Contacts contacts(final String sql) {
+        final Set<String> phones = new java.util.HashSet<>();
+        final Set<String> emails = new java.util.HashSet<>();
+        jdbcTemplate.query(sql, rs -> {
+            final String phone = PhoneNumbers.key(rs.getString("phone"));
+            final String email = EmailAddresses.key(rs.getString("email"));
+            if (phone != null) {
+                phones.add(phone);
+            }
+            if (email != null) {
+                emails.add(email);
+            }
+        });
+        return new Contacts(phones, emails);
+    }
+
+    private static Boolean yesNo(final List<AudienceFilter> filters, final String field) {
+        if (filters == null) {
+            return null;
+        }
+        return filters.stream().filter(filter -> filter != null && field.equalsIgnoreCase(filter.field())).findFirst()
+                .map(filter -> filter.values() == null || filter.values().isEmpty() || !"NO".equalsIgnoreCase(filter.values().get(0)))
+                .orElse(null);
+    }
+
     public AudienceCountData count(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose,
             final CommChannel channel) {
         final List<Recipient> recipients = recipients(filters, officeHierarchy, purpose, channel);
@@ -161,7 +307,7 @@ public class AudienceService {
                         || contains(recipient.mobileNo(), term) || contains(recipient.email(), term))
                 .map(recipient -> new AudienceClientData(recipient.clientId(), recipient.accountNo(), recipient.displayName(),
                         recipient.officeName(), recipient.mobileNo(), recipient.email(),
-                        recipient.skipReason() == null ? null : recipient.skipReason().name()))
+                        recipient.skipReason() == null ? null : recipient.skipReason().name(), recipient.type(), recipient.key()))
                 .toList();
         final int from = Math.min(Math.max(offset, 0), matching.size());
         final int to = Math.min(from + Math.max(1, Math.min(limit, 500)), matching.size());
