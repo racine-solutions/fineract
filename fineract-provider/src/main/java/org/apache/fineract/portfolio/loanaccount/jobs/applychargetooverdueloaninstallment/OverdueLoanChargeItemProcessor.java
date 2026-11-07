@@ -29,9 +29,9 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.lang.NonNull;
 
 /**
- * Uses the same SQL-based eligibility predicate as {@link OverdueLoanItemReader} (scoped to a single loan id) so
- * there is only one source of truth for "is this installment overdue", rather than re-deriving the date window in
- * Java against a separately-loaded {@link org.apache.fineract.portfolio.loanaccount.domain.Loan}.
+ * Uses the same SQL-based eligibility predicate as {@link OverdueLoanItemReader} (scoped to a single loan id) so there
+ * is only one source of truth for "is this installment overdue", rather than re-deriving the date window in Java
+ * against a separately-loaded {@link org.apache.fineract.portfolio.loanaccount.domain.Loan}.
  */
 @RequiredArgsConstructor
 public class OverdueLoanChargeItemProcessor implements ItemProcessor<Long, OverdueLoanChargeItem> {

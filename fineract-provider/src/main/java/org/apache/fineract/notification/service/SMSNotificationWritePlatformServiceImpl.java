@@ -48,6 +48,7 @@ import org.apache.fineract.infrastructure.event.external.repository.SmsEventConf
 import org.apache.fineract.infrastructure.event.external.repository.domain.SmsEventConfiguration;
 import org.apache.fineract.notification.data.SmsMessageData;
 import org.apache.fineract.notification.data.SmsNotificationData;
+import org.apache.fineract.notification.data.SmsSendOutcome;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.notification.data.SmsUserData;
 import org.apache.fineract.notification.domain.SmsNotificationAccount;
@@ -115,12 +116,17 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
 
     @Override
     public void sendSms(SmsMessageData messageData, SmsTypeEnum smsType) {
-        deliver(messageData, smsType, false);
+        deliver(messageData, smsType, false, null);
     }
 
     @Override
     public boolean sendSmsNow(SmsMessageData messageData, SmsTypeEnum smsType) {
-        return deliver(messageData, smsType, true);
+        return deliver(messageData, smsType, true, null).isSent();
+    }
+
+    @Override
+    public SmsSendOutcome sendCampaignSms(SmsMessageData messageData, String senderId) {
+        return deliver(messageData, SmsTypeEnum.CAMPAIGN, false, senderId);
     }
 
     /**
@@ -128,10 +134,10 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
      *
      * @param sensitive
      *            the text carries a secret (one-time code), so it is never written to the log or the message history
-     * @return true only when the gateway accepted the message; with no credit left it is skipped and false, never an
-     *         error, so the deposit, repayment or approval that triggered it still goes through
+     * @return what happened; with no credit left the message is skipped, never an error, so the deposit, repayment or
+     *         approval that triggered it still goes through
      */
-    private boolean deliver(SmsMessageData messageData, SmsTypeEnum smsType, boolean sensitive) {
+    private SmsSendOutcome deliver(SmsMessageData messageData, SmsTypeEnum smsType, boolean sensitive, String senderId) {
 
         final GlobalConfigurationProperty property = this.configurationRepositoryWrapper
                 .findOneByNameWithNotFoundDetection(GlobalConfigurationConstants.ENABLE_SMS_NOTIFICATIONS);
@@ -142,7 +148,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
             log.info("SMS Account found with total balance: {}", smsAccount.get().getSmsTotalBalance());
         } else {
             log.info("SMS Account not found or is not active for this tenant :- " + ThreadLocalContextUtil.getTenant().getName());
-            return false;
+            return SmsSendOutcome.of(SmsSendOutcome.Status.ACCOUNT_INACTIVE);
         }
 
         final SmsNotificationAccount account = smsAccount.get();
@@ -150,12 +156,12 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         if (account.getSmsTotalBalance() == null || account.getSmsTotalBalance() <= 0) {
             log.warn("Insufficient SMS credit balance ({}) for tenant :- {}. Message not sent.", account.getSmsTotalBalance(),
                     ThreadLocalContextUtil.getTenant().getName());
-            return false;
+            return SmsSendOutcome.of(SmsSendOutcome.Status.NO_CREDIT);
         }
 
         if (!property.isEnabled()) {
             log.info("** SMS Notification is disabled for this Tenant :-> " + ThreadLocalContextUtil.getTenant().getName());
-            return false;
+            return SmsSendOutcome.of(SmsSendOutcome.Status.SMS_OFF);
         }
 
         // Every message, core or self-service, passes here: hold it to one SMS and sign it with the tenant if it fits
@@ -164,7 +170,7 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
         Gson gson = new GsonBuilder().create();
 
         SmsUserData userData = new SmsUserData(getConfigProperty("sms.username"), getConfigProperty("sms.password"));
-        messageData.setSenderid(getConfigProperty("sms.sender.id"));
+        messageData.setSenderid(senderId != null && !senderId.isBlank() ? senderId.trim() : getConfigProperty("sms.sender.id"));
         List<SmsMessageData> msgdata = new ArrayList<>();
         msgdata.add(messageData);
         SmsNotificationData smsNotificationData = new SmsNotificationData();
@@ -199,11 +205,15 @@ public class SMSNotificationWritePlatformServiceImpl implements SmsNotificationW
             }
 
             cacheSmsNotification(messageData, smsType, accepted, resObject, sensitive);
-            return accepted;
+            if (accepted) {
+                return new SmsSendOutcome(SmsSendOutcome.Status.SENT, resObject);
+            }
+            return new SmsSendOutcome(response.isSuccessful() ? SmsSendOutcome.Status.GATEWAY_REFUSED : SmsSendOutcome.Status.ERROR,
+                    resObject);
         } catch (Exception e) {
             // SMS delivery failures must never propagate to callers (e.g. loan repayment).
             log.error("Posting sms notification has failed: {}", e.getMessage(), e);
-            return false;
+            return new SmsSendOutcome(SmsSendOutcome.Status.ERROR, e.getMessage());
         }
     }
 

@@ -49,6 +49,7 @@ public enum SmsTypeEnum {
     SHARE_ACTIVATION(24, "SmsTypeEnum.shareActivation", "Share Account Activation"), //
     SHARE_PURCHASE(25, "SmsTypeEnum.sharePurchase", "Share Purchase"), //
     SHARE_REDEEM(26, "SmsTypeEnum.shareRedeem", "Share Redeem"), //
+    CAMPAIGN(27, "SmsTypeEnum.campaign", "Communication Campaign"), //
     ;
 
     private final Integer value;

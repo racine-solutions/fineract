@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.notification.service;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
@@ -60,7 +61,9 @@ public final class SmsText {
         if (body.length() > room) {
             return cutAtWord(body, room) + trailer;
         }
-        if (StringUtils.isNotBlank(tenantShortName)) {
+        // A message that already ends with the name (e.g. a campaign template's {{tenant.name}}) is not signed twice
+        if (StringUtils.isNotBlank(tenantShortName)
+                && !StringUtils.stripEnd(body, " .!").toLowerCase(Locale.ROOT).endsWith(tenantShortName.trim().toLowerCase(Locale.ROOT))) {
             String signed = body + " - " + tenantShortName;
             if (signed.length() <= room) {
                 body = signed;
@@ -85,6 +88,14 @@ public final class SmsText {
             }
         }
         return StringUtils.stripEnd(cut, " \t\n,;:-");
+    }
+
+    /**
+     * "Campaign Test Staff" from first and last name, or the stored display name ("Test Staff, Campaign") without both.
+     */
+    public static String personName(String firstname, String lastname, String displayName) {
+        String name = StringUtils.normalizeSpace(StringUtils.defaultString(firstname) + " " + StringUtils.defaultString(lastname));
+        return StringUtils.defaultIfBlank(name, StringUtils.defaultString(displayName));
     }
 
     /** {@link #fit(String, String)} signed with the current tenant's short name. */
