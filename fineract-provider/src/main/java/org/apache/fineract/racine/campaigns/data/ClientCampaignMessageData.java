@@ -19,5 +19,5 @@
 package org.apache.fineract.racine.campaigns.data;
 
 public record ClientCampaignMessageData(Long id, Long campaignId, String campaignName, int runNumber, String channel, String address,
-        String message, String status, String reason, String sentOn) {
+        String message, String status, String reason, String sentOn, String subject, String providerEvent) {
 }

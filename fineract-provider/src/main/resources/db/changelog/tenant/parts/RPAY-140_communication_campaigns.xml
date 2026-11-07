@@ -382,4 +382,46 @@
             <column name="description" value="Sender ID for Sales and marketing campaign SMS, if the institution has registered a separate one with the SMS gateway. While disabled or empty, marketing SMS use the same sender ID as every other SMS."/>
         </insert>
     </changeSet>
+    <changeSet id="rpay140-10-email-delivery" author="racine">
+        <!-- Brevo's message id for each email, so its webhook events (delivered, bounced, spam...) find the delivery -->
+        <addColumn tableName="m_comm_delivery">
+            <column name="subject" type="VARCHAR(250)"/>
+            <column name="provider_message_id" type="VARCHAR(150)"/>
+            <column name="provider_event" type="VARCHAR(20)"/>
+            <column name="provider_event_on_utc" type="DATETIME"/>
+        </addColumn>
+        <createIndex tableName="m_comm_delivery" indexName="ix_comm_delivery_provider_message">
+            <column name="provider_message_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="rpay140-11-email-daily-limit" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'campaign-email-daily-limit'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="campaign-email-daily-limit"/>
+            <column name="value" valueNumeric="250"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Most campaign emails sent per day. The email service's free plan allows 300 emails a day in total, so the default of 250 leaves room for passwords, codes and notifications. Emails over the limit wait and go out the next day. Raise it after moving to a paid plan; disable it for no limit."/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay140-12-email-sender-name" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'email-sender-name'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="email-sender-name"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Name clients see as the sender of every email from this institution (campaigns, codes, notifications), e.g. Racine Pay Info. Up to 70 characters. While disabled or empty, the server's default sender name is used. The sending address stays the same."/>
+        </insert>
+    </changeSet>
 </databaseChangeLog>

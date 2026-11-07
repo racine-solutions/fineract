@@ -24,7 +24,10 @@ package org.apache.fineract.racine.campaigns.data;
  * @param longestLength
  *            length with every placeholder at its longest value
  * @param limit
- *            160, or 70 when the text needs Unicode
+ *            160, or 70 when the text needs Unicode; null for email, which has no length limit
+ * @param subject
+ *            the filled-in subject, for email only
  */
-public record MessageCheckData(String message, int length, int longestLength, int limit, boolean unicode, boolean fits) {
+public record MessageCheckData(String message, int length, int longestLength, Integer limit, boolean unicode, boolean fits,
+        String subject) {
 }

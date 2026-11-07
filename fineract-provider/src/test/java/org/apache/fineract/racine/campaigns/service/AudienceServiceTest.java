@@ -43,36 +43,36 @@ class AudienceServiceTest {
         final List<AudienceService.Recipient> recipients = new ArrayList<>();
         for (int i = 1; i <= 520; i++) {
             recipients.add(new AudienceService.Recipient((long) i, String.format("%09d", i), "Client " + i, "Head Office", "0785" + i,
-                    "256785" + i, i % 10 == 0 ? DeliveryReason.NO_PHONE : null));
+                    "client" + i + "@example.com", "256785" + i, i % 10 == 0 ? DeliveryReason.NO_PHONE : null));
         }
         service = spy(new AudienceService(mock(JdbcTemplate.class), mock(Environment.class)));
-        doReturn(recipients).when(service).recipients(any(), any(), any());
+        doReturn(recipients).when(service).recipients(any(), any(), any(), any());
     }
 
     @Test
     void pagesThroughHundredsOfClients() {
-        final Page<AudienceClientData> page = service.clients(List.of(), ".1.", null, "ALL", null, 500, 25);
+        final Page<AudienceClientData> page = service.clients(List.of(), ".1.", null, null, "ALL", null, 500, 25);
         assertThat(page.getTotalFilteredRecords()).isEqualTo(520);
         assertThat(page.getPageItems()).hasSize(20).first().extracting(AudienceClientData::clientId).isEqualTo(501L);
     }
 
     @Test
     void showsWhoGetsItAndWhoIsSkipped() {
-        assertThat(service.clients(List.of(), ".1.", null, "RECIPIENTS", null, 0, 25).getTotalFilteredRecords()).isEqualTo(468);
-        final Page<AudienceClientData> skipped = service.clients(List.of(), ".1.", null, "SKIPPED", null, 0, 25);
+        assertThat(service.clients(List.of(), ".1.", null, null, "RECIPIENTS", null, 0, 25).getTotalFilteredRecords()).isEqualTo(468);
+        final Page<AudienceClientData> skipped = service.clients(List.of(), ".1.", null, null, "SKIPPED", null, 0, 25);
         assertThat(skipped.getTotalFilteredRecords()).isEqualTo(52);
         assertThat(skipped.getPageItems()).allMatch(client -> "NO_PHONE".equals(client.skipReason()));
     }
 
     @Test
     void searchesNameAccountAndPhone() {
-        assertThat(service.clients(List.of(), ".1.", null, "ALL", "client 12", 0, 25).getTotalFilteredRecords()).isEqualTo(11);
-        assertThat(service.clients(List.of(), ".1.", null, "ALL", "000000007", 0, 25).getPageItems())
+        assertThat(service.clients(List.of(), ".1.", null, null, "ALL", "client 12", 0, 25).getTotalFilteredRecords()).isEqualTo(11);
+        assertThat(service.clients(List.of(), ".1.", null, null, "ALL", "000000007", 0, 25).getPageItems())
                 .extracting(AudienceClientData::clientId).containsExactly(7L);
     }
 
     @Test
     void aPageNeverRunsPastTheEnd() {
-        assertThat(service.clients(List.of(), ".1.", null, "ALL", null, 9999, 25).getPageItems()).isEmpty();
+        assertThat(service.clients(List.of(), ".1.", null, null, "ALL", null, 9999, 25).getPageItems()).isEmpty();
     }
 }

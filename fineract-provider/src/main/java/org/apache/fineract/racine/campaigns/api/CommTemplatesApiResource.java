@@ -103,14 +103,20 @@ public class CommTemplatesApiResource {
     @Path("preview")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "Preview a message", description = "Body: text (or templateId) and an optional clientId. Without a client, example "
-            + "values are used. Returns the message, its length, its longest possible length and whether it fits one SMS.")
+    @Operation(summary = "Preview a message", description = "Body: text (or templateId), channel (SMS or EMAIL), emailSubject for "
+            + "email, and an optional clientId. Without a client, example values are used. For SMS, returns the message, its length, its "
+            + "longest possible length and whether it fits one SMS; for email, the filled-in subject and HTML.")
     public MessageCheckData preview(final String body) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE);
         final JsonObject json = StringUtils.isBlank(body) ? new JsonObject() : JsonParser.parseString(body).getAsJsonObject();
-        String text = json.has("text") && !json.get("text").isJsonNull() ? json.get("text").getAsString() : null;
+        String text = string(json, "text");
+        String subject = string(json, "emailSubject");
+        boolean email = "EMAIL".equalsIgnoreCase(string(json, "channel"));
         if (text == null && json.has("templateId")) {
-            text = templateService.retrieveOne(json.get("templateId").getAsLong()).text();
+            final CommTemplateData template = templateService.retrieveOne(json.get("templateId").getAsLong());
+            text = template.text();
+            subject = template.emailSubject();
+            email = "EMAIL".equals(template.channel());
         }
         text = StringUtils.defaultString(text);
         Map<String, Object> scope = CommMessageRenderer.exampleScope();
@@ -121,19 +127,30 @@ public class CommTemplatesApiResource {
                 scope = clientScope;
             }
         }
-        String rendered;
-        try {
-            rendered = renderer.render(renderer.compile(text, "preview"), scope);
-        } catch (RuntimeException e) {
-            rendered = text;
+        if (email) {
+            return CommPlaceholders.checkEmail(text, fill(text, scope, true), fill(StringUtils.defaultString(subject), scope, false));
         }
-        return CommPlaceholders.check(text, rendered);
+        return CommPlaceholders.check(text, fill(text, scope, false));
+    }
+
+    /** The text with the scope's values, or the text as typed when it isn't a valid template yet. */
+    private String fill(final String text, final Map<String, Object> scope, final boolean html) {
+        try {
+            return renderer.render(html ? renderer.compileHtml(text, "preview") : renderer.compile(text, "preview"), scope);
+        } catch (RuntimeException e) {
+            return text;
+        }
+    }
+
+    private static String string(final JsonObject json, final String name) {
+        return json.has(name) && !json.get(name).isJsonNull() ? json.get(name).getAsString() : null;
     }
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "Create a communication template", description = "Body: name, channel (SMS), tag, purpose (GENERAL or MARKETING), text.")
+    @Operation(summary = "Create a communication template", description = "Body: name, channel (SMS or EMAIL), tag, purpose (GENERAL or "
+            + "MARKETING), text (HTML for email) and emailSubject (email only).")
     public CommandProcessingResult create(final String body) {
         return commands.logCommandSource(CommCommands.of("CREATE", RESOURCE, null, null, null, "/comm/templates", body));
     }

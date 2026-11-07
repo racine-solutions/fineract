@@ -19,5 +19,5 @@
 package org.apache.fineract.racine.campaigns.data;
 
 public record AudienceClientData(Long clientId, String accountNo, String displayName, String officeName, String mobileNo,
-        String skipReason) {
+        String emailAddress, String skipReason) {
 }

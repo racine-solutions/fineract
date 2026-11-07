@@ -26,5 +26,5 @@ public record CampaignData(Long id, String name, Long templateId, String templat
         Long lastModifiedById, String submittedBy, String submittedOn, String approvedBy, String approvedOn, String rejectedBy,
         String rejectedOn, String rejectionReason, CampaignRunData lastRun, List<CampaignHistoryData> history, Integer repeatEvery,
         String repeatUnit, String repeatStop, String repeatUntil, Integer repeatMaxRuns, String quietFrom, String quietTo, int runsDone,
-        List<String> upcomingRuns) {
+        List<String> upcomingRuns, String emailSubject) {
 }

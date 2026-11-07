@@ -38,11 +38,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.exception.UnrecognizedQueryParamException;
+import org.apache.fineract.infrastructure.core.service.BrevoEmailClient;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.racine.campaigns.data.CampaignData;
 import org.apache.fineract.racine.campaigns.data.CampaignRunData;
 import org.apache.fineract.racine.campaigns.data.DeliveryData;
+import org.apache.fineract.racine.campaigns.service.CampaignDispatcher;
 import org.apache.fineract.racine.campaigns.service.CampaignReadService;
 import org.springframework.stereotype.Component;
 
@@ -59,6 +61,8 @@ public class CommCampaignsApiResource {
     private final CampaignReadService readService;
     private final PortfolioCommandSourceWritePlatformService commands;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final BrevoEmailClient emailClient;
+    private final CampaignDispatcher dispatcher;
 
     @GET
     @Produces({ MediaType.APPLICATION_JSON })
@@ -74,7 +78,8 @@ public class CommCampaignsApiResource {
     @GET
     @Path("template")
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "Defaults for a new campaign", description = "The default quiet hours (campaign-quiet-hours configuration).")
+    @Operation(summary = "Defaults for a new campaign", description = "The default quiet hours (campaign-quiet-hours "
+            + "configuration), whether the server can send email, the daily email limit (null for none) and how many emails are left today.")
     public java.util.Map<String, Object> template() {
         context.authenticatedUser().validateHasReadPermission(RESOURCE);
         final java.util.Map<String, Object> defaults = new java.util.LinkedHashMap<>();
@@ -91,6 +96,12 @@ public class CommCampaignsApiResource {
         }
         defaults.put("quietFrom", from);
         defaults.put("quietTo", to);
+        defaults.put("emailEnabled", emailClient.isEnabled());
+        final List<java.util.Map<String, Object>> limit = jdbcTemplate
+                .queryForList("select enabled, value from c_configuration where name = 'campaign-email-daily-limit'");
+        final boolean limited = !limit.isEmpty() && Boolean.TRUE.equals(limit.get(0).get("enabled")) && limit.get(0).get("value") != null;
+        defaults.put("emailDailyLimit", limited ? ((Number) limit.get(0).get("value")).longValue() : null);
+        defaults.put("emailsLeftToday", limited ? (Object) dispatcher.emailAllowanceToday() : null);
         return defaults;
     }
 

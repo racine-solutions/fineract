@@ -36,6 +36,7 @@ import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.racine.campaigns.data.AudienceClientData;
 import org.apache.fineract.racine.campaigns.data.AudienceCountData;
 import org.apache.fineract.racine.campaigns.data.AudienceFilter;
+import org.apache.fineract.racine.campaigns.domain.CommChannel;
 import org.apache.fineract.racine.campaigns.domain.CommPurpose;
 import org.apache.fineract.racine.campaigns.domain.DeliveryReason;
 import org.springframework.core.env.Environment;
@@ -53,9 +54,19 @@ public class AudienceService {
     private final JdbcTemplate jdbcTemplate;
     private final Environment environment;
 
-    /** One matching client: where the SMS goes, or why it is skipped. */
-    public record Recipient(Long clientId, String accountNo, String displayName, String officeName, String mobileNo, String phone,
-            DeliveryReason skipReason) {
+    /**
+     * One matching client: where the message goes, or why it is skipped.
+     *
+     * @param address
+     *            the international phone for SMS or the cleaned email address, null when skipped for it
+     */
+    public record Recipient(Long clientId, String accountNo, String displayName, String officeName, String mobileNo, String email,
+            String address, DeliveryReason skipReason) {
+
+        /** What the client record holds for the channel, as typed. */
+        public String contact(final CommChannel channel) {
+            return channel == CommChannel.EMAIL ? email : mobileNo;
+        }
     }
 
     public static List<AudienceFilter> parse(final String json) {
@@ -75,40 +86,53 @@ public class AudienceService {
         return GSON.toJson(filters == null ? List.of() : filters);
     }
 
-    /** Every matching client, in a stable order, with the SMS phone or the reason they are skipped. */
-    public List<Recipient> recipients(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose) {
+    /** Every matching client, in a stable order, with the phone or email or the reason they are skipped. */
+    public List<Recipient> recipients(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose,
+            final CommChannel channel) {
         final AudienceQueryBuilder query = AudienceQueryBuilder.of(filters, officeHierarchy, DateUtils.getBusinessLocalDate());
-        final Set<String> sharedPhones = sharedPhones();
+        final boolean email = channel == CommChannel.EMAIL;
+        final Set<String> shared = email ? sharedEmails() : sharedPhones();
         final String countryCode = environment.getProperty("sms.default.country.code", "256");
         final List<Recipient> recipients = new ArrayList<>();
         new NamedParameterJdbcTemplate(jdbcTemplate).query(
-                "select c.id, c.account_no, c.display_name, o.name office_name, c.mobile_no,"
+                "select c.id, c.account_no, c.display_name, o.name office_name, c.mobile_no, c.email_address,"
                         + " mc.receives_marketing from m_client c join m_office o on o.id = c.office_id"
                         + " left join m_client_marketing_consent mc on mc.client_id = c.id where " + query.where() + " order by c.id",
                 query.params(), rs -> {
                     final String mobile = rs.getString("mobile_no");
-                    final String phone = PhoneNumbers.international(mobile, countryCode);
+                    final String emailAddress = rs.getString("email_address");
                     final boolean optedOut = purpose == CommPurpose.MARKETING && rs.getObject("receives_marketing") != null
                             && !rs.getBoolean("receives_marketing");
+                    final String address = email ? EmailAddresses.clean(emailAddress) : PhoneNumbers.international(mobile, countryCode);
                     DeliveryReason reason = null;
                     if (optedOut) {
                         reason = DeliveryReason.OPTED_OUT;
+                    } else if (email) {
+                        if (StringUtils.isBlank(emailAddress)) {
+                            reason = DeliveryReason.NO_EMAIL;
+                        } else if (address == null) {
+                            reason = DeliveryReason.INVALID_EMAIL;
+                        } else if (shared.contains(EmailAddresses.key(emailAddress))) {
+                            // Balances must never reach another member who shares the address
+                            reason = DeliveryReason.EMAIL_SHARED;
+                        }
                     } else if (PhoneNumbers.isBlank(mobile)) {
                         reason = DeliveryReason.NO_PHONE;
-                    } else if (phone == null) {
+                    } else if (address == null) {
                         reason = DeliveryReason.INVALID_PHONE;
-                    } else if (sharedPhones.contains(PhoneNumbers.key(mobile))) {
+                    } else if (shared.contains(PhoneNumbers.key(mobile))) {
                         // Balances must never reach another member who shares the phone
                         reason = DeliveryReason.PHONE_SHARED;
                     }
                     recipients.add(new Recipient(rs.getLong("id"), rs.getString("account_no"), rs.getString("display_name"),
-                            rs.getString("office_name"), mobile, phone, reason));
+                            rs.getString("office_name"), mobile, emailAddress, reason == null ? address : null, reason));
                 });
         return recipients;
     }
 
-    public AudienceCountData count(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose) {
-        final List<Recipient> recipients = recipients(filters, officeHierarchy, purpose);
+    public AudienceCountData count(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose,
+            final CommChannel channel) {
+        final List<Recipient> recipients = recipients(filters, officeHierarchy, purpose, channel);
         final Map<String, Long> skipped = recipients.stream().filter(recipient -> recipient.skipReason() != null)
                 .collect(Collectors.groupingBy(recipient -> recipient.skipReason().name(), LinkedHashMap::new, Collectors.counting()));
         return new AudienceCountData(recipients.size(), recipients.size() - skipped.values().stream().mapToLong(Long::longValue).sum(),
@@ -121,22 +145,22 @@ public class AudienceService {
      * @param show
      *            ALL, RECIPIENTS (will get the message) or SKIPPED
      * @param search
-     *            part of a name, account number or phone
+     *            part of a name, account number, phone or email
      */
     public Page<AudienceClientData> clients(final List<AudienceFilter> filters, final String officeHierarchy, final CommPurpose purpose,
-            final String show, final String search, final int offset, final int limit) {
+            final CommChannel channel, final String show, final String search, final int offset, final int limit) {
         final String term = StringUtils.trimToEmpty(search).toLowerCase(Locale.ROOT);
         final String which = StringUtils.defaultString(show).toUpperCase(Locale.ROOT);
-        final List<AudienceClientData> matching = recipients(filters, officeHierarchy, purpose).stream()
+        final List<AudienceClientData> matching = recipients(filters, officeHierarchy, purpose, channel).stream()
                 .filter(recipient -> switch (which) {
                     case "RECIPIENTS" -> recipient.skipReason() == null;
                     case "SKIPPED" -> recipient.skipReason() != null;
                     default -> true;
                 })
                 .filter(recipient -> term.isEmpty() || contains(recipient.displayName(), term) || contains(recipient.accountNo(), term)
-                        || contains(recipient.mobileNo(), term))
+                        || contains(recipient.mobileNo(), term) || contains(recipient.email(), term))
                 .map(recipient -> new AudienceClientData(recipient.clientId(), recipient.accountNo(), recipient.displayName(),
-                        recipient.officeName(), recipient.mobileNo(),
+                        recipient.officeName(), recipient.mobileNo(), recipient.email(),
                         recipient.skipReason() == null ? null : recipient.skipReason().name()))
                 .toList();
         final int from = Math.min(Math.max(offset, 0), matching.size());
@@ -146,6 +170,18 @@ public class AudienceService {
 
     private static boolean contains(final String value, final String term) {
         return value != null && value.toLowerCase(Locale.ROOT).contains(term);
+    }
+
+    /** Email addresses (ignoring case) on more than one client's record. */
+    private Set<String> sharedEmails() {
+        final Map<String, Integer> counts = new HashMap<>();
+        jdbcTemplate.query("select email_address from m_client where email_address is not null and email_address <> ''", rs -> {
+            final String key = EmailAddresses.key(rs.getString("email_address"));
+            if (key != null) {
+                counts.merge(key, 1, Integer::sum);
+            }
+        });
+        return counts.entrySet().stream().filter(entry -> entry.getValue() > 1).map(Map.Entry::getKey).collect(Collectors.toSet());
     }
 
     /** Phones (last nine digits) on more than one client's record. */

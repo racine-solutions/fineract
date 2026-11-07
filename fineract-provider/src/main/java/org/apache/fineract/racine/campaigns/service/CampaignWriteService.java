@@ -42,6 +42,7 @@ import org.apache.fineract.racine.campaigns.data.AudienceFilter;
 import org.apache.fineract.racine.campaigns.data.CommTemplateData;
 import org.apache.fineract.racine.campaigns.data.MessageCheckData;
 import org.apache.fineract.racine.campaigns.domain.CampaignStatus;
+import org.apache.fineract.racine.campaigns.domain.CommChannel;
 import org.apache.fineract.racine.campaigns.domain.DeliveryReason;
 import org.apache.fineract.racine.campaigns.domain.DeliveryStatus;
 import org.apache.fineract.racine.campaigns.domain.RepeatStop;
@@ -68,7 +69,7 @@ public class CampaignWriteService {
 
     /** The parts of a campaign row the life cycle needs. */
     record Row(Long id, String status, String scheduleType, LocalDateTime scheduledAt, Long createdBy, Long lastModifiedBy,
-            String officeHierarchy, String messageText) {
+            String officeHierarchy, String messageText, String channel) {
     }
 
     @Transactional
@@ -143,7 +144,9 @@ public class CampaignWriteService {
     public CommandProcessingResult submit(final Long id, final JsonCommand command) {
         final Row row = load(id);
         expect(row, EnumSet.of(CampaignStatus.DRAFT, CampaignStatus.REJECTED), "submitted for approval");
-        final MessageCheckData check = CommPlaceholders.check(row.messageText(), null);
+        final MessageCheckData check = CommChannel.EMAIL.name().equals(row.channel())
+                ? CommPlaceholders.checkEmail(row.messageText(), null, null)
+                : CommPlaceholders.check(row.messageText(), null);
         if (!check.fits()) {
             throw rule("too.long", "The message can reach " + check.longestLength() + " characters; one SMS holds " + check.limit()
                     + ". Shorten the template first.");
@@ -248,7 +251,7 @@ public class CampaignWriteService {
         final MapSqlParameterSource params = new MapSqlParameterSource().addValue("runId", runId)
                 .addValue("queued", DeliveryStatus.QUEUED.name()).addValue("failed", DeliveryStatus.FAILED.name())
                 .addValue("skipped", DeliveryStatus.SKIPPED.name()).addValue("failedReasons", failedReasons)
-                .addValue("skippedReasons", List.of(DeliveryReason.NO_PHONE.name(), DeliveryReason.INVALID_PHONE.name()));
+                .addValue("skippedReasons", DeliveryReason.RECHECKED_WHEN_SKIPPED.stream().map(DeliveryReason::name).toList());
         String only = "";
         final JsonElement ids = command.parsedJson().getAsJsonObject().get("deliveryIds");
         if (ids != null && ids.isJsonArray() && !ids.getAsJsonArray().isEmpty()) {
@@ -257,7 +260,8 @@ public class CampaignWriteService {
             params.addValue("ids", chosen);
             only = " and id in (:ids)";
         }
-        final int queued = new NamedParameterJdbcTemplate(jdbcTemplate).update("update m_comm_delivery set status = :queued, reason = null"
+        final int queued = new NamedParameterJdbcTemplate(jdbcTemplate).update("update m_comm_delivery set status = :queued, reason = null,"
+                + " provider_message_id = null, provider_event = null, provider_event_on_utc = null"
                 + " where run_id = :runId and ((status = :failed and reason in (:failedReasons)) or (status = :skipped and reason in (:skippedReasons)))"
                 + only, params);
         if (queued == 0) {
@@ -288,10 +292,10 @@ public class CampaignWriteService {
     Row load(final Long id) {
         final List<Row> rows = jdbcTemplate.query(
                 "select c.id, c.status, c.schedule_type, c.scheduled_at, c.created_by, c.last_modified_by,"
-                        + " o.hierarchy, c.message_text from m_comm_campaign c join m_office o on o.id = c.office_id where c.id = ? and o.hierarchy like ?",
+                        + " o.hierarchy, c.message_text, c.channel from m_comm_campaign c join m_office o on o.id = c.office_id where c.id = ? and o.hierarchy like ?",
                 (rs, n) -> new Row(rs.getLong("id"), rs.getString("status"), rs.getString("schedule_type"),
                         rs.getObject("scheduled_at", LocalDateTime.class), rs.getLong("created_by"), rs.getLong("last_modified_by"),
-                        rs.getString("hierarchy"), rs.getString("message_text")),
+                        rs.getString("hierarchy"), rs.getString("message_text"), rs.getString("channel")),
                 id, context.officeHierarchy() + "%");
         if (rows.isEmpty()) {
             throw new ResourceNotFoundException("error.msg.comm.campaign.not.found", "Campaign " + id + " does not exist.",

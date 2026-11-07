@@ -28,7 +28,7 @@ import org.apache.fineract.notification.service.SmsText;
 import org.apache.fineract.racine.campaigns.data.MessageCheckData;
 import org.apache.fineract.racine.campaigns.data.PlaceholderData;
 
-/** The values a campaign message can include, and the one-SMS check. */
+/** The values a campaign message (SMS or email) can include, and the one-SMS check. */
 public final class CommPlaceholders {
 
     /** Characters of the standard SMS alphabet; anything else makes the whole SMS Unicode (70 characters). */
@@ -87,12 +87,18 @@ public final class CommPlaceholders {
         return text != null && text.chars().anyMatch(ch -> GSM_7.indexOf(ch) < 0);
     }
 
+    /** An email as one client would get it: no length limit, so it always fits. */
+    public static MessageCheckData checkEmail(final String template, final String rendered, final String subject) {
+        final String shown = rendered == null ? template : rendered;
+        return new MessageCheckData(shown, shown == null ? 0 : shown.length(), longestLength(template), null, false, true, subject);
+    }
+
     /** The one-SMS check for a template and, when given, the message one client would get. */
     public static MessageCheckData check(final String template, final String rendered) {
         final String shown = rendered == null ? template : rendered;
         final boolean unicode = needsUnicode(template) || needsUnicode(shown);
         final int limit = unicode ? UNICODE_LIMIT : SmsText.MAX_LENGTH;
         final int longest = longestLength(template);
-        return new MessageCheckData(shown, shown == null ? 0 : shown.length(), longest, limit, unicode, longest <= limit);
+        return new MessageCheckData(shown, shown == null ? 0 : shown.length(), longest, limit, unicode, longest <= limit, null);
     }
 }

@@ -45,6 +45,7 @@ import org.apache.fineract.infrastructure.security.service.PlatformSecurityConte
 import org.apache.fineract.racine.campaigns.data.AudienceClientData;
 import org.apache.fineract.racine.campaigns.data.AudienceCountData;
 import org.apache.fineract.racine.campaigns.data.SavedAudienceData;
+import org.apache.fineract.racine.campaigns.domain.CommChannel;
 import org.apache.fineract.racine.campaigns.domain.CommPurpose;
 import org.apache.fineract.racine.campaigns.service.AudienceQueryBuilder;
 import org.apache.fineract.racine.campaigns.service.AudienceService;
@@ -128,25 +129,25 @@ public class CommAudiencesApiResource {
     @Path("count")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "Count matching clients", description = "Body: audience (filters) and purpose. Returns matching clients, how many "
+    @Operation(summary = "Count matching clients", description = "Body: audience (filters), purpose and channel (SMS or EMAIL). Returns matching clients, how many "
             + "get the message, and the skipped ones by reason.")
     public AudienceCountData count(final String body) {
         context.authenticatedUser().validateHasReadPermission(CommCampaignsApiResource.RESOURCE);
         final JsonObject json = parse(body);
-        return audienceService.count(AudienceService.parse(audience(json)), context.officeHierarchy(), purpose(json));
+        return audienceService.count(AudienceService.parse(audience(json)), context.officeHierarchy(), purpose(json), channel(json));
     }
 
     @POST
     @Path("clients")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "Matching clients, one page at a time", description = "Body: audience, purpose, show (ALL, RECIPIENTS or "
-            + "SKIPPED), search (name, account number or phone), offset, limit (up to 500). Skipped clients carry the reason.")
+    @Operation(summary = "Matching clients, one page at a time", description = "Body: audience, purpose, channel, show (ALL, RECIPIENTS"
+            + " or SKIPPED), search (name, account number, phone or email), offset, limit (up to 500). Skipped clients carry the reason.")
     public Page<AudienceClientData> clients(final String body) {
         context.authenticatedUser().validateHasReadPermission(CommCampaignsApiResource.RESOURCE);
         final JsonObject json = parse(body);
-        return audienceService.clients(AudienceService.parse(audience(json)), context.officeHierarchy(), purpose(json), text(json, "show"),
-                text(json, "search"), number(json, "offset", 0), number(json, "limit", 25));
+        return audienceService.clients(AudienceService.parse(audience(json)), context.officeHierarchy(), purpose(json), channel(json),
+                text(json, "show"), text(json, "search"), number(json, "offset", 0), number(json, "limit", 25));
     }
 
     private List<Map<String, Object>> codeValues(final String code) {
@@ -172,6 +173,12 @@ public class CommAudiencesApiResource {
 
     private static String audience(final JsonObject json) {
         return json.has("audience") ? json.get("audience").toString() : "[]";
+    }
+
+    private static CommChannel channel(final JsonObject json) {
+        return json.has("channel") && !json.get("channel").isJsonNull() && "EMAIL".equalsIgnoreCase(json.get("channel").getAsString())
+                ? CommChannel.EMAIL
+                : CommChannel.SMS;
     }
 
     private static CommPurpose purpose(final JsonObject json) {

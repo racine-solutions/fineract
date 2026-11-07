@@ -76,8 +76,31 @@ public class CommMessageRenderer {
         }
     };
 
+    /** HTML output for email bodies: client details are escaped, so a name like "A & B" can't break the layout. */
+    private static final DefaultMustacheFactory MUSTACHE_HTML = new DefaultMustacheFactory();
+
     public Mustache compile(final String text, final String name) {
         return MUSTACHE.compile(new StringReader(text), name);
+    }
+
+    public Mustache compileHtml(final String html, final String name) {
+        return MUSTACHE_HTML.compile(new StringReader(asHtml(html)), name);
+    }
+
+    /**
+     * HTML tags such as
+     * <p>
+     * or <br>
+     * ; without any, an email body is plain text.
+     */
+    private static final java.util.regex.Pattern HTML_TAG = java.util.regex.Pattern.compile("</?[a-zA-Z][^>]*>");
+
+    /** An email body as HTML: plain text keeps its line breaks and shows "&" and "<" as typed. */
+    static String asHtml(final String text) {
+        if (text == null || HTML_TAG.matcher(text).find()) {
+            return text;
+        }
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\r\n", "\n").replace("\n", "<br>\n");
     }
 
     public String render(final Mustache mustache, final Map<String, Object> scope) {
@@ -98,7 +121,7 @@ public class CommMessageRenderer {
         final String tenant = SmsText.currentTenantShortName();
         final LocalDate today = DateUtils.getBusinessLocalDate();
 
-        named.query("select c.id, c.firstname, c.lastname, c.display_name, c.mobile_no, c.account_no, o.name office_name"
+        named.query("select c.id, c.firstname, c.lastname, c.display_name, c.mobile_no, c.email_address, c.account_no, o.name office_name"
                 + " from m_client c join m_office o on o.id = c.office_id where c.id in (:ids)", ids, rs -> {
                     final Map<String, Object> client = new HashMap<>();
                     final String name = SmsText.recipientName(rs.getString("lastname"), rs.getString("firstname"));
@@ -107,6 +130,8 @@ public class CommMessageRenderer {
                     client.put("firstName", StringUtils.defaultIfBlank(rs.getString("firstname"), client.get("name").toString()));
                     client.put("fullName", StringUtils.defaultString(rs.getString("display_name")));
                     client.put("phone", StringUtils.defaultString(rs.getString("mobile_no")));
+                    // Where a campaign email goes; not a placeholder
+                    client.put("email", StringUtils.defaultString(rs.getString("email_address")));
                     client.put("accountNo", SmsText.maskAccountNumber(rs.getString("account_no")));
                     client.put("office", StringUtils.defaultString(rs.getString("office_name")));
                     final Map<String, Object> scope = new HashMap<>();

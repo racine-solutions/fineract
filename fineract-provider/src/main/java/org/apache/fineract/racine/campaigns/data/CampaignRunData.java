@@ -25,7 +25,11 @@ import java.util.Map;
  *
  * @param retryable
  *            failed or skipped messages a retry can still deliver
+ * @param delivered
+ *            emails the email service confirmed reached the inbox (SMS: always 0)
+ * @param spam
+ *            emails the client reported as spam
  */
 public record CampaignRunData(Long id, Long campaignId, int runNumber, String startedOn, String finishedOn, long recipients, long queued,
-        long sent, long failed, long skipped, long retryable, Map<String, Long> reasons) {
+        long sent, long failed, long skipped, long retryable, Map<String, Long> reasons, long delivered, long spam) {
 }

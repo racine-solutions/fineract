@@ -137,7 +137,8 @@ public class CampaignReadService {
                     return new DeliveryData(rs.getLong("id"), rs.getLong("client_id"), rs.getString("display_name"),
                             rs.getString("account_no"), rs.getString("channel"), rs.getString("address"), rs.getString("message"),
                             rowStatus, rowReason, retryable(rowStatus, rowReason), rs.getInt("attempts"),
-                            CommSupport.utcText(time(rs, "last_attempt_on_utc")));
+                            CommSupport.utcText(time(rs, "last_attempt_on_utc")), rs.getString("subject"), rs.getString("provider_event"),
+                            CommSupport.utcText(time(rs, "provider_event_on_utc")));
                 }, params.toArray());
         return new Page<>(rows, total == null ? 0 : total);
     }
@@ -153,8 +154,7 @@ public class CampaignReadService {
         if (DeliveryStatus.FAILED.name().equals(status)) {
             return parsed.isRetryable();
         }
-        return DeliveryStatus.SKIPPED.name().equals(status)
-                && (parsed == DeliveryReason.NO_PHONE || parsed == DeliveryReason.INVALID_PHONE);
+        return DeliveryStatus.SKIPPED.name().equals(status) && DeliveryReason.RECHECKED_WHEN_SKIPPED.contains(parsed);
     }
 
     private CampaignRunData run(final Long runId) {
@@ -165,7 +165,7 @@ public class CampaignReadService {
         if (runs.isEmpty()) {
             return null;
         }
-        final long[] counts = new long[5];
+        final long[] counts = new long[7];
         final Map<String, Long> reasons = new LinkedHashMap<>();
         jdbcTemplate.query("select status, reason, count(*) n from m_comm_delivery where run_id = ? group by status, reason", rs -> {
             final String status = rs.getString("status");
@@ -181,15 +181,22 @@ public class CampaignReadService {
             if (reason != null) {
                 reasons.merge(reason, n, Long::sum);
             }
+            if (DeliveryReason.SPAM.name().equals(reason)) {
+                counts[6] += n;
+            }
             if (retryable(status, reason)) {
                 reasons.merge("_retryable", n, Long::sum);
             }
         }, runId);
+        final Long delivered = jdbcTemplate.queryForObject("select count(*) from m_comm_delivery where run_id = ? and provider_event = ?",
+                Long.class, runId, "DELIVERED");
+        counts[5] = delivered == null ? 0 : delivered;
         final long retryable = reasons.getOrDefault("_retryable", 0L);
         reasons.remove("_retryable");
         final Object[] row = runs.get(0);
         return new CampaignRunData(runId, (Long) row[0], (Integer) row[1], CommSupport.utcText((LocalDateTime) row[2]),
-                CommSupport.utcText((LocalDateTime) row[3]), counts[0], counts[1], counts[2], counts[3], counts[4], retryable, reasons);
+                CommSupport.utcText((LocalDateTime) row[3]), counts[0], counts[1], counts[2], counts[3], counts[4], retryable, reasons,
+                counts[5], counts[6]);
     }
 
     private CampaignData map(final ResultSet rs, final boolean full) throws SQLException {
@@ -218,7 +225,7 @@ public class CampaignReadService {
                 rs.getObject("repeat_until", java.time.LocalDate.class) == null ? null
                         : rs.getObject("repeat_until", java.time.LocalDate.class).toString(),
                 (Integer) rs.getObject("repeat_max_runs", Integer.class), rs.getString("quiet_from"), rs.getString("quiet_to"),
-                runsDone(id), full ? upcoming(rs) : List.of());
+                runsDone(id), full ? upcoming(rs) : List.of(), rs.getString("email_subject"));
     }
 
     private int runsDone(final Long campaignId) {
@@ -265,7 +272,8 @@ public class CampaignReadService {
                         rs.getLong("campaign_id"), rs.getString("campaign_name"), rs.getInt("run_number"), rs.getString("channel"),
                         rs.getString("address"), rs.getString("message"), rs.getString("status"), rs.getString("reason"),
                         CommSupport.utcText(
-                                time(rs, rs.getTimestamp("last_attempt_on_utc") != null ? "last_attempt_on_utc" : "created_on_utc"))),
+                                time(rs, rs.getTimestamp("last_attempt_on_utc") != null ? "last_attempt_on_utc" : "created_on_utc")),
+                        rs.getString("subject"), rs.getString("provider_event")),
                 clientId);
         return new Page<>(rows, total == null ? 0 : total);
     }
