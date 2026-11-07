@@ -42,6 +42,7 @@ import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.security.domain.BasicPasswordEncodablePlatformUser;
 import org.apache.fineract.infrastructure.security.service.PlatformPasswordEncoder;
+import org.apache.fineract.notification.service.SmsText;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepository;
 import org.apache.fineract.selfservice.audit.data.SelfServiceEventEntry;
@@ -252,7 +253,8 @@ public class SelfServiceSignupService {
         registration.issueCode(SelfServiceVerificationCode.hash(code), now, CODE_VALIDITY, SEND_WINDOW);
         // Only the phone and email on the client record: never contact details typed in the request
         final SelfServiceCodeSender.Delivery delivery = codeSender.send(SelfServiceCodeSender.Purpose.SIGNUP, code, client.getMobileNo(),
-                client.getEmailAddress(), client.getFirstname(), channel, SelfServiceCodePolicy.codeValidityMinutes());
+                client.getEmailAddress(), SmsText.recipientName(client.getLastname(), client.getFirstname()), channel,
+                SelfServiceCodePolicy.codeValidityMinutes());
         registration.recordDelivery(delivery == null ? null : delivery.channel().name());
         registrationRepository.saveAndFlush(registration);
         if (delivery == null) {

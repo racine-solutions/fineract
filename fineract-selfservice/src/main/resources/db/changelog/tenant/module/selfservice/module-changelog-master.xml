@@ -76,5 +76,6 @@
   <include file="parts/052-add-self-service-support-numbers.xml" relativeToChangelogFile="true"/>
   <include file="parts/053-signup-verification-codes.xml" relativeToChangelogFile="true"/>
   <include file="parts/054-sms-app-hash-several-builds.xml" relativeToChangelogFile="true"/>
+  <include file="parts/055-sms-greet-by-last-name.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

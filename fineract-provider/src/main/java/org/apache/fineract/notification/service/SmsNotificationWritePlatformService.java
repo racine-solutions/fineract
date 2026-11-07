@@ -19,11 +19,14 @@
 package org.apache.fineract.notification.service;
 
 import org.apache.fineract.notification.data.SmsMessageData;
+import org.apache.fineract.notification.data.SmsSendOutcome;
 import org.apache.fineract.notification.data.SmsTypeEnum;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccount;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransaction;
+import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccount;
+import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountTransaction;
 
 public interface SmsNotificationWritePlatformService {
 
@@ -37,7 +40,20 @@ public interface SmsNotificationWritePlatformService {
      */
     boolean sendSmsNow(SmsMessageData messageData, SmsTypeEnum smsType);
 
+    /**
+     * Sends one campaign SMS straight away and says what happened, so the campaign can record a reason for each
+     * recipient. The text is kept in the message history. A blank senderId uses the usual sender ID.
+     */
+    SmsSendOutcome sendCampaignSms(SmsMessageData messageData, String senderId);
+
     void processLoanSmsNotification(Loan loan, SmsTypeEnum smsType, LoanTransaction transaction);
 
+    /**
+     * Savings, fixed deposit and recurring deposit accounts. The transaction is only needed for deposits and
+     * withdrawals; for a closed fixed or recurring deposit it is the payout, or null when nothing was paid out.
+     */
     void processSavingsSmsNotification(SavingsAccount savingsAccount, SmsTypeEnum smsType, SavingsAccountTransaction transaction);
+
+    /** The transaction is only needed for share purchases and redemptions. */
+    void processShareSmsNotification(ShareAccount shareAccount, SmsTypeEnum smsType, ShareAccountTransaction transaction);
 }

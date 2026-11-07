@@ -20,6 +20,7 @@ package org.apache.fineract.infrastructure.event.sms.service;
 
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
+import org.apache.fineract.infrastructure.event.external.data.SmsCreditStatusData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationAccountData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationMessageData;
 import org.apache.fineract.infrastructure.event.external.data.SmsWalletTransactionData;
@@ -27,6 +28,8 @@ import org.apache.fineract.infrastructure.event.external.data.SmsWalletTransacti
 public interface SmsNotificationReadPlatformService {
 
     SmsNotificationAccountData retrieveSmsAccount();
+
+    SmsCreditStatusData retrieveCreditStatus();
 
     Page<SmsNotificationMessageData> retrieveMessages(SearchParameters searchParameters);
 

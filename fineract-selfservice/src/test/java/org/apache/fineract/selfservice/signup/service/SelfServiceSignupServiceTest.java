@@ -141,7 +141,7 @@ class SelfServiceSignupServiceTest {
         final Map<String, Object> body = service.start(startRequest("0785 154 434", "Jane.Doe@Gmail.com"));
 
         verify(codeSender).send(eq(SelfServiceCodeSender.Purpose.SIGNUP), anyString(), eq("256785154434"), eq("jane.record@example.com"),
-                eq("Jane"), eq(SelfServiceCodeSender.Channel.SMS), eq(10));
+                eq("Doe"), eq(SelfServiceCodeSender.Channel.SMS), eq(10));
         assertThat(body).containsEntry("channel", "SMS").containsEntry("destination", "2567•••••434")
                 .containsEntry("codeExpiresInSeconds", 600L).containsEntry("resendAfterSeconds", 60L);
         final SelfServiceRegistration registration = saved.get();

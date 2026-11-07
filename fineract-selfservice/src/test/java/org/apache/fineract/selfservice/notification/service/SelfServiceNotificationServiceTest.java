@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +38,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.fineract.infrastructure.businessdate.domain.BusinessDateType;
 import org.apache.fineract.infrastructure.configuration.data.NotificationCredentialsData;
@@ -169,6 +171,33 @@ class SelfServiceNotificationServiceTest {
         verify(smsNotificationService).sendSms(argThat(m -> "1234567890".equals(m.getNumber()) && "Hello text body".equals(m.getMessage())),
                 eq(SmsTypeEnum.SELF_SERVICE));
         verify(emailService, never()).sendFormattedEmail(any());
+    }
+
+    @Test
+    void handleNotification_TemplatesGreetByLastName() {
+        stubNotificationEnabled();
+        when(cooldownCache.tryAcquire(any())).thenReturn(true);
+        when(selfServiceTemplateService.mergeTemplate(eq(SelfServiceNotificationEvent.Type.LOGIN_SUCCESS), eq("SMS"), any()))
+                .thenReturn("Hello text body");
+
+        service.handleNotification(smsEvent());
+
+        verify(selfServiceTemplateService).mergeTemplate(eq(SelfServiceNotificationEvent.Type.LOGIN_SUCCESS), eq("SMS"),
+                argThat(params -> "User".equals(params.get("name"))));
+    }
+
+    @Test
+    void handleNotification_BeneficiaryAccountNumberIsMasked() {
+        stubNotificationEnabled();
+        when(cooldownCache.tryAcquire(any())).thenReturn(true);
+        when(selfServiceTemplateService.mergeTemplate(any(), eq("SMS"), any())).thenReturn("Hello text body");
+        SelfServiceNotificationEvent event = spy(smsEvent());
+        when(event.getContextData()).thenReturn(Map.of("accountNumber", "000000213"));
+
+        service.handleNotification(event);
+
+        verify(selfServiceTemplateService).mergeTemplate(any(), eq("SMS"),
+                argThat(params -> "0****13".equals(params.get("accountNumber"))));
     }
 
     @Test

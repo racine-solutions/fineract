@@ -55,6 +55,8 @@ import org.apache.fineract.infrastructure.event.business.domain.savings.SavingsC
 import org.apache.fineract.infrastructure.event.business.domain.savings.SavingsRejectBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.organisation.staff.domain.Staff;
 import org.apache.fineract.organisation.staff.domain.StaffRepositoryWrapper;
@@ -113,6 +115,7 @@ public class SavingsApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
     private final GSIMRepositoy gsimRepository;
     private final GroupRepositoryWrapper groupRepositoryWrapper;
     private final GroupSavingsIndividualMonitoringWritePlatformService gsimWritePlatformService;
+    private final SmsNotificationWritePlatformService smsNotificationWritePlatformService;
 
     @Transactional
     @Override
@@ -240,6 +243,7 @@ public class SavingsApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
                     StatusEnum.CREATE.getValue(), EntityTables.SAVINGS.getForeignKeyColumnNameOnDatatable(), account.productId());
 
             businessEventNotifierService.notifyPostBusinessEvent(new SavingsCreateBusinessEvent(account));
+            smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.SAVINGS_SUBMISSION, null);
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(command.commandId()) //
@@ -466,6 +470,9 @@ public class SavingsApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
         }
 
         businessEventNotifierService.notifyPostBusinessEvent(new SavingsApproveBusinessEvent(savingsAccount));
+        if (!changes.isEmpty()) {
+            smsNotificationWritePlatformService.processSavingsSmsNotification(savingsAccount, SmsTypeEnum.SAVINGS_APPROVAL, null);
+        }
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
