@@ -61,4 +61,12 @@ public class AuthenticatedUserData {
 
     @SuppressWarnings("unused")
     private boolean isTwoFactorAuthenticationRequired;
+
+    /** Whether the user has read the current release notes; the web-app shows them on Home after login when false. */
+    @SuppressWarnings("unused")
+    private boolean viewedReleaseNote = true;
+
+    /** The current release-note version, or null while release notes after login are switched off. */
+    @SuppressWarnings("unused")
+    private String releaseNoteVersion;
 }

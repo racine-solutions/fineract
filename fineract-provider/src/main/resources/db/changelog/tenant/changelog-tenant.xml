@@ -263,4 +263,5 @@
     <include file="parts/0239_add_retained_earning_job.xml" relativeToChangelogFile="true"/>
     <include file="parts/0240_add_retained_earning_global_configuration.xml" relativeToChangelogFile="true"/>
     <include file="parts/RPAY-140_communication_campaigns.xml" relativeToChangelogFile="true"/>
+    <include file="parts/RPAY-145_release_note_viewed.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
