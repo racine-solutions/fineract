@@ -42,6 +42,7 @@ import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer
 import org.apache.fineract.infrastructure.security.constants.TwoFactorConstants;
 import org.apache.fineract.infrastructure.security.data.AuthenticatedUserData;
 import org.apache.fineract.infrastructure.security.exception.PasswordResetRequiredException;
+import org.apache.fineract.infrastructure.security.service.ReleaseNoteService;
 import org.apache.fineract.infrastructure.security.service.SpringSecurityPlatformSecurityContext;
 import org.apache.fineract.useradministration.data.RoleData;
 import org.apache.fineract.useradministration.domain.AppUser;
@@ -75,6 +76,7 @@ public class AuthenticationApiResource {
     private final DaoAuthenticationProvider customAuthenticationProvider;
     private final ToApiJsonSerializer<AuthenticatedUserData> apiJsonSerializerService;
     private final SpringSecurityPlatformSecurityContext springSecurityPlatformSecurityContext;
+    private final ReleaseNoteService releaseNoteService;
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -133,7 +135,9 @@ public class AuthenticationApiResource {
             if (this.springSecurityPlatformSecurityContext.doesPasswordHasToBeRenewed(principal)) {
                 authenticatedUserData = new AuthenticatedUserData().setUsername(request.username).setUserId(userId)
                         .setBase64EncodedAuthenticationKey(new String(base64EncodedAuthenticationKey, StandardCharsets.UTF_8))
-                        .setAuthenticated(true).setShouldRenewPassword(true).setTwoFactorAuthenticationRequired(isTwoFactorRequired);
+                        .setAuthenticated(true).setShouldRenewPassword(true).setTwoFactorAuthenticationRequired(isTwoFactorRequired)
+                        .setViewedReleaseNote(this.releaseNoteService.hasViewed(userId))
+                        .setReleaseNoteVersion(this.releaseNoteService.currentVersion());
                 throw new PasswordResetRequiredException(authenticatedUserData);
             } else {
 
@@ -142,7 +146,9 @@ public class AuthenticationApiResource {
                         .setOrganisationalRole(organisationalRole).setRoles(roles).setPermissions(permissions).setUserId(principal.getId())
                         .setAuthenticated(true)
                         .setBase64EncodedAuthenticationKey(new String(base64EncodedAuthenticationKey, StandardCharsets.UTF_8))
-                        .setTwoFactorAuthenticationRequired(isTwoFactorRequired);
+                        .setTwoFactorAuthenticationRequired(isTwoFactorRequired)
+                        .setViewedReleaseNote(this.releaseNoteService.hasViewed(userId))
+                        .setReleaseNoteVersion(this.releaseNoteService.currentVersion());
 
             }
 

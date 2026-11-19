@@ -1,0 +1,48 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+    <changeSet id="rpay145-1-release-note-viewed" author="racine">
+        <!-- Whether each staff user has read the release notes, and which version they read -->
+        <addColumn tableName="m_appuser">
+            <column name="viewed_release_note" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="viewed_release_note_version" type="VARCHAR(20)"/>
+            <column name="viewed_release_note_on" type="DATETIME"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="rpay145-2-release-note-version" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'release-note-version'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="release-note-version"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value" value="1.15.2"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Version of the release notes staff see after login. Users who have not read this version get the release notes on the Home page at their next login. Each release sets it to the new version. Disable to stop showing the release notes after login."/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>
