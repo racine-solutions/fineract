@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <property name="current_datetime" value="NOW()"/>
+
+    <!-- Communication campaigns (RPAY-140): templates, campaigns, runs and per-recipient deliveries -->
+    <changeSet id="rpay140-1-tags" author="racine">
+        <createTable tableName="m_comm_tag">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="name" type="VARCHAR(50)"><constraints nullable="false" unique="true" uniqueConstraintName="uq_m_comm_tag_name"/></column>
+        </createTable>
+        <insert tableName="m_comm_tag"><column name="name" value="Loan"/></insert>
+        <insert tableName="m_comm_tag"><column name="name" value="Savings"/></insert>
+        <insert tableName="m_comm_tag"><column name="name" value="Fixed Deposit"/></insert>
+        <insert tableName="m_comm_tag"><column name="name" value="Recurring Deposit"/></insert>
+        <insert tableName="m_comm_tag"><column name="name" value="Shares"/></insert>
+        <insert tableName="m_comm_tag"><column name="name" value="General"/></insert>
+    </changeSet>
+
+    <changeSet id="rpay140-2-template-meta" author="racine">
+        <!-- Campaign details a communication template has on top of m_template -->
+        <createTable tableName="m_comm_template_meta">
+            <column name="template_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" foreignKeyName="fk_comm_template_meta_template" references="m_template(id)" deleteCascade="true"/>
+            </column>
+            <column name="channel" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="tag" type="VARCHAR(50)"><constraints nullable="false"/></column>
+            <column name="purpose" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="email_subject" type="VARCHAR(200)"/>
+            <column name="archived" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_by" type="BIGINT"/>
+            <column name="created_on_utc" type="DATETIME"/>
+            <column name="last_modified_by" type="BIGINT"/>
+            <column name="last_modified_on_utc" type="DATETIME"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="rpay140-3-campaign" author="racine">
+        <createTable tableName="m_comm_campaign">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="name" type="VARCHAR(150)"><constraints nullable="false"/></column>
+            <column name="template_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_comm_campaign_template" references="m_template(id)"/>
+            </column>
+            <column name="channel" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="purpose" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="tag" type="VARCHAR(50)"><constraints nullable="false"/></column>
+            <!-- A copy of the template text taken when the campaign is saved: later template edits do not change it -->
+            <column name="message_text" type="TEXT"><constraints nullable="false"/></column>
+            <column name="email_subject" type="VARCHAR(200)"/>
+            <column name="audience_json" type="TEXT"><constraints nullable="false"/></column>
+            <column name="schedule_type" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <!-- Tenant local time -->
+            <column name="scheduled_at" type="DATETIME"/>
+            <column name="next_run_at" type="DATETIME"/>
+            <column name="status" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="last_error" type="VARCHAR(500)"/>
+            <column name="office_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_comm_campaign_office" references="m_office(id)"/>
+            </column>
+            <column name="submitted_by" type="BIGINT"/>
+            <column name="submitted_on_utc" type="DATETIME"/>
+            <column name="approved_by" type="BIGINT"/>
+            <column name="approved_on_utc" type="DATETIME"/>
+            <column name="rejected_by" type="BIGINT"/>
+            <column name="rejected_on_utc" type="DATETIME"/>
+            <column name="rejection_reason" type="VARCHAR(500)"/>
+            <column name="created_by" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="created_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="last_modified_by" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="last_modified_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="m_comm_campaign" indexName="ix_comm_campaign_status_next_run">
+            <column name="status"/>
+            <column name="next_run_at"/>
+        </createIndex>
+
+        <createTable tableName="m_comm_campaign_history">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="campaign_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_comm_history_campaign" references="m_comm_campaign(id)" deleteCascade="true"/>
+            </column>
+            <column name="action" type="VARCHAR(30)"><constraints nullable="false"/></column>
+            <column name="note" type="VARCHAR(500)"/>
+            <column name="user_id" type="BIGINT"/>
+            <column name="created_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="m_comm_campaign_history" indexName="ix_comm_history_campaign">
+            <column name="campaign_id"/>
+        </createIndex>
+
+        <createTable tableName="m_comm_run">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="campaign_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_comm_run_campaign" references="m_comm_campaign(id)" deleteCascade="true"/>
+            </column>
+            <column name="run_number" type="INT"><constraints nullable="false"/></column>
+            <column name="started_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="finished_on_utc" type="DATETIME"/>
+        </createTable>
+        <createIndex tableName="m_comm_run" indexName="ix_comm_run_campaign">
+            <column name="campaign_id"/>
+        </createIndex>
+
+        <!-- One row per recipient per run: what was sent, to where, and what happened -->
+        <createTable tableName="m_comm_delivery">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="run_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_comm_delivery_run" references="m_comm_run(id)" deleteCascade="true"/>
+            </column>
+            <column name="campaign_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="client_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="channel" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="address" type="VARCHAR(150)"/>
+            <column name="message" type="TEXT"/>
+            <column name="status" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="reason" type="VARCHAR(30)"/>
+            <column name="provider_response" type="VARCHAR(255)"/>
+            <column name="attempts" type="INT" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="created_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="last_attempt_on_utc" type="DATETIME"/>
+        </createTable>
+        <createIndex tableName="m_comm_delivery" indexName="ix_comm_delivery_run_status">
+            <column name="run_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="m_comm_delivery" indexName="ix_comm_delivery_client">
+            <column name="client_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="rpay140-4-marketing-consent" author="racine">
+        <!-- A client who asked the SACCO or MFI not to get Sales and marketing messages -->
+        <createTable tableName="m_client_marketing_consent">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" foreignKeyName="fk_client_marketing_consent_client" references="m_client(id)"/>
+            </column>
+            <column name="receives_marketing" type="BOOLEAN"><constraints nullable="false"/></column>
+            <column name="note" type="VARCHAR(500)"/>
+            <column name="changed_by" type="BIGINT"/>
+            <column name="changed_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="rpay140-5-permissions" author="racine">
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="READ_COMMTEMPLATE"/>
+            <column name="entity_name" value="COMMTEMPLATE"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="CREATE_COMMTEMPLATE"/>
+            <column name="entity_name" value="COMMTEMPLATE"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="UPDATE_COMMTEMPLATE"/>
+            <column name="entity_name" value="COMMTEMPLATE"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="DELETE_COMMTEMPLATE"/>
+            <column name="entity_name" value="COMMTEMPLATE"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="READ_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="CREATE_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="UPDATE_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="SUBMIT_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="SUBMIT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="APPROVE_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="APPROVE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="REJECT_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="REJECT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="PAUSE_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="PAUSE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="RESUME_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="RESUME"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="STOP_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="STOP"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="RETRY_COMMCAMPAIGN"/>
+            <column name="entity_name" value="COMMCAMPAIGN"/>
+            <column name="action_name" value="RETRY"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="READ_CLIENTMARKETINGCONSENT"/>
+            <column name="entity_name" value="CLIENTMARKETINGCONSENT"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="UPDATE_CLIENTMARKETINGCONSENT"/>
+            <column name="entity_name" value="CLIENTMARKETINGCONSENT"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay140-6-job" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">select count(1) from job where short_name = 'COMM_SND'</sqlCheck>
+        </preConditions>
+        <insert tableName="job">
+            <column name="name" value="Send Due Campaigns"/>
+            <column name="display_name" value="Send Due Campaigns"/>
+            <column name="cron_expression" value="0 0/1 * * * ?"/>
+            <column name="create_time" valueDate="${current_datetime}"/>
+            <column name="task_priority" valueNumeric="5"/>
+            <column name="group_name"/>
+            <column name="previous_run_start_time"/>
+            <column name="job_key" value="Send Due Campaigns _ DEFAULT"/>
+            <column name="initializing_errorlog"/>
+            <column name="is_active" valueBoolean="true"/>
+            <column name="currently_running" valueBoolean="false"/>
+            <column name="updates_allowed" valueBoolean="true"/>
+            <column name="scheduler_group" valueNumeric="0"/>
+            <column name="is_misfired" valueBoolean="false"/>
+            <column name="node_id" valueNumeric="1"/>
+            <column name="is_mismatched_job" valueBoolean="false"/>
+            <column name="short_name" value="COMM_SND"/>
+        </insert>
+    </changeSet>
+    <!-- Phase 2: repeating campaigns, quiet hours, saved audiences, marketing sender ID -->
+    <changeSet id="rpay140-7-repeat-and-quiet-hours" author="racine">
+        <addColumn tableName="m_comm_campaign">
+            <column name="repeat_every" type="INT"/>
+            <column name="repeat_unit" type="VARCHAR(10)"/>
+            <column name="repeat_stop" type="VARCHAR(12)"/>
+            <column name="repeat_until" type="DATE"/>
+            <column name="repeat_max_runs" type="INT"/>
+            <!-- Sending allowed only from quiet_from to quiet_to (HH:mm, tenant time); both null means any time -->
+            <column name="quiet_from" type="VARCHAR(5)"/>
+            <column name="quiet_to" type="VARCHAR(5)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="rpay140-8-saved-audiences" author="racine">
+        <createTable tableName="m_comm_audience">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="name" type="VARCHAR(100)"><constraints nullable="false" unique="true" uniqueConstraintName="uq_m_comm_audience_name"/></column>
+            <column name="audience_json" type="TEXT"><constraints nullable="false"/></column>
+            <column name="office_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_comm_audience_office" references="m_office(id)"/>
+            </column>
+            <column name="created_by" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="created_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="last_modified_by" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="last_modified_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+        </createTable>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="READ_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="CREATE_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="UPDATE_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="communication"/>
+            <column name="code" value="DELETE_COMMAUDIENCE"/>
+            <column name="entity_name" value="COMMAUDIENCE"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay140-9-campaign-settings" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name IN ('campaign-quiet-hours', 'sms-marketing-sender-id')</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="campaign-quiet-hours"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value" value="08:00-20:00"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Default hours campaigns may send SMS in, as HH:mm-HH:mm in the institution's time zone (08:00-20:00). New campaigns start with these hours and staff can change them per campaign. Disable to start new campaigns with no quiet hours."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="sms-marketing-sender-id"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Sender ID for Sales and marketing campaign SMS, if the institution has registered a separate one with the SMS gateway. While disabled or empty, marketing SMS use the same sender ID as every other SMS."/>
+        </insert>
+    </changeSet>
+    <changeSet id="rpay140-10-email-delivery" author="racine">
+        <!-- Brevo's message id for each email, so its webhook events (delivered, bounced, spam...) find the delivery -->
+        <addColumn tableName="m_comm_delivery">
+            <column name="subject" type="VARCHAR(250)"/>
+            <column name="provider_message_id" type="VARCHAR(150)"/>
+            <column name="provider_event" type="VARCHAR(20)"/>
+            <column name="provider_event_on_utc" type="DATETIME"/>
+        </addColumn>
+        <createIndex tableName="m_comm_delivery" indexName="ix_comm_delivery_provider_message">
+            <column name="provider_message_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="rpay140-11-email-daily-limit" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'campaign-email-daily-limit'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="campaign-email-daily-limit"/>
+            <column name="value" valueNumeric="250"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Most campaign emails sent per day. The email service's free plan allows 300 emails a day in total, so the default of 250 leaves room for passwords, codes and notifications. Emails over the limit wait and go out the next day. Raise it after moving to a paid plan; disable it for no limit."/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay140-12-email-sender-name" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'email-sender-name'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="email-sender-name"/>
+            <column name="value"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Name clients see as the sender of every email from this institution (campaigns, codes, notifications), e.g. Racine Pay Info. Up to 70 characters. While disabled or empty, the server's default sender name is used. The sending address stays the same."/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay140-13-staff-recipients" author="racine">
+        <!-- Campaigns can also reach staff and system users: who a delivery went to, when it is not a client -->
+        <addColumn tableName="m_comm_delivery">
+            <column name="recipient_type" type="VARCHAR(10)" defaultValue="CLIENT"><constraints nullable="false"/></column>
+            <column name="recipient_id" type="BIGINT"/>
+        </addColumn>
+        <dropNotNullConstraint tableName="m_comm_delivery" columnName="client_id" columnDataType="BIGINT"/>
+        <createIndex tableName="m_comm_delivery" indexName="ix_comm_delivery_recipient">
+            <column name="recipient_type"/>
+            <column name="recipient_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

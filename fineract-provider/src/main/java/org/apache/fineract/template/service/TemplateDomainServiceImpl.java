@@ -18,10 +18,13 @@
  */
 package org.apache.fineract.template.service;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.command.jdbc.store.mapping.CommandMapper;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.template.data.TemplateCreateRequest;
 import org.apache.fineract.template.data.TemplateCreateResponse;
 import org.apache.fineract.template.data.TemplateData;
@@ -38,6 +41,7 @@ import org.apache.fineract.template.exception.TemplateTypeInvalidException;
 import org.apache.fineract.template.mapper.TemplateMapper;
 import org.apache.fineract.template.mapper.TemplateMapperDataMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,10 +56,11 @@ public class TemplateDomainServiceImpl implements TemplateDomainService {
     private final TemplateRepository templateRepository;
     private final TemplateMapper templateMapper;
     private final TemplateMapperDataMapper templateMapperDataMapper;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public List<TemplateData> getAll() {
-        return templateMapper.map(templateRepository.findAll());
+        return templateMapper.map(withoutCampaignTemplates(templateRepository.findAll()));
     }
 
     @Override
@@ -93,6 +98,7 @@ public class TemplateDomainServiceImpl implements TemplateDomainService {
         // database when saving.
 
         var template = templateRepository.findById(request.getId()).orElseThrow(() -> new TemplateNotFoundException(request.getId()));
+        rejectCampaignTemplate(request.getId());
         template.setName(request.getName());
         template.setText(request.getText());
         template.setEntity(TemplateEntity.values()[request.getEntity()]);
@@ -119,6 +125,7 @@ public class TemplateDomainServiceImpl implements TemplateDomainService {
     @Override
     public TemplateDeleteResponse removeTemplate(TemplateDeleteRequest request) {
         var template = templateRepository.findById(request.getId()).orElseThrow(() -> new TemplateNotFoundException(request.getId()));
+        rejectCampaignTemplate(request.getId());
 
         this.templateRepository.delete(template);
 
@@ -127,6 +134,29 @@ public class TemplateDomainServiceImpl implements TemplateDomainService {
 
     @Override
     public List<TemplateData> getAllByEntityAndType(final TemplateEntity entity, final TemplateType type) {
-        return templateMapper.map(templateRepository.findByEntityAndType(entity, type));
+        return templateMapper.map(withoutCampaignTemplates(templateRepository.findByEntityAndType(entity, type)));
+    }
+
+    /** Ids of templates that belong to Campaigns (they keep their campaign details in m_comm_template_meta). */
+    private Set<Long> campaignTemplateIds() {
+        final List<Long> ids = jdbcTemplate == null ? null
+                : jdbcTemplate.queryForList("select template_id from m_comm_template_meta", Long.class);
+        return ids == null ? Set.of() : new HashSet<>(ids);
+    }
+
+    /**
+     * Campaign templates are written for campaign placeholders and checked by Campaigns, so they stay out of the
+     * Templates lists and the client and loan screen reports.
+     */
+    private List<Template> withoutCampaignTemplates(final List<Template> templates) {
+        final Set<Long> campaign = campaignTemplateIds();
+        return campaign.isEmpty() ? templates : templates.stream().filter(template -> !campaign.contains(template.getId())).toList();
+    }
+
+    private void rejectCampaignTemplate(final Long id) {
+        if (campaignTemplateIds().contains(id)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.template.belongs.to.campaigns",
+                    "This template belongs to Campaigns. Change it under RacinePay Premium > Campaigns > Templates.", id);
+        }
     }
 }

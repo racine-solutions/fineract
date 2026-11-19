@@ -228,6 +228,9 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
 
         postJournalEntries(account, existingTransactionIds, existingReversedTransactionIds, false);
         businessEventNotifierService.notifyPostBusinessEvent(new SavingsActivateBusinessEvent(account));
+        if (!changes.isEmpty()) {
+            smsNotificationWritePlatformService.processSavingsSmsNotification(account, SmsTypeEnum.SAVINGS_ACTIVATION, null);
+        }
 
         return new CommandProcessingResultBuilder() //
                 .withEntityId(savingsId) //

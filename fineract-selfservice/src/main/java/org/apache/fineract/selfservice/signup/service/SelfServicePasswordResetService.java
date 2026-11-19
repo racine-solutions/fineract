@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.fineract.notification.service.SmsText;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepository;
 import org.apache.fineract.selfservice.audit.data.SelfServiceEventEntry;
@@ -193,8 +194,8 @@ public class SelfServicePasswordResetService {
         request.issueCode(SelfServiceVerificationCode.hash(code), now, CODE_VALIDITY, SEND_WINDOW);
         // The phone on the client record, then the app user's own email
         final SelfServiceCodeSender.Delivery delivery = codeSender.send(SelfServiceCodeSender.Purpose.PASSWORD_RESET, code,
-                client.getMobileNo(), user.getEmail(), user.getFirstname(), SelfServiceCodeSender.Channel.SMS,
-                SelfServiceCodePolicy.codeValidityMinutes());
+                client.getMobileNo(), user.getEmail(), SmsText.recipientName(user.getLastname(), user.getFirstname()),
+                SelfServiceCodeSender.Channel.SMS, SelfServiceCodePolicy.codeValidityMinutes());
         request.recordDelivery(delivery == null ? null : delivery.channel().name());
         registrationRepository.saveAndFlush(request);
         if (delivery == null) {

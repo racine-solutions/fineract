@@ -309,4 +309,258 @@
         </insert>
     </changeSet>
 
+    <changeSet id="add_loan_account_clearance_sms_event-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'LoanAccountClearanceEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="LoanAccountClearanceEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <!-- SMS type names such as RECURRING_DEPOSIT_SUBMISSION no longer fit in 20 characters -->
+    <changeSet id="widen-m_sms_notification_account_message-sms_type_enum" author="fineract">
+        <modifyDataType tableName="m_sms_notification_account_message" columnName="sms_type_enum" newDataType="VARCHAR(50)"/>
+    </changeSet>
+
+    <!-- Savings, fixed deposit, recurring deposit and share account SMS, all off until switched on -->
+    <changeSet id="add_SavingsAccountCreationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'SavingsAccountCreationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="SavingsAccountCreationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_SavingsAccountApprovalEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'SavingsAccountApprovalEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="SavingsAccountApprovalEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_SavingsAccountActivationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'SavingsAccountActivationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="SavingsAccountActivationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_FixedDepositAccountCreationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'FixedDepositAccountCreationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="FixedDepositAccountCreationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_FixedDepositAccountApprovalEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'FixedDepositAccountApprovalEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="FixedDepositAccountApprovalEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_FixedDepositAccountActivationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'FixedDepositAccountActivationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="FixedDepositAccountActivationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_FixedDepositAccountWithdrawEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'FixedDepositAccountWithdrawEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="FixedDepositAccountWithdrawEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_RecurringDepositAccountCreationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'RecurringDepositAccountCreationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="RecurringDepositAccountCreationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_RecurringDepositAccountApprovalEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'RecurringDepositAccountApprovalEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="RecurringDepositAccountApprovalEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_RecurringDepositAccountActivationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'RecurringDepositAccountActivationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="RecurringDepositAccountActivationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_RecurringDepositAccountDepositEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'RecurringDepositAccountDepositEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="RecurringDepositAccountDepositEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_RecurringDepositAccountWithdrawEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'RecurringDepositAccountWithdrawEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="RecurringDepositAccountWithdrawEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_ShareAccountCreationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'ShareAccountCreationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="ShareAccountCreationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_ShareAccountApprovalEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'ShareAccountApprovalEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="ShareAccountApprovalEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_ShareAccountActivationEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'ShareAccountActivationEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="ShareAccountActivationEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_ShareAccountPurchaseEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'ShareAccountPurchaseEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="ShareAccountPurchaseEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="add_ShareAccountRedeemEvent-to-m_sms_event_configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_sms_event_configuration WHERE type = 'ShareAccountRedeemEvent'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_sms_event_configuration">
+            <column name="type" value="ShareAccountRedeemEvent"/>
+            <column name="enabled" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <!-- When the low SMS credit banner shows, editable under System > Configurations -->
+    <changeSet id="add-sms-credit-low-alert-percent-configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'sms-credit-low-alert-percent'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="sms-credit-low-alert-percent"/>
+            <column name="value" valueNumeric="80"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Shows staff an amber low SMS credit banner once this percent of the last SMS top-up is used (1-100). Default 80. Disable to turn the warning off."/>
+        </insert>
+    </changeSet>
+    <changeSet id="add-sms-credit-critical-alert-percent-configuration" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'sms-credit-critical-alert-percent'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="sms-credit-critical-alert-percent"/>
+            <column name="value" valueNumeric="95"/>
+            <column name="date_value"/>
+            <column name="string_value"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Turns the low SMS credit banner red once this percent of the last SMS top-up is used (1-100). Default 95. Disable to turn the red alert off."/>
+        </insert>
+    </changeSet>
+
+    <!-- Clearer tooltips under System > Configurations; a description the bank has edited is left alone -->
+    <changeSet id="clarify-sms-credit-alert-configuration-descriptions" author="fineract">
+        <update tableName="c_configuration">
+            <column name="description" value="Amber low SMS credit banner: shows once this percent of the last SMS top-up is used, e.g. 80 = warn when 20% is left. Works only while Enabled (Disabled turns this warning off). Blank or outside 1-100 uses 80."/>
+            <where>name = 'sms-credit-low-alert-percent' AND description = 'Shows staff an amber low SMS credit banner once this percent of the last SMS top-up is used (1-100). Default 80. Disable to turn the warning off.'</where>
+        </update>
+        <update tableName="c_configuration">
+            <column name="description" value="Red low SMS credit banner: shows once this percent of the last SMS top-up is used, e.g. 95 = red when 5% is left. Works only while Enabled (Disabled turns this alert off). Blank or outside 1-100 uses 95."/>
+            <where>name = 'sms-credit-critical-alert-percent' AND description = 'Turns the low SMS credit banner red once this percent of the last SMS top-up is used (1-100). Default 95. Disable to turn the red alert off.'</where>
+        </update>
+    </changeSet>
+    <changeSet id="describe-enable-sms-notifications-configuration" author="fineract">
+        <update tableName="c_configuration">
+            <column name="description" value="Master switch for every client SMS: loan, savings, fixed and recurring deposit and share updates, and mobile app sign-in codes. When Disabled, clients get no SMS at all and staff see a red warning banner."/>
+            <where>name = 'enable-sms-notifications' AND (description IS NULL OR description = '')</where>
+        </update>
+    </changeSet>
+
 </databaseChangeLog>

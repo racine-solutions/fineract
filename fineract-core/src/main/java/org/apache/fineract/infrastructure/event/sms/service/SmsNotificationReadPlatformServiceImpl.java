@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.infrastructure.event.sms.service;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -28,6 +29,7 @@ import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
+import org.apache.fineract.infrastructure.event.external.data.SmsCreditStatusData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationAccountData;
 import org.apache.fineract.infrastructure.event.external.data.SmsNotificationMessageData;
 import org.apache.fineract.infrastructure.event.external.data.SmsWalletTransactionData;
@@ -86,6 +88,57 @@ public class SmsNotificationReadPlatformServiceImpl implements SmsNotificationRe
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
+    }
+
+    @Override
+    public SmsCreditStatusData retrieveCreditStatus() {
+        final SmsNotificationAccountData account = retrieveSmsAccount();
+        final int balance = account == null || account.getSmsTotalBalance() == null ? 0 : account.getSmsTotalBalance();
+
+        // The balance right after the last top-up is what "used" is measured against
+        final String lastTopUp = "SELECT previous_balance, sms_credit, sms_cost FROM m_sms_notification_account_transaction "
+                + "ORDER BY id DESC " + sqlGenerator.limit(1);
+        final Object[] topUp = jdbcTemplate.query(lastTopUp,
+                rs -> rs.next() ? new Object[] { rs.getInt("previous_balance") + rs.getInt("sms_credit"), rs.getBigDecimal("sms_cost") }
+                        : new Object[] { account == null || account.getSmsTotalCredit() == null ? 0 : account.getSmsTotalCredit(), null });
+        final int topUpBalance = (Integer) topUp[0];
+        final BigDecimal smsCost = (BigDecimal) topUp[1];
+
+        final SmsCreditStatusData.OffReason offReason = smsOffReason(account);
+        if (offReason != null) {
+            return SmsCreditStatusData.smsOff(offReason, balance, topUpBalance, smsCost);
+        }
+        final Integer lowAt = alertLevel(SmsCreditStatusData.LOW_ALERT_CONFIG, SmsCreditStatusData.DEFAULT_LOW_AT_PERCENT_USED);
+        final Integer criticalAt = alertLevel(SmsCreditStatusData.CRITICAL_ALERT_CONFIG,
+                SmsCreditStatusData.DEFAULT_CRITICAL_AT_PERCENT_USED);
+        return SmsCreditStatusData.of(true, balance, topUpBalance, smsCost, lowAt, criticalAt);
+    }
+
+    /** Why no SMS reaches clients, or null when SMS is working. */
+    private SmsCreditStatusData.OffReason smsOffReason(final SmsNotificationAccountData account) {
+        final Boolean switchedOn = jdbcTemplate.query("SELECT enabled FROM c_configuration WHERE name = 'enable-sms-notifications'",
+                rs -> rs.next() ? rs.getBoolean("enabled") : Boolean.FALSE);
+        if (!Boolean.TRUE.equals(switchedOn)) {
+            return SmsCreditStatusData.OffReason.SMS_NOTIFICATIONS_DISABLED;
+        }
+        if (account == null || !Boolean.TRUE.equals(account.getIsActive())) {
+            return SmsCreditStatusData.OffReason.SMS_ACCOUNT_INACTIVE;
+        }
+        final Integer eventsOn = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM m_sms_event_configuration WHERE enabled = ?",
+                Integer.class, true);
+        return eventsOn == null || eventsOn == 0 ? SmsCreditStatusData.OffReason.ALL_EVENTS_DISABLED : null;
+    }
+
+    /** The alert level set under System > Configurations; see {@link SmsCreditStatusData#alertLevel}. */
+    private Integer alertLevel(final String configName, final int defaultValue) {
+        return jdbcTemplate.query("SELECT enabled, value FROM c_configuration WHERE name = ?", rs -> {
+            if (!rs.next()) {
+                return defaultValue;
+            }
+            final long value = rs.getLong("value");
+            final Long configured = rs.wasNull() ? null : value;
+            return SmsCreditStatusData.alertLevel(rs.getBoolean("enabled"), configured, defaultValue);
+        }, configName);
     }
 
     @Override

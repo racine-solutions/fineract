@@ -128,7 +128,8 @@ public class OidcFederationSecurityConfig {
     public SecurityFilterChain oidcFederationFilterChain(HttpSecurity http) throws Exception {
         http.securityMatcher("/api/**")
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/*/echo").permitAll().anyRequest().authenticated())
+                        .requestMatchers(HttpMethod.POST, "/api/*/echo").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/*/comm/webhooks/brevo").permitAll().anyRequest().authenticated())
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Bearer JWT validation — multi-issuer dynamic resolver (DB + YAML fallback)

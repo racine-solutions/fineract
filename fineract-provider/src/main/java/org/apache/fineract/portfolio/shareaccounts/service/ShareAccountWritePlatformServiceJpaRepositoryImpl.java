@@ -42,6 +42,8 @@ import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.event.business.domain.share.ShareAccountApproveBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.domain.share.ShareAccountCreateBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
+import org.apache.fineract.notification.data.SmsTypeEnum;
+import org.apache.fineract.notification.service.SmsNotificationWritePlatformService;
 import org.apache.fineract.portfolio.account.service.AccountNumberGenerator;
 import org.apache.fineract.portfolio.accounts.constants.ShareAccountApiConstants;
 import org.apache.fineract.portfolio.note.domain.Note;
@@ -76,6 +78,8 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
 
     private final BusinessEventNotifierService businessEventNotifierService;
 
+    private final SmsNotificationWritePlatformService smsNotificationWritePlatformService;
+
     @Override
     public CommandProcessingResult createShareAccount(JsonCommand jsonCommand) {
         try {
@@ -86,6 +90,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                     populateJournalEntries(account, account.getPendingForApprovalSharePurchaseTransactions()));
 
             businessEventNotifierService.notifyPostBusinessEvent(new ShareAccountCreateBusinessEvent(account));
+            smsNotificationWritePlatformService.processShareSmsNotification(account, SmsTypeEnum.SHARE_SUBMISSION, null);
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
@@ -258,6 +263,9 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, journalTransactions));
 
             businessEventNotifierService.notifyPostBusinessEvent(new ShareAccountApproveBusinessEvent(account));
+            if (!changes.isEmpty()) {
+                smsNotificationWritePlatformService.processShareSmsNotification(account, SmsTypeEnum.SHARE_APPROVAL, null);
+            }
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
@@ -352,6 +360,9 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             }
             this.journalEntryWritePlatformService
                     .createJournalEntriesForShares(populateJournalEntries(account, account.getChargeTransactions()));
+            if (!changes.isEmpty()) {
+                smsNotificationWritePlatformService.processShareSmsNotification(account, SmsTypeEnum.SHARE_ACTIVATION, null);
+            }
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
                     .withEntityId(accountId) //
@@ -382,6 +393,9 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                         totalSubscribedShares += transaction.getTotalShares();
                     }
                     this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
+                    for (ShareAccountTransaction transaction : transactions) {
+                        smsNotificationWritePlatformService.processShareSmsNotification(account, SmsTypeEnum.SHARE_PURCHASE, transaction);
+                    }
                 }
                 if (!totalSubscribedShares.equals(Long.valueOf(0))) {
                     ShareProduct shareProduct = account.getShareProduct();
@@ -452,6 +466,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                 this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
                 changes.clear();
                 changes.put(ShareAccountApiConstants.requestedshares_paramname, transaction.getId());
+                smsNotificationWritePlatformService.processShareSmsNotification(account, SmsTypeEnum.SHARE_REDEEM, transaction);
 
             }
             return new CommandProcessingResultBuilder() //
@@ -486,6 +501,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                 this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
                 changes.clear();
                 changes.put(ShareAccountApiConstants.requestedshares_paramname, transaction.getId());
+                smsNotificationWritePlatformService.processShareSmsNotification(account, SmsTypeEnum.SHARE_REDEEM, transaction);
 
             }
             return new CommandProcessingResultBuilder() //

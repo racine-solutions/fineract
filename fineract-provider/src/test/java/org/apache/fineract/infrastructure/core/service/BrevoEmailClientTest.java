@@ -29,6 +29,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -120,5 +121,41 @@ class BrevoEmailClientTest {
         assertThatThrownBy(() -> client.send("to@example.com", null, "S", "B", false, null, null))
                 .isInstanceOf(PlatformEmailSendException.class);
         assertThat(body.get()).isNull();
+    }
+
+    @Test
+    void theTenantsSenderNameReplacesTheServersWhenSwitchedOn() {
+        final BrevoEmailClient client = new BrevoEmailClient("test-key", "sender@example.com", "Racine Pay Info", url);
+        client.setJdbcTemplates(provider(Map.of("enabled", true, "string_value", "  Example Sacco ")));
+        assertThat(client.senderName()).isEqualTo("Example Sacco");
+
+        client.send("one@example.com", null, "Hello", "Hi", false, null, null);
+        assertThat(JsonParser.parseString(body.get()).getAsJsonObject().getAsJsonObject("sender").get("name").getAsString())
+                .isEqualTo("Example Sacco");
+    }
+
+    @Test
+    void theServersSenderNameIsUsedWhileTheTenantsIsOffOrEmpty() {
+        final BrevoEmailClient client = new BrevoEmailClient("test-key", "sender@example.com", "Racine Pay Info", url);
+        client.setJdbcTemplates(provider(Map.of("enabled", false, "string_value", "Example Sacco")));
+        assertThat(client.senderName()).isEqualTo("Racine Pay Info");
+        client.setJdbcTemplates(provider(Map.of("enabled", true, "string_value", " ")));
+        assertThat(client.senderName()).isEqualTo("Racine Pay Info");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static org.springframework.beans.factory.ObjectProvider<org.springframework.jdbc.core.JdbcTemplate> provider(
+            final Map<String, Object> row) {
+        final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate = new org.springframework.jdbc.core.JdbcTemplate() {
+
+            @Override
+            public List<Map<String, Object>> queryForList(final String sql) {
+                return List.of(row);
+            }
+        };
+        final org.springframework.beans.factory.ObjectProvider<org.springframework.jdbc.core.JdbcTemplate> provider = org.mockito.Mockito
+                .mock(org.springframework.beans.factory.ObjectProvider.class);
+        org.mockito.Mockito.when(provider.getIfAvailable()).thenReturn(jdbcTemplate);
+        return provider;
     }
 }

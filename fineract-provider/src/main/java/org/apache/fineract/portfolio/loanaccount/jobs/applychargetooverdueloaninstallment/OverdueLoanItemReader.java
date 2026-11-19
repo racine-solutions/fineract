@@ -30,8 +30,8 @@ import org.springframework.batch.item.ItemReader;
 import org.springframework.lang.NonNull;
 
 /**
- * Reads the ids of loans that have overdue installments eligible for a penalty charge. Only the (lightweight) list
- * of matching ids is fetched up front; the actual schedule data for each one is looked up lazily, per loan, by
+ * Reads the ids of loans that have overdue installments eligible for a penalty charge. Only the (lightweight) list of
+ * matching ids is fetched up front; the actual schedule data for each one is looked up lazily, per loan, by
  * {@link OverdueLoanChargeItemProcessor} - so at no point is more than one loan's worth of data pulled into memory
  * beyond this id list, regardless of how many loans are eligible tenant-wide.
  */

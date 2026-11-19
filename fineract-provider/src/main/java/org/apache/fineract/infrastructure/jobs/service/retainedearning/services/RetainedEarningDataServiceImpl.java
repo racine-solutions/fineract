@@ -35,7 +35,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.fineract.accounting.retainedearning.domain.AccountGLJournalEntryAnnualSummary;
@@ -70,10 +69,8 @@ public class RetainedEarningDataServiceImpl implements RetainedEarningDataServic
 
     public RetainedEarningDataServiceImpl(
             @org.springframework.beans.factory.annotation.Qualifier("datatableReportingProcessService") ReportingProcessService reportingProcessService,
-            DataParser dataParser,
-            AccountGLJournalEntryAnnualSummaryRepository retainedEarningSummaryRepository,
-            LoanProductRepository loanProductRepository,
-            RetainedEarningConfigurationService retainedEarningConfigurationService) {
+            DataParser dataParser, AccountGLJournalEntryAnnualSummaryRepository retainedEarningSummaryRepository,
+            LoanProductRepository loanProductRepository, RetainedEarningConfigurationService retainedEarningConfigurationService) {
         this.reportingProcessService = reportingProcessService;
         this.dataParser = dataParser;
         this.retainedEarningSummaryRepository = retainedEarningSummaryRepository;

@@ -114,8 +114,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
             tokenService.revokeAllSessions(userId);
         }
         audit(user, "VIEW_ONLY", "Access set to view only", command);
-        notifyClient(user, "your mobile app access is now view only. You can see your accounts but cannot make transfers or other changes.",
-                command);
+        notifyClient(user, "your app access is now view only. You cannot transact.", command);
         return result(user, command);
     }
 
@@ -126,7 +125,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
                 EnumSet.of(SelfServiceUserStatus.ACTIVE, SelfServiceUserStatus.VIEW_ONLY));
         tokenService.revokeAllSessions(userId);
         audit(user, "SUSPEND", "Access suspended", command);
-        notifyClient(user, "your mobile app access has been suspended. You cannot log in until your branch reactivates it.", command);
+        notifyClient(user, "your app access is suspended until your branch reactivates it.", command);
         return result(user, command);
     }
 
@@ -136,7 +135,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         final AppSelfServiceUser user = changeStatus(userId, command, SelfServiceUserStatus.ACTIVE,
                 EnumSet.of(SelfServiceUserStatus.VIEW_ONLY, SelfServiceUserStatus.SUSPENDED));
         audit(user, "REACTIVATE", "Access reactivated", command);
-        notifyClient(user, "your mobile app access has been restored. You can log in and transact again.", command);
+        notifyClient(user, "your app access is restored. You can log in again.", command);
         return result(user, command);
     }
 
@@ -148,7 +147,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
                         SelfServiceUserStatus.SUSPENDED));
         tokenService.revokeAllSessions(userId);
         audit(user, "CLOSE", "Access closed", command);
-        notifyClient(user, "your mobile app access has been closed.", command);
+        notifyClient(user, "your app access is closed.", command);
         return result(user, command);
     }
 
@@ -164,7 +163,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         user.unlock(reason, currentStaffId());
         appSelfServiceUserRepository.saveAndFlush(user);
         audit(user, "UNLOCK", "Account unlocked", command);
-        notifyClient(user, "your mobile app account has been unlocked. You can log in again.", command);
+        notifyClient(user, "your app account is unlocked. You can log in again.", command);
         return result(user, command);
     }
 
@@ -175,7 +174,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
         final AppSelfServiceUser user = findInScope(userId);
         tokenService.revokeAllSessions(userId);
         audit(user, "REVOKE_SESSIONS", "Signed out of the app on all devices", command);
-        notifyClient(user, "you have been signed out of the mobile app on all devices. Please log in again.", command);
+        notifyClient(user, "you were signed out of the app on all devices. Please log in again.", command);
         return result(user, command);
     }
 
@@ -200,7 +199,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
             appSelfServiceUserRepository.saveAndFlush(user);
             tokenService.revokeAllSessions(userId);
             audit(user, "RESET_PASSWORD", "Password change required at next login", command);
-            notifyClient(user, "you must set a new password the next time you log in to the mobile app.", command);
+            notifyClient(user, "you must set a new password at your next app login.", command);
         } else {
             final String body = "{\"username\":\"" + user.getUsername().replace("\\", "\\\\").replace("\"", "\\\"") + "\"}";
             if (forgotPasswordService.createForgotPasswordRequest(body) == null) {
@@ -208,7 +207,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
                         "The client has no email address or mobile number to send the reset code to", userId);
             }
             audit(user, "RESET_PASSWORD", "Password reset code sent to the client", command);
-            notifyClient(user, "your branch started a password reset. Use the code we sent you to set a new password.", command);
+            notifyClient(user, "your branch started a password reset. Use the code we sent you.", command);
         }
         return result(user, command);
     }
@@ -230,8 +229,8 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
                     userId, limit.currencyCode(), limit.perTransfer(), limit.daily(), now, staffId);
         }
 
-        final String summary = limits.isEmpty() ? "your branch removed the transfer limits on your mobile app."
-                : "your mobile app transfer limits are now "
+        final String summary = limits.isEmpty() ? "your branch removed your app transfer limits."
+                : "your app transfer limits are now "
                         + String.join("; ", limits.stream().map(SelfServiceUserAdminWriteServiceImpl::describe).toList()) + ".";
         audit(user, "UPDATE_LIMITS",
                 limits.isEmpty() ? "Transfer limits removed"
@@ -287,8 +286,7 @@ public class SelfServiceUserAdminWriteServiceImpl implements SelfServiceUserAdmi
                 "Linked clients changed to "
                         + String.join(", ", clients.stream().map(c -> c.getDisplayName() + " (" + c.getAccountNumber() + ")").toList()),
                 command, clients.get(0).getId(), office.getId());
-        notifyClient(user, clients.get(0).getMobileNo(), "the client accounts you can use in the mobile app were changed by your branch.",
-                command);
+        notifyClient(user, clients.get(0).getMobileNo(), "your branch changed the accounts you can use in the app.", command);
 
         final Map<String, Object> changes = new LinkedHashMap<>();
         changes.put(CLIENT_IDS_PARAM, clientIds);

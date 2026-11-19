@@ -62,6 +62,7 @@ public enum JobName {
     JOURNAL_ENTRY_AGGREGATION("Journal Entry Aggregation"), //
     WORKING_CAPITAL_LOAN_COB_JOB("Working Capital Loan COB"), //
     RETAINED_EARNING("Retained Earning Job"), //
+    SEND_DUE_CAMPAIGNS("Send Due Campaigns"), //
     ; //
 
     private final String name;
