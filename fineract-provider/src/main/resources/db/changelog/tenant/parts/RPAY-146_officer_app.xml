@@ -228,4 +228,15 @@
             <column name="can_maker_checker" valueBoolean="true"/>
         </insert>
     </changeSet>
+
+    <changeSet id="rpay146-8-unlock-permission" author="racine">
+        <!-- Unlock a staff account locked after too many failed sign-ins -->
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="UNLOCK_OFFICERAPPUSER"/>
+            <column name="entity_name" value="OFFICERAPPUSER"/>
+            <column name="action_name" value="UNLOCK"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+    </changeSet>
 </databaseChangeLog>

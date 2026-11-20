@@ -56,7 +56,9 @@ public class OfficerAppSessionService {
     private final OfficerAppSettings settings;
 
     /** A device row as needed at sign-in and on each request. */
-    public record DeviceRow(Long id, Long appUserId, String shortCode, String label, String status, String blockReason, String appVersion) {
+    /** firstSignIn: this phone had never signed in with this user before. */
+    public record DeviceRow(Long id, Long appUserId, String shortCode, String label, String status, String blockReason, String appVersion,
+            boolean firstSignIn) {
     }
 
     /** An app session joined with its device. */
@@ -127,7 +129,8 @@ public class OfficerAppSessionService {
                 "update m_officerapp_device set manufacturer = ?, model = ?, os_version = ?,"
                         + " app_version = ?, app_build = ?, last_seen_on_utc = ?, last_ip = ? where appuser_id = ? and installation_id = ?",
                 manufacturer, model, osVersion, appVersion, appBuild, now, StringUtils.left(ip, 64), appUserId, info.installationId());
-        if (updated == 0) {
+        final boolean firstSignIn = updated == 0;
+        if (firstSignIn) {
             jdbcTemplate.update(
                     "insert into m_officerapp_device (appuser_id, installation_id, short_code, manufacturer, model,"
                             + " os_version, app_version, app_build, status, first_seen_on_utc, last_seen_on_utc, last_ip)"
@@ -140,7 +143,7 @@ public class OfficerAppSessionService {
                         + " from m_officerapp_device where appuser_id = ? and installation_id = ?",
                 (rs, n) -> new DeviceRow(rs.getLong("id"), rs.getLong("appuser_id"), rs.getString("short_code"),
                         DeviceInfo.label(rs.getString("manufacturer"), rs.getString("model")), rs.getString("status"),
-                        rs.getString("block_reason"), rs.getString("app_version")),
+                        rs.getString("block_reason"), rs.getString("app_version"), firstSignIn),
                 appUserId, info.installationId());
     }
 

@@ -49,6 +49,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -59,6 +60,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.data.ApiParameterError;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.security.api.AuthenticationApiResource;
 import org.apache.fineract.infrastructure.security.exception.PasswordResetRequiredException;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
@@ -67,6 +69,7 @@ import org.apache.fineract.racine.officerapp.domain.OfficerAppErrors;
 import org.apache.fineract.racine.officerapp.domain.OfficerAppEvent;
 import org.apache.fineract.racine.officerapp.domain.OfficerAppVersion;
 import org.apache.fineract.racine.officerapp.service.OfficerAppEventRecorder;
+import org.apache.fineract.racine.officerapp.service.OfficerAppNotifier;
 import org.apache.fineract.racine.officerapp.service.OfficerAppRequests;
 import org.apache.fineract.racine.officerapp.service.OfficerAppSessionService;
 import org.apache.fineract.racine.officerapp.service.OfficerAppSessionService.Access;
@@ -103,6 +106,7 @@ public class OfficerAppAuthenticationApiResource {
     private final OfficerAppEventRecorder recorder;
     private final JdbcTemplate jdbcTemplate;
     private final PlatformSecurityContext context;
+    private final OfficerAppNotifier notifier;
 
     @POST
     @Path("authentication")
@@ -162,6 +166,12 @@ public class OfficerAppAuthenticationApiResource {
                 "Signed in on " + registered.label() + " (app " + StringUtils.defaultIfBlank(device.appVersion(), "unknown") + ", Android "
                         + StringUtils.defaultIfBlank(device.osVersion(), "unknown") + ")",
                 ip);
+
+        if (registered.firstSignIn()) {
+            // First sign-in from this phone: tell the officer straight away, in case it wasn't them
+            notifier.sendNow(userId, OfficerAppNotifier.newDeviceSignIn(registered.label(), registered.shortCode(),
+                    DateUtils.getLocalDateTimeOfTenant().format(DateTimeFormatter.ofPattern("d MMM yyyy HH:mm"))));
+        }
 
         authenticated.addProperty("appSessionToken", token);
         authenticated.addProperty("sessionTimeoutMinutes", settings.sessionTimeoutMinutes());

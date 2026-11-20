@@ -33,13 +33,14 @@ public final class OfficerAppConstants {
     public static final String ACTION_TURNOFF = "TURNOFF";
     public static final String ACTION_TURNON = "TURNON";
     public static final String ACTION_SIGNOUTALL = "SIGNOUTALL";
+    public static final String ACTION_UNLOCK = "UNLOCK";
     public static final String ACTION_BLOCK = "BLOCK";
     public static final String ACTION_UNBLOCK = "UNBLOCK";
     public static final String ACTION_SIGNOUT = "SIGNOUT";
 
     /** ?command= on POST /officerapp/officers/{userId}. */
     public static final Map<String, String> USER_COMMANDS = Map.of("turnOff", ACTION_TURNOFF, "turnOn", ACTION_TURNON, "signOutAll",
-            ACTION_SIGNOUTALL);
+            ACTION_SIGNOUTALL, "unlock", ACTION_UNLOCK);
     /** ?command= on POST /officerapp/devices/{deviceId}. */
     public static final Map<String, String> DEVICE_COMMANDS = Map.of("block", ACTION_BLOCK, "unblock", ACTION_UNBLOCK, "signOut",
             ACTION_SIGNOUT);

@@ -68,6 +68,7 @@ public class OfficerAppWriteService {
     private final OfficerAppSessionService sessions;
     private final OfficerAppEventRecorder recorder;
     private final OfficerAppNotifier notifier;
+    private final StaffAccountLock staffAccounts;
 
     @Transactional
     public CommandProcessingResult turnOff(final Long userId, final JsonCommand command) {
@@ -89,7 +90,7 @@ public class OfficerAppWriteService {
         }
         audit(user, null, "ACCESS_OFF", "Mobile app access turned off" + (ended > 0 ? "; signed out of " + ended + " device(s)" : "")
                 + (blocked > 0 ? "; " + blocked + " device(s) blocked" : ""), reason);
-        notify(userId, command, "access has been turned off by your administrator", reason);
+        notify(userId, command, OfficerAppNotifier.accessTurnedOff(reason));
         final Map<String, Object> changes = changes(reason);
         changes.put("accessStatus", ACCESS_OFF);
         changes.put("sessionsEnded", ended);
@@ -107,7 +108,7 @@ public class OfficerAppWriteService {
         }
         sessions.saveAccess(userId, ACCESS_ALLOWED, reason, context.authenticatedUser().getId());
         audit(user, null, "ACCESS_ON", "Mobile app access turned on", reason);
-        notify(userId, command, "access has been turned back on. You can sign in to the app again", reason);
+        notify(userId, command, OfficerAppNotifier.accessTurnedOn(reason));
         final Map<String, Object> changes = changes(reason);
         changes.put("accessStatus", ACCESS_ALLOWED);
         return result(command, userId, user.officeId(), changes);
@@ -119,8 +120,28 @@ public class OfficerAppWriteService {
         final OfficerAppUserData user = readService.retrieveOfficer(userId);
         final int ended = sessions.endSessionsOfUser(userId, END_REVOKED);
         audit(user, null, "SIGNED_OUT_ALL", "Signed out of the app on all devices (" + ended + " session(s) ended)", reason);
+        if (ended > 0) {
+            notifier.sendAfterSave(userId, OfficerAppNotifier.signedOutByAdmin("all your devices", reason));
+        }
         final Map<String, Object> changes = changes(reason);
         changes.put("sessionsEnded", ended);
+        return result(command, userId, user.officeId(), changes);
+    }
+
+    /** Unlocks a staff account locked after too many failed sign-ins (web app and field officer app). */
+    @Transactional
+    public CommandProcessingResult unlock(final Long userId, final JsonCommand command) {
+        final String reason = reason(command, false);
+        final OfficerAppUserData user = readService.retrieveOfficer(userId);
+        if (!"LOCKED".equals(user.webStatus())) {
+            throw new GeneralPlatformDomainRuleException("error.msg.officerapp.user.not.locked", "User " + userId + " is not locked",
+                    userId);
+        }
+        staffAccounts.unlock(userId);
+        audit(user, null, "ACCOUNT_UNLOCKED", "Account unlocked", reason);
+        notifier.sendAfterSave(userId, OfficerAppNotifier.accountUnlocked());
+        final Map<String, Object> changes = changes(reason);
+        changes.put("locked", false);
         return result(command, userId, user.officeId(), changes);
     }
 
@@ -136,7 +157,8 @@ public class OfficerAppWriteService {
         final int ended = sessions.endSessionsOfDevice(deviceId, END_BLOCKED);
         audit(readService.retrieveOfficer(device.userId()), device, "DEVICE_BLOCKED",
                 "Device " + device.label() + " (" + device.shortCode() + ") blocked", reason);
-        notify(device.userId(), command, "on " + device.label() + " has been blocked by your administrator", reason);
+        notify(device.userId(), command,
+                OfficerAppNotifier.deviceBlocked(device.label() + " (Device ID " + device.shortCode() + ")", reason));
         final Map<String, Object> changes = changes(reason);
         changes.put("status", DEVICE_BLOCKED);
         changes.put("sessionsEnded", ended);
@@ -166,6 +188,10 @@ public class OfficerAppWriteService {
         final int ended = sessions.endSessionsOfDevice(deviceId, END_REVOKED);
         audit(readService.retrieveOfficer(device.userId()), device, "DEVICE_SIGNED_OUT",
                 "Signed out of " + device.label() + " (" + device.shortCode() + ")", reason);
+        if (ended > 0) {
+            notifier.sendAfterSave(device.userId(),
+                    OfficerAppNotifier.signedOutByAdmin(device.label() + " (Device ID " + device.shortCode() + ")", reason));
+        }
         final Map<String, Object> changes = changes(reason);
         changes.put("sessionsEnded", ended);
         return result(command, deviceId, null, changes);
@@ -186,10 +212,11 @@ public class OfficerAppWriteService {
                 .details(reason == null ? null : new Gson().toJson(Map.of(REASON_PARAM, reason))).build());
     }
 
-    private void notify(final Long userId, final JsonCommand command, final String change, final String reason) {
+    /** Access changes: sent unless the admin unticked "Tell the officer" in the dialog. */
+    private void notify(final Long userId, final JsonCommand command, final OfficerAppNotifier.StaffMessage message) {
         final Boolean notify = command.booleanObjectValueOfParameterNamed(NOTIFY_PARAM);
         if (notify == null || notify) {
-            notifier.notifyAfterCommit(userId, change, reason);
+            notifier.sendAfterSave(userId, message);
         }
     }
 

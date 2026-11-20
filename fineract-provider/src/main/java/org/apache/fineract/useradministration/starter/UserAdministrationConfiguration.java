@@ -26,6 +26,7 @@ import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.organisation.office.service.OfficeReadPlatformService;
 import org.apache.fineract.organisation.staff.domain.StaffRepository;
 import org.apache.fineract.organisation.staff.service.StaffReadService;
+import org.apache.fineract.racine.officerapp.service.OfficerAppNotifier;
 import org.apache.fineract.useradministration.data.PasswordPreferencesDataValidator;
 import org.apache.fineract.useradministration.domain.AppUserPreviousPasswordRepository;
 import org.apache.fineract.useradministration.domain.AppUserRepository;
@@ -75,10 +76,10 @@ public class UserAdministrationConfiguration {
             PlatformPasswordEncoder platformPasswordEncoder, AppUserRepository appUserRepository,
             OfficeRepositoryWrapper officeRepositoryWrapper, RoleRepository roleRepository, UserDataValidator fromApiJsonDeserializer,
             AppUserPreviousPasswordRepository appUserPreviewPasswordRepository, StaffRepository staffRepository,
-            ConfigurationDomainService configurationDomainService) {
+            ConfigurationDomainService configurationDomainService, OfficerAppNotifier staffNotifier) {
         return new AppUserWritePlatformServiceJpaRepositoryImpl(context, userDomainService, platformPasswordEncoder, appUserRepository,
                 officeRepositoryWrapper, roleRepository, fromApiJsonDeserializer, appUserPreviewPasswordRepository, staffRepository,
-                configurationDomainService);
+                configurationDomainService, staffNotifier);
     }
 
     @Bean
