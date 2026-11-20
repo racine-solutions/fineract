@@ -36,6 +36,7 @@ import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.IpAddressUtils;
+import org.apache.fineract.infrastructure.core.service.RequestChannel;
 import org.apache.fineract.useradministration.domain.AppUser;
 
 @Entity
@@ -144,6 +145,13 @@ public class CommandSource extends AbstractPersistableCustom<Long> {
     @Column(name = "is_sanitized", nullable = false)
     private boolean sanitized;
 
+    /** WEB, OFFICER_APP, SELF_SERVICE or API (see RequestChannel). */
+    @Column(name = "channel", length = 20)
+    private String channel;
+
+    @Column(name = "officerapp_device_id")
+    private Long officerAppDeviceId;
+
     public static CommandSource fullEntryFrom(final CommandWrapper wrapper, final JsonCommand command, final AppUser maker,
             String idempotencyKey, Integer status, boolean sanitized) {
         return CommandSource.builder() //
@@ -167,6 +175,8 @@ public class CommandSource extends AbstractPersistableCustom<Long> {
                 .creditBureauId(command.getCreditBureauId()) //
                 .organisationCreditBureauId(command.getOrganisationCreditBureauId()) //
                 .clientIp(IpAddressUtils.getClientIp()) //
+                .channel(RequestChannel.current()) //
+                .officerAppDeviceId(RequestChannel.currentOfficerAppDeviceId()) //
                 .loanExternalId(command.getLoanExternalId()).sanitized(sanitized).build(); //
     }
 

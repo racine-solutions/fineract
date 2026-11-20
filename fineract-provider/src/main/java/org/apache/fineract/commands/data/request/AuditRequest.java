@@ -68,6 +68,11 @@ public class AuditRequest implements Serializable {
     private Long savingsAccountId;
     @QueryParam("processingResult")
     private String processingResult;
+    /** WEB, OFFICER_APP, SELF_SERVICE or API. */
+    @QueryParam("channel")
+    private String channel;
+    @QueryParam("officerAppDeviceId")
+    private Long officerAppDeviceId;
     @QueryParam("dateFormat")
     private String dateFormat;
     @QueryParam("locale")

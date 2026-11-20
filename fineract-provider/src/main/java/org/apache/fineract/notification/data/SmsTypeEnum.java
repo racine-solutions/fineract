@@ -50,6 +50,7 @@ public enum SmsTypeEnum {
     SHARE_PURCHASE(25, "SmsTypeEnum.sharePurchase", "Share Purchase"), //
     SHARE_REDEEM(26, "SmsTypeEnum.shareRedeem", "Share Redeem"), //
     CAMPAIGN(27, "SmsTypeEnum.campaign", "Communication Campaign"), //
+    OFFICER_APP(28, "SmsTypeEnum.officerApp", "Mobile Officer App"), //
     ;
 
     private final Integer value;

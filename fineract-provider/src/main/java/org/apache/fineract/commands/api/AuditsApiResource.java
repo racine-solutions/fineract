@@ -30,6 +30,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.commands.data.AuditData;
 import org.apache.fineract.commands.data.AuditSearchData;
@@ -150,6 +151,10 @@ public class AuditsApiResource {
         extraCriteria.addNonNullCriteria("aud.status = ", auditRequest.getStatus());
         extraCriteria.addNonNullCriteria("aud.office_id = ", auditRequest.getOfficeId());
         extraCriteria.addNonNullCriteria("aud.group_id = ", auditRequest.getGroupId());
+        if (auditRequest.getChannel() != null) {
+            extraCriteria.addCriteria("aud.channel = ", auditRequest.getChannel().trim().toUpperCase(Locale.ROOT));
+        }
+        extraCriteria.addNonNullCriteria("aud.officerapp_device_id = ", auditRequest.getOfficerAppDeviceId());
         extraCriteria.addNonNullCriteria("aud.client_id = ", auditRequest.getClientId());
         extraCriteria.addNonNullCriteria("aud.loan_id = ", auditRequest.getLoanId());
         extraCriteria.addNonNullCriteria("aud.savings_account_id = ", auditRequest.getSavingsAccountId());
