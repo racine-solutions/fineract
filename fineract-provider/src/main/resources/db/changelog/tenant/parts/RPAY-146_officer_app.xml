@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- Mobile Officer App control (RPAY-146): staff use of the field officer Android app. All times are UTC. -->
+    <changeSet id="rpay146-1-access" author="racine">
+        <!-- Mobile app access per staff user, separate from the staff account. No row = the default from
+             officer-app-access-by-default. -->
+        <createTable tableName="m_officerapp_access">
+            <column name="appuser_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" foreignKeyName="fk_officerapp_access_appuser" references="m_appuser(id)" deleteCascade="true"/>
+            </column>
+            <column name="status" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="reason" type="VARCHAR(500)"/>
+            <column name="changed_by_id" type="BIGINT"/>
+            <column name="changed_on_utc" type="DATETIME"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="rpay146-2-device" author="racine">
+        <!-- One row per phone (app installation) per staff user -->
+        <createTable tableName="m_officerapp_device">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="appuser_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_officerapp_device_appuser" references="m_appuser(id)" deleteCascade="true"/>
+            </column>
+            <column name="installation_id" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="short_code" type="VARCHAR(16)"><constraints nullable="false"/></column>
+            <column name="manufacturer" type="VARCHAR(100)"/>
+            <column name="model" type="VARCHAR(100)"/>
+            <column name="os_version" type="VARCHAR(50)"/>
+            <column name="app_version" type="VARCHAR(50)"/>
+            <column name="app_build" type="VARCHAR(50)"/>
+            <column name="status" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="block_reason" type="VARCHAR(500)"/>
+            <column name="status_changed_by_id" type="BIGINT"/>
+            <column name="status_changed_on_utc" type="DATETIME"/>
+            <column name="first_seen_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="last_seen_on_utc" type="DATETIME"/>
+            <column name="last_ip" type="VARCHAR(64)"/>
+        </createTable>
+        <addUniqueConstraint tableName="m_officerapp_device" columnNames="appuser_id, installation_id" constraintName="uq_officerapp_device_user_install"/>
+        <createIndex tableName="m_officerapp_device" indexName="idx_officerapp_device_install">
+            <column name="installation_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="rpay146-3-session" author="racine">
+        <!-- App sessions. Only a SHA-256 hash of the token is kept. -->
+        <createTable tableName="m_officerapp_session">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="device_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_officerapp_session_device" references="m_officerapp_device(id)" deleteCascade="true"/>
+            </column>
+            <column name="appuser_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="token_hash" type="VARCHAR(64)"><constraints nullable="false" unique="true" uniqueConstraintName="uq_officerapp_session_token"/></column>
+            <column name="created_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="last_activity_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="ended_on_utc" type="DATETIME"/>
+            <column name="end_reason" type="VARCHAR(20)"/>
+        </createTable>
+        <createIndex tableName="m_officerapp_session" indexName="idx_officerapp_session_user">
+            <column name="appuser_id"/>
+            <column name="ended_on_utc"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="rpay146-4-event" author="racine">
+        <!-- Activity trail. Stand-alone on purpose (no foreign keys): admins may empty it directly in the database. -->
+        <createTable tableName="m_officerapp_event">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="appuser_id" type="BIGINT"/>
+            <column name="username" type="VARCHAR(100)"/>
+            <column name="office_id" type="BIGINT"/>
+            <column name="device_id" type="BIGINT"/>
+            <column name="device_label" type="VARCHAR(150)"/>
+            <column name="event_type" type="VARCHAR(40)"><constraints nullable="false"/></column>
+            <column name="category" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="result" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="actor" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="staff_username" type="VARCHAR(100)"/>
+            <column name="command_id" type="BIGINT"/>
+            <column name="entity_name" type="VARCHAR(100)"/>
+            <column name="action_name" type="VARCHAR(100)"/>
+            <column name="resource_id" type="BIGINT"/>
+            <column name="client_id" type="BIGINT"/>
+            <column name="loan_id" type="BIGINT"/>
+            <column name="savings_id" type="BIGINT"/>
+            <column name="amount" type="DECIMAL(19,6)"/>
+            <column name="currency_code" type="VARCHAR(3)"/>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="details" type="VARCHAR(2000)"/>
+            <column name="ip_address" type="VARCHAR(64)"/>
+            <column name="captured_on_utc" type="DATETIME"/>
+            <column name="created_on_utc" type="DATETIME"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="m_officerapp_event" indexName="idx_officerapp_event_user_time">
+            <column name="appuser_id"/>
+            <column name="created_on_utc"/>
+        </createIndex>
+        <createIndex tableName="m_officerapp_event" indexName="idx_officerapp_event_time">
+            <column name="created_on_utc"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="rpay146-5-command-channel" author="racine">
+        <!-- Where each audited action came from: WEB, OFFICER_APP, SELF_SERVICE or API -->
+        <addColumn tableName="m_portfolio_command_source">
+            <column name="channel" type="VARCHAR(20)"/>
+            <column name="officerapp_device_id" type="BIGINT"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="rpay146-6-config" author="racine">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM c_configuration WHERE name = 'enable-racine-officer-app'</sqlCheck>
+        </preConditions>
+        <insert tableName="c_configuration">
+            <column name="name" value="enable-racine-officer-app"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Mobile Officer App on/off for the whole institution. When disabled, every request from the field officer app is refused and all app sessions end. The web-app is not affected."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="officer-app-session-timeout-minutes"/>
+            <column name="value" valueNumeric="30"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Minutes of inactivity after which a field officer app session ends and the officer must sign in again."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="officer-app-minimum-version"/>
+            <column name="string_value" value=""/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Oldest field officer app version allowed (for example 2026.12.1), in the string value. When enabled, older versions are asked to update."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="officer-app-require-session"/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Enable once every officer has the new field officer app. Refuses phone apps that do not sign in through the Mobile Officer App (old app versions), so mobile access controls cannot be bypassed. Browsers (the web-app) are not affected."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="officer-app-update-url"/>
+            <column name="string_value" value=""/>
+            <column name="enabled" valueBoolean="false"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="Link the field officer app opens when an update is required (Play Store or download page), in the string value."/>
+        </insert>
+        <insert tableName="c_configuration">
+            <column name="name" value="officer-app-access-by-default"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="is_trap_door" valueBoolean="false"/>
+            <column name="description" value="When enabled, staff users can use the field officer app until an admin turns their access off. When disabled, staff need an admin to turn app access on first."/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay146-7-permissions" author="racine">
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="READ_OFFICERAPP"/>
+            <column name="entity_name" value="OFFICERAPP"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="TURNOFF_OFFICERAPPUSER"/>
+            <column name="entity_name" value="OFFICERAPPUSER"/>
+            <column name="action_name" value="TURNOFF"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="TURNON_OFFICERAPPUSER"/>
+            <column name="entity_name" value="OFFICERAPPUSER"/>
+            <column name="action_name" value="TURNON"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="SIGNOUTALL_OFFICERAPPUSER"/>
+            <column name="entity_name" value="OFFICERAPPUSER"/>
+            <column name="action_name" value="SIGNOUTALL"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="BLOCK_OFFICERAPPDEVICE"/>
+            <column name="entity_name" value="OFFICERAPPDEVICE"/>
+            <column name="action_name" value="BLOCK"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="UNBLOCK_OFFICERAPPDEVICE"/>
+            <column name="entity_name" value="OFFICERAPPDEVICE"/>
+            <column name="action_name" value="UNBLOCK"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="SIGNOUT_OFFICERAPPDEVICE"/>
+            <column name="entity_name" value="OFFICERAPPDEVICE"/>
+            <column name="action_name" value="SIGNOUT"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="rpay146-8-unlock-permission" author="racine">
+        <!-- Unlock a staff account locked after too many failed sign-ins -->
+        <insert tableName="m_permission">
+            <column name="grouping" value="officerapp"/>
+            <column name="code" value="UNLOCK_OFFICERAPPUSER"/>
+            <column name="entity_name" value="OFFICERAPPUSER"/>
+            <column name="action_name" value="UNLOCK"/>
+            <column name="can_maker_checker" valueBoolean="true"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

@@ -48,6 +48,8 @@ import org.apache.fineract.infrastructure.security.service.TemporaryPasswordAwar
 import org.apache.fineract.infrastructure.security.service.TenantAwareJpaPlatformUserDetailsService;
 import org.apache.fineract.infrastructure.security.service.TwoFactorService;
 import org.apache.fineract.notification.service.UserNotificationService;
+import org.apache.fineract.racine.officerapp.filter.OfficerAppGateFilter;
+import org.apache.fineract.racine.officerapp.service.OfficerAppGate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
@@ -109,6 +111,8 @@ public class SecurityConfig {
     private MDCWrapper mdcWrapper;
     @Autowired
     private FineractRequestContextHolder fineractRequestContextHolder;
+    @Autowired
+    private OfficerAppGate officerAppGate;
     @Autowired(required = false)
     private LoanCOBFilterHelper loanCOBFilterHelper;
     @Autowired
@@ -132,6 +136,7 @@ public class SecurityConfig {
 
             auth.requestMatchers(API_MATCHER.matcher(HttpMethod.OPTIONS, "/api/**")).permitAll()
                     .requestMatchers(API_MATCHER.matcher(HttpMethod.POST, "/api/*/authentication")).permitAll()
+                    .requestMatchers(API_MATCHER.matcher(HttpMethod.POST, "/api/*/officerapp/authentication")).permitAll()
                     .requestMatchers(API_MATCHER.matcher(HttpMethod.POST, "/api/*/password/forgot")).permitAll()
                     .requestMatchers(API_MATCHER.matcher(HttpMethod.PUT, "/api/*/instance-mode")).permitAll()
                     // Brevo's email webhook: checks its own token (BrevoWebhookApiResource)
@@ -433,6 +438,8 @@ public class SecurityConfig {
             http.addFilterAfter(idempotencyStoreFilter(), FineractInstanceModeApiFilter.class);
             http.addFilterAfter(progressiveLoanModelCheckerFilter, FineractInstanceModeApiFilter.class);
         }
+        // Field officer app: session, access and device checks for app requests; channel tag for every request
+        http.addFilterAfter(new OfficerAppGateFilter(officerAppGate), FineractInstanceModeApiFilter.class);
         if (fineractProperties.getIpTracking().isEnabled()) {
             http.addFilterAfter(callerIpTrackingFilter(), RequestResponseFilter.class);
         }

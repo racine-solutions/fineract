@@ -42,17 +42,20 @@ import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer
 import org.apache.fineract.infrastructure.security.constants.TwoFactorConstants;
 import org.apache.fineract.infrastructure.security.data.AuthenticatedUserData;
 import org.apache.fineract.infrastructure.security.exception.PasswordResetRequiredException;
+import org.apache.fineract.infrastructure.security.service.LoginAttemptRecorder;
 import org.apache.fineract.infrastructure.security.service.ReleaseNoteService;
 import org.apache.fineract.infrastructure.security.service.SpringSecurityPlatformSecurityContext;
 import org.apache.fineract.useradministration.data.RoleData;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.apache.fineract.useradministration.domain.Role;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
@@ -77,6 +80,7 @@ public class AuthenticationApiResource {
     private final ToApiJsonSerializer<AuthenticatedUserData> apiJsonSerializerService;
     private final SpringSecurityPlatformSecurityContext springSecurityPlatformSecurityContext;
     private final ReleaseNoteService releaseNoteService;
+    private final ObjectProvider<LoginAttemptRecorder> loginAttemptRecorders;
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -100,7 +104,17 @@ public class AuthenticationApiResource {
         }
 
         final Authentication authentication = new UsernamePasswordAuthenticationToken(request.username, request.password);
-        final Authentication authenticationCheck = this.customAuthenticationProvider.authenticate(authentication);
+        final Authentication authenticationCheck;
+        try {
+            authenticationCheck = this.customAuthenticationProvider.authenticate(authentication);
+        } catch (AuthenticationException e) {
+            // Counts towards account locking (max-login-retry-attempts)
+            this.loginAttemptRecorders.ifAvailable(recorder -> recorder.failed(request.username, e));
+            throw e;
+        }
+        if (authenticationCheck.isAuthenticated() && authenticationCheck.getPrincipal() instanceof AppUser signedIn) {
+            this.loginAttemptRecorders.ifAvailable(recorder -> recorder.succeeded(signedIn));
+        }
 
         final Collection<String> permissions = new ArrayList<>();
         AuthenticatedUserData authenticatedUserData = new AuthenticatedUserData().setUsername(request.username).setPermissions(permissions);

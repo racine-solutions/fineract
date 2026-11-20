@@ -43,6 +43,7 @@ import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.organisation.staff.domain.Staff;
 import org.apache.fineract.organisation.staff.domain.StaffRepository;
 import org.apache.fineract.organisation.staff.exception.StaffNotFoundException;
+import org.apache.fineract.racine.officerapp.service.OfficerAppNotifier;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.apache.fineract.useradministration.domain.AppUserPreviousPassword;
 import org.apache.fineract.useradministration.domain.AppUserPreviousPasswordRepository;
@@ -77,6 +78,7 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
     private final AppUserPreviousPasswordRepository appUserPreviewPasswordRepository;
     private final StaffRepository staffRepository;
     private final ConfigurationDomainService configurationDomainService;
+    private final OfficerAppNotifier staffNotifier;
 
     @Override
     @Transactional
@@ -155,6 +157,9 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
                 if (currentPasswordToSaveAsPreview != null) {
                     this.appUserPreviewPasswordRepository.save(currentPasswordToSaveAsPreview);
                 }
+                // Racine: tell the user straight away (email first, SMS when there is no email)
+                this.staffNotifier.sendAfterSave(userId,
+                        OfficerAppNotifier.passwordChanged(!this.context.authenticatedUser().getId().equals(userId)));
             }
             return new CommandProcessingResultBuilder() //
                     .withEntityId(userId) //
@@ -218,7 +223,10 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
                 if (currentPasswordToSaveAsPreview != null) {
                     this.appUserPreviewPasswordRepository.save(currentPasswordToSaveAsPreview);
                 }
-
+                if (changes.containsKey("password") || changes.containsKey("passwordEncoded")) {
+                    // Racine: tell the user straight away (email first, SMS when there is no email)
+                    this.staffNotifier.sendAfterSave(userId, OfficerAppNotifier.passwordChanged(!currentUser.getId().equals(userId)));
+                }
             }
 
             return new CommandProcessingResultBuilder() //

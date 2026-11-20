@@ -57,4 +57,7 @@ public final class AuditData implements Serializable {
     private final Long loanId;
     private final String url;
     private final String ip;
+    /** WEB, OFFICER_APP, SELF_SERVICE or API; null for entries made before channels were recorded. */
+    private final String channel;
+    private final Long officerAppDeviceId;
 }
