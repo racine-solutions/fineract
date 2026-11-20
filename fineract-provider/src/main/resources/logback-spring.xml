@@ -40,6 +40,9 @@
     <logger name="org.apache.fineract.ServerApplication" level="info"/>
     <logger name="org.apache.fineract" level="${FINERACT_LOGGING_LEVEL:-INFO}"/>
     <logger name="liquibase" level="warn"/>
+    <!-- Security: at INFO the Pentaho report engine logs every system property and environment variable at startup,
+         which includes passwords and API keys (database, SMS gateway, Brevo). Keep it quiet. -->
+    <logger name="org.pentaho.reporting.libraries.base.util.SystemInformation" level="warn"/>
 
     <if condition="${jsonLoggingEnabled} == true">
         <then>
